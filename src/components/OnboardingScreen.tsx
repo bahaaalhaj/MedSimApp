@@ -15,15 +15,15 @@ const CARDS: Card[] = [
     bg: 'var(--peach)',
     title: 'What this is.',
     body:
-      "A clinic full of simulated patients with histories, symptoms, and stories. You'll talk to them out loud, decide what to do, and get a structured debrief — every claim cited to a real published guideline.",
+      "A clinic full of synthetic patients with histories and symptoms. Ask reviewed questions, decide what to do, and receive a structured educational debrief.",
     icon: <Doodle kind="stetho" size={140} color="var(--mint)" />,
-    tag: '01 · meet medkit',
+    tag: '01 · meet MedSim',
   },
   {
     bg: 'var(--mint)',
     title: 'How it works.',
     body:
-      'Pick a clinic. The next patient is called in. You speak; they answer in conversation. You order labs, prescribe, counsel, refer. At the end, a senior clinician walks you through what you did well and what to work on. Five to eight minutes per case. Patient conversations powered by Claude Opus 4.7.',
+      'Pick a specialty and patient. Ask written or curated questions, order investigations, diagnose, and prescribe. MedSim records each structured action for a focused debrief.',
     icon: <Doodle kind="cross" size={140} color="#F47A92" />,
     tag: '02 · the loop',
   },

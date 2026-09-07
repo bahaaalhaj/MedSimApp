@@ -228,7 +228,7 @@ export function HomeScreen() {
                   type="button"
                   className="btn-plush primary"
                   style={{ fontSize: 15, padding: '14px 18px' }}
-                  onClick={() => store.setScreen('mode')}
+                  onClick={() => store.setScreen('gpRoom')}
                 >
                   Start →
                 </button>
@@ -292,7 +292,7 @@ export function HomeScreen() {
             type="button"
             className="btn-plush mint"
             style={{ fontSize: 22, padding: '18px 0', alignSelf: 'stretch' }}
-            onClick={() => store.setScreen('mode')}
+            onClick={() => store.setScreen('gpRoom')}
           >
             ▶ Start a session
           </button>

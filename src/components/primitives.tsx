@@ -283,7 +283,7 @@ export function Doodle({ kind, size = 50, color, style }: DoodleProps) {
 import type { Screen } from '../game/types';
 
 const LABEL_TO_SCREEN: Record<string, Screen> = {
-  Polyclinic: 'mode',
+  Polyclinic: 'gpRoom',
   GP: 'gpRoom',
   Case: 'library',
   Brief: 'brief',

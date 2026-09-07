@@ -14,13 +14,21 @@ import { DEFAULT_CLINIC } from './clinic';
 import type { PaletteName } from '../styles/palettes';
 import type { Case as MedKitCase } from '../data/cases';
 import { CASES, getCase, getCaseClinic, getPatientCase } from '../data/cases';
-import { ensureAudioContext } from '../voice/conversationStore';
 
 const ONBOARDED_KEY = 'medkit:onboarded';
+const LOCAL_PROFILE_KEY = 'medsim:local-profile';
 
-/** Sentinel used as `bedIndex` for polyclinic patients across the store,
- *  the conversation cache, and the 3D scene. `voice/conversationStore.ts`
- *  keys on this. */
+function readLocalLearnerName(): string | null {
+  try {
+    const value = window.localStorage.getItem(LOCAL_PROFILE_KEY)?.trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sentinel used as `bedIndex` for polyclinic patients across the store and
+ * the 3D scene. Preserved for saved encounter compatibility. */
 export const POLYCLINIC_BED_INDEX = -10;
 
 function readOnboarded(): boolean {
@@ -112,6 +120,7 @@ class Store {
     endConfirm: { sum: false, safe: false, ice: false },
     selectedCaseId: 'im-001',
     hasOnboarded: readOnboarded(),
+    learnerName: readLocalLearnerName(),
     polyclinic: { clinic: DEFAULT_CLINIC, patient: null },
     lastEncounter: null,
     viewedEvalHistoryId: null,
@@ -140,9 +149,25 @@ class Store {
 
   clearViewedEval = () => this.set({ viewedEvalHistoryId: null });
 
-  /** Splash → onboarding (first run) or polyclinic (returning). */
+  /** The welcome action always introduces the identity boundary first. */
   beginFromSplash = () => {
-    this.set({ screen: this.state.hasOnboarded ? 'mode' : 'onboarding' });
+    this.set({ screen: 'login' });
+  };
+
+  /** Temporary device-local profile. It is deliberately labelled as such in
+   * the UI and must be replaced by server authentication before deployment. */
+  continueWithLocalProfile = (name: string) => {
+    const learnerName = name.trim().slice(0, 80);
+    if (!learnerName) return;
+    try {
+      window.localStorage.setItem(LOCAL_PROFILE_KEY, learnerName);
+    } catch {
+      /* Storage may be unavailable; the in-memory profile still works. */
+    }
+    this.set({
+      learnerName,
+      screen: this.state.hasOnboarded ? 'home' : 'onboarding',
+    });
   };
 
   // ── onboarding ────────────────────────────────
@@ -151,7 +176,7 @@ class Store {
 
   finishOnboarding = () => {
     writeOnboarded(true);
-    this.set({ hasOnboarded: true, screen: 'mode', onboardingStep: 0 });
+    this.set({ hasOnboarded: true, screen: 'home', onboardingStep: 0 });
   };
 
   // ── tweaks ────────────────────────────────────
@@ -197,7 +222,7 @@ class Store {
   }
 
   /** Drop the patient into the polyclinic 3D scene — they walk in, sit on the
-   *  chair, and the voice agent boots once `voiceActive` flips on. */
+   *  chair, ready for the text-first consultation workflow. */
   loadPolyclinicPatient = (id: string) => {
     const c = getCase(id);
     this.set({
@@ -244,27 +269,17 @@ class Store {
     });
   };
 
-  /** "Accept the next patient" — drop straight into the 3D encounter with
-   *  the patient seated and the voice agent already connecting.
+  /** "Accept the next patient" — drop straight into the 3D encounter.
    *
    *  When called without an explicit id, picks the next unattempted case
    *  from the active polyclinic so the doctor can hammer through e.g.
    *  pediatrics one at a time without going back to the library.
    *
-   *  Pre-warms the AudioContext inside this click handler so that browser
-   *  autoplay policies treat the subsequent `Conversation.init()` (kicked
-   *  off when `FloatingVoicePanel` mounts) as gesture-authorised. Without
-   *  this, the AudioContext stays suspended and the mic / remote audio
-   *  silently fail until the user clicks something else. */
+   */
   acceptNextPatient = (id?: string) => {
     const targetId = id ?? this.pickNextCaseId() ?? this.state.selectedCaseId;
     const c = getCase(targetId);
     const clinic = getCaseClinic(targetId);
-    try {
-      ensureAudioContext();
-    } catch {
-      /* SSR / no Web Audio support — let the panel surface the error */
-    }
     this.markAttempted(targetId);
     this.set({
       selectedCaseId: targetId,

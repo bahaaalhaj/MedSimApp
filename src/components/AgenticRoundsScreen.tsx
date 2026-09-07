@@ -111,7 +111,7 @@ const NODES: NodeDef[] = [
       what: 'A medical student or new-grad doctor running a single GP-style consultation. Free-text voice input via the browser mic; receives the patient\'s reply through the LiveKit audio track. The trainee never sees the agent\'s system prompt or the rubric.',
       files: [
         { path: 'src/components/EncounterScreen.tsx', label: '3D scene + voice dock' },
-        { path: 'src/voice/conversation.ts', label: 'mic + audio out + transcript' },
+        { path: 'src/components/ExamineOverlay.tsx', label: 'text-first structured interview' },
       ],
     },
   },
