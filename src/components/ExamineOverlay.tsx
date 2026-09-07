@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { store, useGameState, POLYCLINIC_BED_INDEX } from '../game/store';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { store, useGameState } from '../game/store';
 import { TESTS, TEST_PANELS, testById } from '../data/tests';
 import { getTestReport } from '../data/defaultTestResults';
 import { getImagingExamples } from '../data/radiologyImages';
 import { POLYCLINIC_DIAGNOSIS_LABELS, getCaseSpecialty } from '../data/polyclinicPatients';
 import { MEDICATIONS, CATEGORY_LABELS, SPECIALTY_MEDICATION_CATEGORIES, medicationById, type Medication, type MedicationCategory } from '../data/medications';
 import { CLINIC_LABELS } from '../game/clinic';
-import { getExistingConversation } from '../voice/conversationStore';
-import type { ChatMessage } from '../voice/claude';
+import { matchTypedQuestion } from '../game/matchTypedQuestion';
 
-type Tab = 'history' | 'chat' | 'tests' | 'results' | 'diagnose' | 'rx';
+type Tab = 'history' | 'tests' | 'results' | 'diagnose' | 'rx';
 
 interface Props {
   onClose: () => void;
@@ -46,7 +45,6 @@ export function ExamineOverlay({ onClose, onDispatch }: Props) {
 
   const tabs: Array<{ id: Tab; label: string; badge?: number | string; disabled?: boolean }> = [
     { id: 'history', label: 'History', badge: `${asked.size}/${c.anamnesis.length}` },
-    { id: 'chat', label: 'Chat' },
     { id: 'tests', label: 'Order tests' },
     { id: 'results', label: 'Results', badge: newResultsCount > 0 ? newResultsCount : undefined },
     { id: 'diagnose', label: 'Diagnose' },
@@ -211,7 +209,6 @@ export function ExamineOverlay({ onClose, onDispatch }: Props) {
           </div>
 
           {tab === 'history' && <HistoryTab patient={patient} />}
-          {tab === 'chat' && <ChatTab patientName={c.name} />}
           {tab === 'tests' && <TestsTab patient={patient} />}
           {tab === 'results' && <ResultsTab patient={patient} />}
           {tab === 'diagnose' && (
@@ -287,9 +284,19 @@ function Vital({
 
 function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
   const c = patient.case;
+  const [typedQuestion, setTypedQuestion] = useState('');
   const asked = new Set(patient.askedQuestionIds);
   const answered = c.anamnesis.filter((q) => asked.has(q.id));
   const unanswered = c.anamnesis.filter((q) => !asked.has(q.id));
+
+  const askTypedQuestion = (event: FormEvent) => {
+    event.preventDefault();
+    const match = matchTypedQuestion(typedQuestion, unanswered);
+    if (match) {
+      store.askPolyclinicQuestion(match.question.id);
+      setTypedQuestion('');
+    }
+  };
 
   if (c.anamnesis.length === 0) {
     return <div style={{ color: 'var(--ink-2)', fontWeight: 700 }}>No anamnesis questions for this case.</div>;
@@ -297,6 +304,26 @@ function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form onSubmit={askTypedQuestion} className="plush" style={{ padding: 12, background: 'var(--sky)' }}>
+        <label htmlFor="typed-history-question" style={{ display: 'block', fontWeight: 900, marginBottom: 7 }}>
+          Ask in your own words
+        </label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            id="typed-history-question"
+            value={typedQuestion}
+            onChange={(event) => setTypedQuestion(event.target.value)}
+            placeholder="e.g. When did the symptoms start?"
+            style={{ flex: 1, padding: '10px 12px', border: '3px solid var(--line)', borderRadius: 10, font: 'inherit' }}
+          />
+          <button type="submit" className="btn-plush ghost" disabled={!typedQuestion.trim()}>
+            Ask →
+          </button>
+        </div>
+        <div style={{ fontSize: 11, marginTop: 7, color: 'var(--ink-2)', fontWeight: 700 }}>
+          MedSim matches your wording to a reviewed case question; it does not invent patient facts.
+        </div>
+      </form>
       {answered.map((q) => (
         <div
           key={q.id}
@@ -969,95 +996,6 @@ function DiagnoseTab({
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Chat tab — live voice transcript ─────────────────────────────
-
-function ChatTab({ patientName }: { patientName: string }) {
-  const [messages, setMessages] = useState<ReadonlyArray<ChatMessage>>(() => {
-    const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-    return conv ? conv.getMessages() : [];
-  });
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  // Subscribe to live message updates so the chat history updates while
-  // the doctor talks. The conversation's `subscribeMessages` returns a
-  // teardown so we clean up on unmount / patient change.
-  useEffect(() => {
-    const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-    if (!conv) return;
-    setMessages(conv.getMessages());
-    return conv.subscribeMessages((msgs) => setMessages(msgs));
-  }, []);
-
-  // Auto-scroll to the latest message whenever new ones come in.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages]);
-
-  // Skip the system seed message (role: 'system') if any leak through.
-  const visible = messages.filter((m) => m.role === 'user' || m.role === 'assistant');
-
-  if (visible.length === 0) {
-    return (
-      <div className="plush" style={{ padding: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
-        No conversation yet. The transcript appears here as you talk to {patientName.split(' ')[0]} —
-        and updates live during the consultation.
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={scrollRef}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        maxHeight: 380,
-        overflowY: 'auto',
-        paddingRight: 6,
-      }}
-    >
-      {visible.map((m, i) => {
-        const mine = m.role === 'user';
-        return (
-          <div
-            key={i}
-            style={{
-              alignSelf: mine ? 'flex-end' : 'flex-start',
-              maxWidth: '78%',
-              background: mine ? 'var(--sky)' : 'white',
-              border: '3px solid var(--line)',
-              borderRadius:
-                mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-              padding: '10px 14px',
-              boxShadow: 'var(--plush-tiny)',
-              fontSize: 13,
-              fontWeight: 600,
-              lineHeight: 1.4,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 800,
-                color: 'var(--ink-2)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                marginBottom: 2,
-              }}
-            >
-              {mine ? 'You' : patientName.split(' ')[0]}
-            </div>
-            {m.content}
-          </div>
-        );
-      })}
     </div>
   );
 }

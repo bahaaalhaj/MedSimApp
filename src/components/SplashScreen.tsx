@@ -92,8 +92,8 @@ export function SplashScreen() {
               gap: 14,
             }}
           >
-            med
-            <span style={{ color: 'var(--peach)' }}>kit</span>
+            Med
+            <span style={{ color: 'var(--peach)' }}>Sim</span>
             <span className="wobble" style={{ display: 'inline-block', marginLeft: 8, marginBottom: 30 }}>
               <Doodle kind="cross" size={86} color="#F47A92" />
             </span>
@@ -114,7 +114,7 @@ export function SplashScreen() {
             boxShadow: 'var(--plush-tiny)',
           }}
         >
-          The clinic that lets you make every mistake before they count.
+          Medical simulation for safer clinical reasoning practice.
         </div>
 
         <div className="popin breathe" style={{ animationDelay: '.3s', marginTop: 24 }}>
@@ -127,7 +127,7 @@ export function SplashScreen() {
               store.beginFromSplash();
             }}
           >
-            ▸ Tap to begin
+            ▸ Start now
           </button>
         </div>
 

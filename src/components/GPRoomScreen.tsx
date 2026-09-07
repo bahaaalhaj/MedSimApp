@@ -313,7 +313,7 @@ export function GPRoomScreen() {
           type="button"
           className="btn-plush ghost"
           style={{ fontSize: 14, padding: '10px 18px' }}
-          onClick={() => store.setScreen('mode')}
+          onClick={() => store.setScreen('home')}
         >
           ← Back to corridor
         </button>

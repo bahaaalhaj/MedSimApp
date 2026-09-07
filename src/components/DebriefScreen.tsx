@@ -581,7 +581,7 @@ export function DebriefScreen() {
             type="button"
             className="btn-plush ghost"
             style={{ flex: 1 }}
-            onClick={() => store.setScreen('mode')}
+            onClick={() => store.setScreen('gpRoom')}
           >
             {'\u2190 Back to polyclinic'}
           </button>

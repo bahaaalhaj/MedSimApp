@@ -5,9 +5,9 @@ import type { ClinicId } from './clinic';
 
 export type Screen =
   | 'splash'
+  | 'login'
   | 'onboarding'
   | 'home'
-  | 'mode'
   | 'gpRoom'
   | 'library'
   | 'brief'
@@ -34,10 +34,9 @@ export interface EndConfirmChecks {
   ice: boolean;
 }
 
-// ── medkit types — load-bearing for the 3D scene + voice agent ──
+// ── MedSim types — load-bearing clinical simulation contracts ──
 //
-// These are the shapes the imported `Polyclinic.tsx`, `FloatingVoicePanel.tsx`,
-// and `voice/*` modules expect.
+// These are the shapes the 3D scene, clinical workspace, and grader expect.
 
 export type Severity = 'critical' | 'urgent' | 'stable';
 
@@ -196,8 +195,9 @@ export interface GameState {
   endConfirm: EndConfirmChecks;
   selectedCaseId: string;
   hasOnboarded: boolean;
-  /** Polyclinic 3D scene needs this slice. Shape consumed by `Polyclinic`
-   *  and `FloatingVoicePanel`. */
+  /** Device-local demo identity until server-owned accounts are implemented. */
+  learnerName: string | null;
+  /** Polyclinic 3D scene needs this slice. Shape consumed by `Polyclinic`. */
   polyclinic: PolyclinicSlice;
   /** Snapshot of the most recently completed encounter, taken at the moment
    *  the patient walks out (see `Store.finishPolyclinicCase`). DebriefScreen
