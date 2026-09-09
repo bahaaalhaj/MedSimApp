@@ -1,4 +1,4 @@
-# MedKit skills
+# MedSim skills
 
 Five Claude skills compose into one Managed Agent. Each skill is a small, focused contract with strict input/output. Define the agent + environment **once** and reuse by ID across user sessions.
 

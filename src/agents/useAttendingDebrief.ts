@@ -1,4 +1,4 @@
-// Hook that drives an end-of-encounter debrief through the medkit-attending
+// Hook that drives an end-of-encounter debrief through the medsim-attending
 // Managed Agent.
 //
 // Lifecycle:

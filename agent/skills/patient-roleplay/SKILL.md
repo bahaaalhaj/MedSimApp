@@ -1,6 +1,6 @@
 ---
 name: patient-roleplay
-description: Voices the patient in real time during a MedKit OSCE encounter. Reads hidden.history_facts + personality + planted_cues + lies. Outputs naturalistic spoken utterances; never breaks character; never reveals more than a real standardised patient would.
+description: Voices the patient in real time during a MedSim OSCE encounter. Reads hidden.history_facts + personality + planted_cues + lies. Outputs naturalistic spoken utterances; never breaks character; never reveals more than a real standardised patient would.
 model: claude-opus-4-7
 inputs:
   - case_json               # full case (matches cases/case.schema.json)

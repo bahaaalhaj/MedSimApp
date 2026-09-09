@@ -4,7 +4,7 @@
 
 ### Start and select a case
 
-`main.tsx` clears old conversation storage → `App` shows Splash → `beginFromSplash()` chooses Onboarding or Mode from `medkit:onboarded` → Polyclinic door → specialty room → next patient or case library → brief → encounter.
+`main.tsx` clears old conversation storage → `App` shows Splash → `beginFromSplash()` chooses Onboarding or Mode from `medsim:onboarded` → Polyclinic door → specialty room → next patient or case library → brief → encounter.
 
 Returning users do not go directly to an encounter; they go to Mode. Emergency and Services doors are deliberately locked.
 

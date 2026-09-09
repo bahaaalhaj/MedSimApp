@@ -1,4 +1,4 @@
-# medkit — Claude Code project notes
+# MedSim — Claude Code project notes
 
 Browser-based ER + polyclinic clinical training simulator. Doctor-POV game: new patients arrive at triage, you diagnose, order tests, treat, disposition. Voice conversations with the patient run real-time over LiveKit: Deepgram Nova-3 (STT) + Claude Haiku 4.5 (dialog) + Cartesia Sonic-2 (TTS). Polyclinic is a second flow — one outpatient at a time, tests resolve instantly.
 
@@ -8,7 +8,7 @@ Browser-based ER + polyclinic clinical training simulator. Doctor-POV game: new 
 - **Voice (transport):** LiveKit Cloud (WebRTC). Browser publishes mic, subscribes to remote audio. `livekit-client` in the browser; the worker lives in `backend/voice_agent.py`.
 - **Voice (backend worker):** `livekit-agents` Python framework with `deepgram` STT, `anthropic` LLM (Haiku 4.5), `cartesia` TTS, `silero` VAD. Runs in its own venv (`backend/.venv-voice`).
 - **Backend HTTP:** FastAPI at `http://127.0.0.1:8787` — Managed Agents proxy + `/voice/token` mint (creates the LiveKit room with patient persona metadata, returns a JWT for the browser).
-- **LLM (attending grading):** Anthropic SDK server-side. Patient persona Haiku 4.5 lives inside the LiveKit agent; the medkit-attending Managed Agent (Opus 4.7) lives in `backend/server.py`.
+- **LLM (attending grading):** Anthropic SDK server-side. Patient persona Haiku 4.5 lives inside the LiveKit agent; the medsim-attending Managed Agent (Opus 4.7) lives in `backend/server.py`.
 - **State:** single `Store` class with `useSyncExternalStore` (see `src/game/store.ts`). No Redux/Zustand — don't add one.
 
 ## Key files (what to read first)
@@ -21,7 +21,7 @@ Browser-based ER + polyclinic clinical training simulator. Doctor-POV game: new 
 - `src/voice/conversationStore.ts` — per-bed conversation cache; T-toggle and patient-leaves dispose explicitly.
 - `src/voice/patientPersona.ts` — system prompt builder. Adult vs pediatric (parent speaks for child).
 - `src/voice/claude.ts` — Anthropic SDK wrapper with prompt caching, used only by the text-chat path now.
-- `src/agents/managedAgent.ts` / `customTools.ts` / `eventStreamRenderer.tsx` — Claude Managed Agents integration (the attending physician). See `.claude/skills/medkit-managed-agent-setup.md`.
+- `src/agents/managedAgent.ts` / `customTools.ts` / `eventStreamRenderer.tsx` — Claude Managed Agents integration (the attending physician). See `.claude/skills/medsim-managed-agent-setup.md`.
 - `backend/server.py` — FastAPI: Managed Agents proxy under `/agent/*` + `/voice/token`.
 - `backend/voice_agent.py` — LiveKit Agents worker. Reads room metadata for persona + voice ID and wires Deepgram → Haiku → Cartesia.
 - `spec.md` — hackathon submission plan, canonical source for Managed Agents scope.
@@ -31,7 +31,7 @@ Browser-based ER + polyclinic clinical training simulator. Doctor-POV game: new 
 - `npm run dev` — Vite dev server.
 - `npm run build` — tsc + vite build.
 - `npm run preview` — preview production build.
-- `npm run verify` — deterministic invariant checks on `src/data/*` (see `.claude/skills/medkit-verify-simulation.md`). Run after every data/type/store edit.
+- `npm run verify` — deterministic invariant checks on `src/data/*` (see `.claude/skills/medsim-verify-simulation.md`). Run after every data/type/store edit.
 - Backend (FastAPI): `backend/.venv/Scripts/python.exe backend/server.py` — listens on 8787, hosts Managed Agents proxy + `/voice/token`.
 - Voice worker: `backend/.venv-voice/Scripts/python.exe backend/voice_agent.py dev` — separate process, registers with LiveKit Cloud and dispatches into rooms created by `/voice/token`. Both processes must be up for voice to work.
 
@@ -60,7 +60,7 @@ When adding a new script that would normally invoke a binary wrapper, use the sa
 | Call | Model | Why |
 |---|---|---|
 | Patient voice persona (in the LiveKit agent) | Haiku 4.5 | Fast, cheap, good enough for in-character reply |
-| `medkit-attending` Managed Agent (clinical grading) | **Opus 4.7** | Clinical reasoning, precision matters |
+| `medsim-attending` Managed Agent (clinical grading) | **Opus 4.7** | Clinical reasoning, precision matters |
 | Demo video narration generation | Opus 4.7 | One-off, polish matters |
 
 When you add a new Claude-backed feature, decide which bucket it falls in.

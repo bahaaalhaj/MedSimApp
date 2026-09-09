@@ -1,7 +1,7 @@
 import type { PaletteName } from '../styles/palettes';
 import type { ClinicId } from './clinic';
 
-// ── MedKit cozy-cartoon UI state ──────────────────────────
+// ── MedSim cozy-cartoon UI state ──────────────────────────
 
 export type Screen =
   | 'splash'
@@ -34,7 +34,7 @@ export interface EndConfirmChecks {
   ice: boolean;
 }
 
-// ── medkit types — load-bearing for the 3D scene + voice agent ──
+// ── medsim types — load-bearing for the 3D scene + voice agent ──
 //
 // These are the shapes the imported `Polyclinic.tsx`, `FloatingVoicePanel.tsx`,
 // and `voice/*` modules expect.
@@ -80,7 +80,7 @@ export interface PatientCase {
 
 // ── OSCE rubric — grades a completed encounter ────────────────────────
 //
-// The `medkit-attending` Managed Agent reads this rubric at debrief time and
+// The `medsim-attending` Managed Agent reads this rubric at debrief time and
 // emits one `render_case_evaluation` tool call. Every clinical_management
 // criterion's `guideline_ref` MUST resolve in `src/data/guidelines.ts` —
 // the agent is instructed to drop a criterion rather than fabricate a

@@ -1,5 +1,5 @@
 {
-  "$comment": "Authoritative society / agency domains the medkit-guideline-curator may WebFetch from. Anything not on this list is blocked. The blocklist below is illustrative — the rule is allowlist-only, anything not allowlisted is rejected by default.",
+  "$comment": "Authoritative society / agency domains the medsim-guideline-curator may WebFetch from. Anything not on this list is blocked. The blocklist below is illustrative — the rule is allowlist-only, anything not allowlisted is rejected by default.",
   "allowlist": {
     "general_practice_uk": [
       "nice.org.uk"

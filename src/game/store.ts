@@ -12,11 +12,11 @@ import type {
 import type { ClinicId } from './clinic';
 import { DEFAULT_CLINIC } from './clinic';
 import type { PaletteName } from '../styles/palettes';
-import type { Case as MedKitCase } from '../data/cases';
+import type { Case as MedSimCase } from '../data/cases';
 import { CASES, getCase, getCaseClinic, getPatientCase } from '../data/cases';
 import { ensureAudioContext } from '../voice/conversationStore';
 
-const ONBOARDED_KEY = 'medkit:onboarded';
+const ONBOARDED_KEY = 'medsim:onboarded';
 
 /** Sentinel used as `bedIndex` for polyclinic patients across the store,
  *  the conversation cache, and the 3D scene. `voice/conversationStore.ts`
@@ -46,12 +46,12 @@ const DEFAULT_TWEAKS: Tweaks = {
   roomLayout: 'side',
 };
 
-/** Resolve the full medkit `PatientCase` (anamnesis, vitals, diagnosis
+/** Resolve the full medsim `PatientCase` (anamnesis, vitals, diagnosis
  *  options, etc.) for a cozy-cartoon `Case`. If we can't find one in the
  *  catalogue (shouldn't happen — the cartoon library is derived FROM the
  *  catalogue), fall back to a minimal stub built from the cartoon shape so
  *  the voice agent + 3D scene still get something to render. */
-function toPatientCase(c: MedKitCase): PatientCase {
+function toPatientCase(c: MedSimCase): PatientCase {
   const real = getPatientCase(c.id);
   if (real) return real;
   const isRedFlag = c.tags.some((t) => t.toLowerCase().includes('red flag'));
@@ -87,7 +87,7 @@ function hasEncounterActivity(p: ActivePatient): boolean {
   );
 }
 
-function toActivePatient(c: MedKitCase): ActivePatient {
+function toActivePatient(c: MedSimCase): ActivePatient {
   const now = Date.now();
   return {
     case: toPatientCase(c),

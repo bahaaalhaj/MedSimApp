@@ -1,4 +1,4 @@
-// Builds the [debrief request] payload sent to the medkit-attending Managed
+// Builds the [debrief request] payload sent to the medsim-attending Managed
 // Agent at end-of-encounter. The agent's system prompt (DEBRIEF MODE in
 // backend/server.py) declares the exact contract: case_id, rubric,
 // registry_slice, encounter_log. This module produces that JSON from the

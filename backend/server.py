@@ -1,14 +1,14 @@
 """
-FastAPI backend for the medkit simulator.
+FastAPI backend for the MedSim simulator.
 
-Hosts the Claude Managed Agents proxy (medkit-attending grading) and the
+Hosts the Claude Managed Agents proxy (medsim-attending grading) and the
 real-time voice token mint endpoint (`/voice/token`). Real-time voice
 itself runs in `voice_agent.py` as a separate LiveKit Agents worker —
 this server only issues access tokens and pre-creates rooms with
 patient persona metadata.
 
 GET  /health         → backend + agent status report
-POST /agent/...      → Managed Agents proxy (medkit-attending)
+POST /agent/...      → Managed Agents proxy (medsim-attending)
 POST /voice/token    → mint LiveKit JWT for a patient room
 """
 
@@ -60,7 +60,7 @@ from slowapi.util import get_remote_address
 # credits. Localhost origins bypass for `npm run dev`.
 SHARED_SECRET = os.environ.get("BACKEND_SHARED_SECRET", "")
 ALLOWED_ORIGINS = [
-    "https://medkit.vercel.app",
+    "https://medsim.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5174",
@@ -77,7 +77,7 @@ DEV_ORIGINS = {
 # request, so 120/min leaves plenty of headroom for legitimate use.
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
 
-app = FastAPI(title="medkit Backend", version="0.2.0")
+app = FastAPI(title="MedSim Backend", version="0.2.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -102,7 +102,7 @@ async def require_shared_secret(request: Request, call_next):
     referer = request.headers.get("referer", "")
     if any(referer.startswith(o + "/") for o in DEV_ORIGINS):
         return await call_next(request)
-    if SHARED_SECRET and request.headers.get("x-medkit-auth") == SHARED_SECRET:
+    if SHARED_SECRET and request.headers.get("x-medsim-auth") == SHARED_SECRET:
         return await call_next(request)
     return JSONResponse({"detail": "unauthorized"}, status_code=401)
 
@@ -122,8 +122,8 @@ def health():
     API key or unbootstrapped agent surfaces a clearer error than a blank
     SSE failure."""
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    agent_id = os.environ.get("MEDKIT_AGENT_ID") or None
-    env_id = os.environ.get("MEDKIT_ENV_ID") or None
+    agent_id = os.environ.get("MEDSIM_AGENT_ID") or None
+    env_id = os.environ.get("MEDSIM_ENV_ID") or None
     bootstrapped = bool(agent_id and env_id)
     livekit_ok = bool(
         os.environ.get("LIVEKIT_URL")
@@ -162,10 +162,10 @@ def health():
 #   ANTHROPIC_API_KEY  — required. Server-side only; never exposed to the
 #                        browser. Separate from VITE_ANTHROPIC_API_KEY used
 #                        by the browser Haiku patient-persona path.
-#   MEDKIT_AGENT_ID    — persisted agent ID (bootstrap returns it the
+#   MEDSIM_AGENT_ID    — persisted agent ID (bootstrap returns it the
 #                        first time; set it here afterwards to skip
 #                        re-creating).
-#   MEDKIT_ENV_ID      — persisted environment ID (same pattern).
+#   MEDSIM_ENV_ID      — persisted environment ID (same pattern).
 #
 # Endpoints:
 #   POST /agent/bootstrap                      — idempotent; creates
@@ -215,11 +215,11 @@ except ImportError:  # pragma: no cover
 
 # Structured logger for the Managed Agents proxy. Uvicorn captures stdlib
 # logging so these land in the same stream as its own access log.
-_agent_log = logging.getLogger("medkit.agent")
+_agent_log = logging.getLogger("medsim.agent")
 _agent_log.setLevel(logging.INFO)
 if not _agent_log.handlers:
     _h = logging.StreamHandler()
-    _h.setFormatter(logging.Formatter("[medkit.agent] %(levelname)s %(message)s"))
+    _h.setFormatter(logging.Formatter("[medsim.agent] %(levelname)s %(message)s"))
     _agent_log.addHandler(_h)
 
 # Guards against two concurrent /agent/bootstrap calls creating two
@@ -235,8 +235,8 @@ SSE_KEEPALIVE_SEC = 15.0
 
 
 AGENT_MODEL = "claude-opus-4-7"
-AGENT_NAME = "medkit-attending"
-ENV_NAME = "medkit-attending-env"
+AGENT_NAME = "medsim-attending"
+ENV_NAME = "medsim-attending-env"
 
 # Direct-inference model for the dedicated triage-reasoning endpoint.
 # Pinned to Opus 4.7 because the spec reserves triage for the strongest
@@ -246,7 +246,7 @@ ENV_NAME = "medkit-attending-env"
 TRIAGE_MODEL = "claude-opus-4-7"
 TRIAGE_MAX_TOKENS = 512
 
-MEDKIT_ATTENDING_SYSTEM_PROMPT = (
+MEDSIM_ATTENDING_SYSTEM_PROMPT = (
     "You are the attending physician supervising a trainee in a clinical "
     "training simulator. Your role is to OBSERVE their decisions and "
     "GRADE the encounter. You are NOT an assistant, a guide, or a "
@@ -372,7 +372,7 @@ MEDKIT_ATTENDING_SYSTEM_PROMPT = (
 
 # Custom tool JSON schemas — must match the Zod schemas in
 # src/agents/customTools.ts. If you change either side, update both.
-MEDKIT_CUSTOM_TOOLS: list[dict] = [
+MEDSIM_CUSTOM_TOOLS: list[dict] = [
     {
         "type": "custom",
         "name": "render_vitals_chart",
@@ -713,8 +713,8 @@ class BootstrapResponse(BaseModel):
 
 @app.post("/agent/bootstrap", response_model=BootstrapResponse)
 def bootstrap_agent():
-    """Idempotent: creates the medkit attending agent + environment if
-    MEDKIT_AGENT_ID and MEDKIT_ENV_ID aren't set; otherwise returns the
+    """Idempotent: creates the medsim attending agent + environment if
+    MEDSIM_AGENT_ID and MEDSIM_ENV_ID aren't set; otherwise returns the
     cached IDs.
 
     When `created=True` the caller should persist `agent_id` and
@@ -729,8 +729,8 @@ def bootstrap_agent():
         # Re-read env vars under the lock — if an earlier racing call
         # persisted the IDs (process-wide only; operator still needs to
         # write .env.local for cross-restart), we skip the create.
-        agent_id = os.environ.get("MEDKIT_AGENT_ID")
-        env_id = os.environ.get("MEDKIT_ENV_ID")
+        agent_id = os.environ.get("MEDSIM_AGENT_ID")
+        env_id = os.environ.get("MEDSIM_ENV_ID")
         if agent_id and env_id:
             return BootstrapResponse(
                 agent_id=agent_id,
@@ -748,10 +748,10 @@ def bootstrap_agent():
             agent = client.beta.agents.create(  # type: ignore[attr-defined]
                 name=AGENT_NAME,
                 model=AGENT_MODEL,
-                system=MEDKIT_ATTENDING_SYSTEM_PROMPT,
+                system=MEDSIM_ATTENDING_SYSTEM_PROMPT,
                 tools=[
                     {"type": "agent_toolset_20260401", "default_config": {"enabled": True}},
-                    *MEDKIT_CUSTOM_TOOLS,
+                    *MEDSIM_CUSTOM_TOOLS,
                 ],
             )
         except Exception as e:
@@ -761,8 +761,8 @@ def bootstrap_agent():
         # Populate the in-process env vars so racing calls inside the same
         # server process pick up the cached IDs. Operator still needs to
         # persist them to backend/.env.local for the NEXT server restart.
-        os.environ["MEDKIT_AGENT_ID"] = agent.id
-        os.environ["MEDKIT_ENV_ID"] = env.id
+        os.environ["MEDSIM_AGENT_ID"] = agent.id
+        os.environ["MEDSIM_ENV_ID"] = env.id
         _agent_log.info(
             "bootstrap: created agent %s + env %s — persist these to "
             "backend/.env.local before restarting the server",
@@ -788,14 +788,14 @@ def refresh_agent():
     existing Agent object, creating a new version. Existing sessions keep
     their pinned version; new sessions pick up the latest.
 
-    Use this whenever you edit ``MEDKIT_ATTENDING_SYSTEM_PROMPT`` or
-    ``MEDKIT_CUSTOM_TOOLS`` so the change takes effect without creating a
+    Use this whenever you edit ``MEDSIM_ATTENDING_SYSTEM_PROMPT`` or
+    ``MEDSIM_CUSTOM_TOOLS`` so the change takes effect without creating a
     whole new Agent."""
-    agent_id = os.environ.get("MEDKIT_AGENT_ID")
+    agent_id = os.environ.get("MEDSIM_AGENT_ID")
     if not agent_id:
         raise HTTPException(
             status_code=400,
-            detail="MEDKIT_AGENT_ID not set. Run /agent/bootstrap first.",
+            detail="MEDSIM_AGENT_ID not set. Run /agent/bootstrap first.",
         )
     client = get_anthropic_client()
     try:
@@ -805,10 +805,10 @@ def refresh_agent():
         updated = client.beta.agents.update(  # type: ignore[attr-defined]
             agent_id,
             version=current.version,
-            system=MEDKIT_ATTENDING_SYSTEM_PROMPT,
+            system=MEDSIM_ATTENDING_SYSTEM_PROMPT,
             tools=[
                 {"type": "agent_toolset_20260401", "default_config": {"enabled": True}},
-                *MEDKIT_CUSTOM_TOOLS,
+                *MEDSIM_CUSTOM_TOOLS,
             ],
         )
     except Exception as e:
@@ -834,13 +834,13 @@ class CreateSessionResponse(BaseModel):
 
 @app.post("/agent/sessions", response_model=CreateSessionResponse)
 def create_session(req: CreateSessionRequest):
-    agent_id = os.environ.get("MEDKIT_AGENT_ID")
-    env_id = os.environ.get("MEDKIT_ENV_ID")
+    agent_id = os.environ.get("MEDSIM_AGENT_ID")
+    env_id = os.environ.get("MEDSIM_ENV_ID")
     if not agent_id or not env_id:
         raise HTTPException(
             status_code=400,
             detail=(
-                "MEDKIT_AGENT_ID / MEDKIT_ENV_ID not set. Call POST /agent/bootstrap "
+                "MEDSIM_AGENT_ID / MEDSIM_ENV_ID not set. Call POST /agent/bootstrap "
                 "first and persist the returned IDs into the environment."
             ),
         )
@@ -849,7 +849,7 @@ def create_session(req: CreateSessionRequest):
         session = client.beta.sessions.create(  # type: ignore[attr-defined]
             agent=agent_id,
             environment_id=env_id,
-            title=req.title or "medkit training shift",
+            title=req.title or "MedSim training shift",
         )
     except Exception as e:
         _agent_log.exception("create_session failed")
@@ -1126,7 +1126,7 @@ def vault_ehr_lookup(req: EhrLookupRequest):
 # Triage-reasoning endpoint (direct Opus 4.7 inference)
 # ───────────────────────────────────────────────────────────────────────────
 #
-# Separate from the medkit-attending Managed Agent. That agent observes the
+# Separate from the medsim-attending Managed Agent. That agent observes the
 # whole encounter and grades it; this endpoint is a one-shot ESI triage
 # classification called at ER arrival, before the agent has seen enough
 # to form an opinion. Kept on Opus 4.7 — the spec reserves clinical
@@ -1136,7 +1136,7 @@ def vault_ehr_lookup(req: EhrLookupRequest):
 #   • Pure function `run_triage_reasoning(client, request)` so unit
 #     tests can mock the Anthropic client without spinning HTTP.
 #   • The system prompt inlines the 5 ESI rules we actually apply. It
-#     mirrors `.claude/skills/medkit-triage-logic.md` so keep them in sync
+#     mirrors `.claude/skills/medsim-triage-logic.md` so keep them in sync
 #     when either changes.
 #   • Model output is constrained to JSON via explicit instruction +
 #     assistant prefill; we parse defensively and raise on malformed
@@ -1442,7 +1442,7 @@ async def voice_token(req: VoiceTokenRequest):
     )
 
     # Pre-create the room so metadata is set before the agent dispatches in.
-    # `agents=[RoomAgentDispatch(agent_name="medkit-voice")]` makes dispatch
+    # `agents=[RoomAgentDispatch(agent_name="medsim-voice")]` makes dispatch
     # explicit by name instead of relying on LiveKit's automatic region/cluster
     # matching, which fails when the room-creator (Render Oregon) and the
     # worker (registered in EU/Germany 2) are in different clouds.
@@ -1453,7 +1453,7 @@ async def voice_token(req: VoiceTokenRequest):
                 name=room_name,
                 metadata=metadata,
                 empty_timeout=120,
-                agents=[_lkapi.RoomAgentDispatch(agent_name="medkit-voice")],
+                agents=[_lkapi.RoomAgentDispatch(agent_name="medsim-voice")],
             )
         )
     except Exception as e:

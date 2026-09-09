@@ -1,5 +1,5 @@
 /**
- * Long-running verification runner for `/loop 20m /medkit-verify-simulation`.
+ * Long-running verification runner for `/loop 20m /medsim-verify-simulation`.
  *
  * Each firing:
  *   1. Runs `npm run verify` (same checks as the verify skill).
@@ -13,7 +13,7 @@
  * simulator honest without human supervision.
  *
  * Invoked either directly (`node scripts/loop/verify-loop.ts`) or from
- * the slash command `.claude/commands/medkit-verify-simulation.md`.
+ * the slash command `.claude/commands/medsim-verify-simulation.md`.
  */
 
 import { spawnSync } from 'node:child_process';

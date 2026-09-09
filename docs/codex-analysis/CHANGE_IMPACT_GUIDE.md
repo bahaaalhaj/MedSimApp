@@ -37,7 +37,7 @@ If a rubric or `autoRubric.ts` changes:
 
 If `customTools.ts` changes:
 
-- Update `MEDKIT_CUSTOM_TOOLS` in `backend/server.py` in the same change.
+- Update `MEDSIM_CUSTOM_TOOLS` in `backend/server.py` in the same change.
 - Test valid/invalid frontend payloads, backend registration, permission behavior, and deployed agent refresh/versioning.
 
 If `debriefRequest.ts`, `useAttendingDebrief.ts`, or the agent system prompt changes:

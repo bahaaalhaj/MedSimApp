@@ -1,6 +1,6 @@
 // Fallback rubric derivation for cases that don't ship with an authored
 // `rubric` field. The auto-rubric is intentionally minimal and citation-
-// free: it gives the medkit-attending agent enough structure to grade
+// free: it gives the medsim-attending agent enough structure to grade
 // communication and basic clinical-management coverage, but it cannot
 // power the citation-card UX that hero cases get. When a non-hero case
 // rolls up with this fallback, the debrief still scores three domains —

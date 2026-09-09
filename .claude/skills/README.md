@@ -1,6 +1,6 @@
-# Skills catalog — medkit
+# Skills catalog — MedSim
 
-The simulator runs on **one Managed Agent** (`medkit-attending`, Opus 4.7) plus a small
+The simulator runs on **one Managed Agent** (`medsim-attending`, Opus 4.7) plus a small
 set of skills that compose around it. The agent is the only stateful actor that
 talks to the trainee at run-time; skills are utilities that author or refresh
 the data the agent grades against.
@@ -16,7 +16,7 @@ Two flavours of skill live here:
 ## Architecture
 
 ```
-trainee ──► medkit-attending Managed Agent (Opus 4.7) ──► render_case_evaluation
+trainee ──► medsim-attending Managed Agent (Opus 4.7) ──► render_case_evaluation
                   ▲                                       │
                   │ rubric + registry                     ▼
                   │                                 <CaseEvaluationCard>
@@ -24,14 +24,14 @@ trainee ──► medkit-attending Managed Agent (Opus 4.7) ──► render_cas
        ▲
        │ weekly /loop
    ┌───┴────────────────────────────┐
-   │ medkit-guideline-curator       │
+   │ medsim-guideline-curator       │
    └────────────────────────────────┘
 
    [case rubrics]  polyclinicPatients.ts.rubric
        ▲
        │ on-demand
    ┌───┴────────────────────┐
-   │ medkit-rubric-author   │
+   │ medsim-rubric-author   │
    └────────────────────────┘
 ```
 
@@ -46,15 +46,15 @@ direct store mutations in `src/game/store.ts`, no agent gating layer.
 
 | Skill | Folder / file | Trigger | Output |
 |---|---|---|---|
-| **medkit-attending-debrief** | `medkit-attending-debrief/SKILL.md` | reference / debugging | docs the DEBRIEF MODE contract baked into the live agent |
-| **medkit-guideline-curator** | `medkit-guideline-curator/SKILL.md` | `/loop 7d` or on-demand | edits `src/data/guidelines.ts` |
-| **medkit-rubric-author** | `medkit-rubric-author/SKILL.md` | on-demand per case | edits `src/data/polyclinicPatients.ts` (or `patients.ts`) — adds `rubric: {...}` |
-| medkit-managed-agent-setup | `medkit-managed-agent-setup.md` | maintenance | bootstrap + refresh + custom-tool edits |
-| medkit-patient-generator | `medkit-patient-generator.md` | author new case | new entry in `patients.ts` / `polyclinicPatients.ts` |
-| medkit-triage-logic | `medkit-triage-logic.md` | reference | ESI rules, used by triage classifier |
-| medkit-verify-simulation | `medkit-verify-simulation.md` | `/loop 20m` | `scripts/verify/run-all.ts` |
-| medkit-interview | `medkit-interview.md` | demo / coaching | guides one-on-one walkthrough |
-| medkit-demo-video | `medkit-demo-video.md` | submission | demo narrative beats |
+| **medsim-attending-debrief** | `medsim-attending-debrief/SKILL.md` | reference / debugging | docs the DEBRIEF MODE contract baked into the live agent |
+| **medsim-guideline-curator** | `medsim-guideline-curator/SKILL.md` | `/loop 7d` or on-demand | edits `src/data/guidelines.ts` |
+| **medsim-rubric-author** | `medsim-rubric-author/SKILL.md` | on-demand per case | edits `src/data/polyclinicPatients.ts` (or `patients.ts`) — adds `rubric: {...}` |
+| medsim-managed-agent-setup | `medsim-managed-agent-setup.md` | maintenance | bootstrap + refresh + custom-tool edits |
+| medsim-patient-generator | `medsim-patient-generator.md` | author new case | new entry in `patients.ts` / `polyclinicPatients.ts` |
+| medsim-triage-logic | `medsim-triage-logic.md` | reference | ESI rules, used by triage classifier |
+| medsim-verify-simulation | `medsim-verify-simulation.md` | `/loop 20m` | `scripts/verify/run-all.ts` |
+| medsim-interview | `medsim-interview.md` | demo / coaching | guides one-on-one walkthrough |
+| medsim-demo-video | `medsim-demo-video.md` | submission | demo narrative beats |
 
 ## Hard rules across every authoring skill
 
@@ -73,10 +73,10 @@ direct store mutations in `src/game/store.ts`, no agent gating layer.
 
 ## Composition example — adding a new hero case
 
-1. `medkit-patient-generator` writes a new case into `polyclinicPatients.ts`.
-2. `medkit-guideline-curator` checks the registry has a guideline for the relevant
+1. `medsim-patient-generator` writes a new case into `polyclinicPatients.ts`.
+2. `medsim-guideline-curator` checks the registry has a guideline for the relevant
    condition; if not, drafts one (and stops to ask for MD verification).
-3. `medkit-rubric-author` adds the `rubric: {...}` field, citing only recIds the
+3. `medsim-rubric-author` adds the `rubric: {...}` field, citing only recIds the
    registry actually contains.
 4. `npm run build` + `node scripts/verify/rubric-smoke.ts` + the live debrief
    smoke test confirms the new case grades end-to-end.

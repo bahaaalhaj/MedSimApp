@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useScreen } from '../game/store';
 
-const MUTED_KEY = 'medkit:music-muted';
+const MUTED_KEY = 'medsim:music-muted';
 const VOLUME = 0.18;
 
 function readMuted(): boolean {
@@ -32,7 +32,7 @@ export function BackgroundMusic() {
   const shouldPlay = !userMuted && !inSession;
 
   useEffect(() => {
-    const a = new Audio('/medkit.mp3');
+    const a = new Audio('/medsim.mp3');
     a.loop = true;
     a.volume = VOLUME;
     a.preload = 'auto';

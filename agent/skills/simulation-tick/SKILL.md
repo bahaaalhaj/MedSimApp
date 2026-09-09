@@ -1,6 +1,6 @@
 ---
 name: simulation-tick
-description: World physics for MedKit. For every student action (order test, prescribe, refer, examine, advise) returns strict JSON describing validity, what the student sees, time cost, and any change to patient state. Never speaks to the student.
+description: World physics for MedSim. For every student action (order test, prescribe, refer, examine, advise) returns strict JSON describing validity, what the student sees, time cost, and any change to patient state. Never speaks to the student.
 model: claude-opus-4-7
 inputs:
   - case_json               # cases/case.schema.json

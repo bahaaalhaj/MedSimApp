@@ -2,7 +2,7 @@
 
 ## Project
 
-Medkit is a desktop-first clinical-training prototype. The **implemented UI is polyclinic only**: 24 specialties and 240 synthetic outpatient cases. ER data and APIs exist, but Emergency is locked and there is no ER frontend/state workflow. Do not describe dormant scaffolding as implemented.
+MedSim is a desktop-first clinical-training prototype. The **implemented UI is polyclinic only**: 24 specialties and 240 synthetic outpatient cases. ER data and APIs exist, but Emergency is locked and there is no ER frontend/state workflow. Do not describe dormant scaffolding as implemented.
 
 Detailed onboarding analysis is in `docs/codex-analysis/`.
 

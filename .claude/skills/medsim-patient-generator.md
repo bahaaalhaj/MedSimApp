@@ -1,9 +1,9 @@
 ---
-name: medkit-patient-generator
+name: medsim-patient-generator
 description: Generate a new PatientCase (ER or polyclinic) from a chief complaint plus a correct diagnosis. Use whenever the user asks to "add a new patient", "author a case", "write a [condition] patient", or when expanding the case library under src/data/patients.ts or src/data/polyclinicPatients.ts. Also use for one-off ad-hoc cases tied to a specific teaching point.
 ---
 
-# medkit — patient case generator
+# MedSim — patient case generator
 
 Every new `PatientCase` must pass `npm run verify`. That verification catches the mistakes this skill exists to prevent: dangling test/treatment/diagnosis IDs, critical treatments that aren't in the acceptable list, correct diagnosis missing from `diagnosisOptions`.
 

@@ -85,8 +85,8 @@ test('verify-loop appends (not overwrites) across firings', (t) => {
   }
 });
 
-test('medkit-verify-simulation command file exists, has frontmatter, and points at the runner', () => {
-  const cmdPath = resolve(REPO_ROOT, '.claude/commands/medkit-verify-simulation.md');
+test('medsim-verify-simulation command file exists, has frontmatter, and points at the runner', () => {
+  const cmdPath = resolve(REPO_ROOT, '.claude/commands/medsim-verify-simulation.md');
   assert.ok(existsSync(cmdPath), `${cmdPath} missing`);
   const body = readFileSync(cmdPath, 'utf8');
   assert.match(body, /^---\s*\n[\s\S]+?\n---/, 'missing YAML frontmatter');
@@ -103,8 +103,8 @@ test('medkit-verify-simulation command file exists, has frontmatter, and points 
   );
 });
 
-test('medkit-idea-evolve command file exists and enforces draft-only behavior', () => {
-  const cmdPath = resolve(REPO_ROOT, '.claude/commands/medkit-idea-evolve.md');
+test('medsim-idea-evolve command file exists and enforces draft-only behavior', () => {
+  const cmdPath = resolve(REPO_ROOT, '.claude/commands/medsim-idea-evolve.md');
   assert.ok(existsSync(cmdPath), `${cmdPath} missing`);
   const body = readFileSync(cmdPath, 'utf8');
   assert.match(body, /^---\s*\n[\s\S]+?\n---/, 'missing YAML frontmatter');
@@ -127,7 +127,7 @@ test('verify-loop script is not referenced by accident outside its command', () 
   // verify skill — the runner is intended only for /loop firings. If
   // you WANT to allow it elsewhere, extend this allowlist explicitly.
   const allowlist = new Set([
-    '.claude/commands/medkit-verify-simulation.md',
+    '.claude/commands/medsim-verify-simulation.md',
     'scripts/loop/verify-loop.ts',
     'scripts/test/loop-commands.test.ts',
   ]);

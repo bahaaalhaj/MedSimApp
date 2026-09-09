@@ -1,11 +1,11 @@
 ---
-description: Run deterministic simulator invariants and append PASS/FAIL to verify.log. Safe for `/loop 20m /medkit-verify-simulation`.
+description: Run deterministic simulator invariants and append PASS/FAIL to verify.log. Safe for `/loop 20m /medsim-verify-simulation`.
 ---
 
-# `/medkit-verify-simulation`
+# `/medsim-verify-simulation`
 
 Long-running verification tick. Designed to be fired every 20 minutes
-via `/loop 20m /medkit-verify-simulation` so the simulator's invariants
+via `/loop 20m /medsim-verify-simulation` so the simulator's invariants
 stay green through a multi-hour build.
 
 ## What to do
@@ -31,7 +31,7 @@ the log entry.
   1. Identify which check failed (`data-integrity`, `triage-priority`,
      `three-scene`).
   2. Fix the underlying data/code — NOT the verify script. The skill
-     [medkit-verify-simulation](../skills/medkit-verify-simulation.md) spells
+     [medsim-verify-simulation](../skills/medsim-verify-simulation.md) spells
      out the rule.
   3. Re-run this command to confirm it's green again.
   4. If you cannot fix it in this firing, stop and surface the failure

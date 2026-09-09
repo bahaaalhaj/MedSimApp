@@ -33,7 +33,7 @@ sequenceDiagram
     API->>LK: Create room with metadata
     API-->>UI: URL + participant JWT
     UI->>LK: Connect and publish mic
-    LK->>W: Dispatch medkit-voice
+    LK->>W: Dispatch medsim-voice
     W->>W: STT → Haiku → TTS
     W-->>UI: Remote audio + transcripts
 ```

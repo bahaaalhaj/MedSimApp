@@ -2,7 +2,7 @@
 
 ## Executive summary
 
-Medkit is a desktop-first, browser-based clinical-training prototype built for an Opus 4.7 hackathon. A trainee selects a synthetic outpatient case, speaks with an AI patient in a Three.js consultation room, records structured history questions, orders instant tests, submits a diagnosis, optionally prescribes, and receives an LLM-generated OSCE-style debrief. It is a polished prototype/MVP, not a production medical system.
+MedSim is a desktop-first, browser-based clinical-training prototype built for an Opus 4.7 hackathon. A trainee selects a synthetic outpatient case, speaks with an AI patient in a Three.js consultation room, records structured history questions, orders instant tests, submits a diagnosis, optionally prescribes, and receives an LLM-generated OSCE-style debrief. It is a polished prototype/MVP, not a production medical system.
 
 The implemented, reachable product is **polyclinic only**. The mode screen marks Emergency and Services as “Coming soon”; there is no ER state slice, bed manager, ER screen, or frontend caller for the triage API. Six ER cases and ER-oriented backend/tooling remain as dormant data/scaffolding. README, `CLAUDE.md`, `spec.md`, comments, and architecture-demo screens still describe an ER + polyclinic product and reference files that are absent.
 

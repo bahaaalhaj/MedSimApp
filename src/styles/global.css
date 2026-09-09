@@ -1,4 +1,4 @@
-/* MedKit cozy cartoon — global styles. Tokens, plush primitives, animations. */
+/* MedSim cozy cartoon — global styles. Tokens, plush primitives, animations. */
 
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Quicksand:wght@500;600;700&display=swap');
 
@@ -229,7 +229,7 @@ h2 { font-weight: 800; }
 /* fix typography */
 .screen { width: 100%; min-height: 100vh; overflow: hidden; position: relative; }
 
-/* ── Case evaluation card (medkit-attending debrief) ─────────────── */
+/* ── Case evaluation card (medsim-attending debrief) ─────────────── */
 .case-eval {
   background: var(--paper);
   border: 3px solid var(--line);

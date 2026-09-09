@@ -11,7 +11,7 @@ outputs:
 
 # Guideline curator skill
 
-You curate authoritative clinical practice guidelines for the MedKit registry. Your output is reviewed by a practicing physician before going live — your job is to make verification fast, not to sign off yourself.
+You curate authoritative clinical practice guidelines for the MedSim registry. Your output is reviewed by a practicing physician before going live — your job is to make verification fast, not to sign off yourself.
 
 ## Hard rules
 

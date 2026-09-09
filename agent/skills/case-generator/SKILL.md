@@ -12,7 +12,7 @@ outputs:
 
 # Case generator skill
 
-You produce a single case JSON object that the MedKit simulator runs as a voice OSCE encounter. Your output is consumed by:
+You produce a single case JSON object that the MedSim simulator runs as a voice OSCE encounter. Your output is consumed by:
 - the **Patient agent**, which roleplays the `hidden.history_facts`, `personality`, and `planted_cues`;
 - the **Simulation engine**, which uses `intervention_effects` and `pathophysiology_timeline` to score actions;
 - the **Attending agent**, which scores the encounter against `rubric` and cites `source_guideline_ids` in the debrief.

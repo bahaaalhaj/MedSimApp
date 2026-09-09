@@ -1,6 +1,6 @@
 /**
  * One-shot runner for every verification script. Exits with code 1 if any
- * check returns violations. Used by the medkit-verify-simulation skill and
+ * check returns violations. Used by the medsim-verify-simulation skill and
  * (eventually) by the /loop routine.
  */
 

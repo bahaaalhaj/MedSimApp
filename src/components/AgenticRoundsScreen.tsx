@@ -184,16 +184,16 @@ const NODES: NodeDef[] = [
     y: 170,
     w: 220,
     h: 180,
-    title: 'medkit-attending',
+    title: 'medsim-attending',
     subtitle: 'Claude Managed Agent · Opus 4.7 · DEBRIEF MODE.',
     badge: 'Opus 4.7',
     doodle: 'star',
     details: {
       what: 'The senior clinician of the simulator. Lives on Anthropic\'s Managed Agents platform, versioned. In DEBRIEF MODE, reads the rubric + registry slice + encounter log, scores three domains (data_gathering, clinical_management, interpersonal), flags safety_breach when warranted, and emits exactly one render_case_evaluation tool use.',
       files: [
-        { path: 'backend/server.py', label: 'MEDKIT_ATTENDING_SYSTEM_PROMPT + MEDKIT_CUSTOM_TOOLS' },
+        { path: 'backend/server.py', label: 'MEDSIM_ATTENDING_SYSTEM_PROMPT + MEDSIM_CUSTOM_TOOLS' },
         { path: 'src/agents/customTools.ts', label: 'Zod mirror of the tool schema' },
-        { path: '.claude/skills/medkit-attending-debrief/SKILL.md', label: 'reference skill' },
+        { path: '.claude/skills/medsim-attending-debrief/SKILL.md', label: 'reference skill' },
       ],
       hardRules: [
         'Cite, don\'t invent — every clinical_management criterion\'s guideline_ref MUST appear in the registry slice. No fabrication.',
@@ -251,7 +251,7 @@ const NODES: NodeDef[] = [
         { url: 'https://goldcopd.org', label: 'GOLD' },
       ],
       files: [
-        { path: '.claude/skills/medkit-guideline-curator/society-whitelist.json', label: 'allowlist + blocklist' },
+        { path: '.claude/skills/medsim-guideline-curator/society-whitelist.json', label: 'allowlist + blocklist' },
       ],
     },
   },
@@ -262,14 +262,14 @@ const NODES: NodeDef[] = [
     y: 540,
     w: 220,
     h: 180,
-    title: '/medkit-guideline-curator',
+    title: '/medsim-guideline-curator',
     subtitle: 'WebFetch + verbatim extraction. Designed for /loop 7d.',
     badge: 'skill',
     details: {
       what: 'Persistent skill that fills or refreshes the registry. WebFetch the canonical recommendations chapter, extract 4–6 verbatim recommendations per guideline, set verificationStatus to auto-fetched (only the MD on the team flips that to verified). Designed to run on a /loop 7d schedule for supersedence checks.',
       files: [
-        { path: '.claude/skills/medkit-guideline-curator/SKILL.md', label: 'SKILL.md (full instructions)' },
-        { path: '.claude/skills/medkit-guideline-curator/society-whitelist.json', label: 'allowlist sidecar' },
+        { path: '.claude/skills/medsim-guideline-curator/SKILL.md', label: 'SKILL.md (full instructions)' },
+        { path: '.claude/skills/medsim-guideline-curator/society-whitelist.json', label: 'allowlist sidecar' },
       ],
       hardRules: [
         'Whitelist sources only.',
@@ -311,14 +311,14 @@ const NODES: NodeDef[] = [
     y: 540,
     w: 220,
     h: 180,
-    title: '/medkit-rubric-author',
+    title: '/medsim-rubric-author',
     subtitle: 'Authors a CaseRubric per case. Citation-disciplined.',
     badge: 'skill',
     details: {
       what: 'Persistent skill invoked per case. Reads the case anamnesis + critical treatments, picks the relevant recIds from the registry, and writes a PLAB2-style rubric in-place into polyclinicPatients.ts (or patients.ts). Drops any criterion that has no matching rec — never fabricates. Cases without an authored rubric get an auto-derived fallback from autoRubric.ts.',
       files: [
-        { path: '.claude/skills/medkit-rubric-author/SKILL.md', label: 'SKILL.md' },
-        { path: '.claude/skills/medkit-rubric-author/rubric-brief.schema.json', label: 'optional input contract' },
+        { path: '.claude/skills/medsim-rubric-author/SKILL.md', label: 'SKILL.md' },
+        { path: '.claude/skills/medsim-rubric-author/rubric-brief.schema.json', label: 'optional input contract' },
         { path: 'src/data/autoRubric.ts', label: 'fallback derivation' },
       ],
       hardRules: [
@@ -423,7 +423,7 @@ type TabKey = 'grading' | 'cases' | 'agent';
 const TABS: Array<{ key: TabKey; label: string; sub: string }> = [
   { key: 'grading', label: 'Grading flow', sub: 'How the simulator grades you' },
   { key: 'cases',   label: 'Cases',        sub: 'How cases were produced' },
-  { key: 'agent',   label: 'The agent',    sub: 'medkit-attending in detail' },
+  { key: 'agent',   label: 'The agent',    sub: 'medsim-attending in detail' },
 ];
 
 export function AgenticRoundsScreen() {
@@ -1053,11 +1053,11 @@ interface PipelineStep {
 
 const CASE_PIPELINE: PipelineStep[] = [
   { kind: 'external', title: 'Society guideline', sub: 'NICE, ESC, AHA, BTS, GINA, GOLD, KDIGO. Whitelist-only.' },
-  { kind: 'agent', title: '/medkit-guideline-curator', sub: 'WebFetch + verbatim extraction. /loop 7d.', badge: 'skill' },
+  { kind: 'agent', title: '/medsim-guideline-curator', sub: 'WebFetch + verbatim extraction. /loop 7d.', badge: 'skill' },
   { kind: 'data', title: 'guidelines.ts', sub: 'Citation registry — 22 verbatim recommendations.' },
-  { kind: 'agent', title: '/medkit-patient-generator', sub: 'Authors the PatientCase shape from condition + variant brief.', badge: 'skill' },
+  { kind: 'agent', title: '/medsim-patient-generator', sub: 'Authors the PatientCase shape from condition + variant brief.', badge: 'skill' },
   { kind: 'data', title: 'polyclinicPatients.ts', sub: '246 cases across 11 specialties. Demographics, vitals, anamnesis, gold-standard dx.' },
-  { kind: 'agent', title: '/medkit-rubric-author', sub: "Adds rubric: { ... } to hero cases. Cite-don't-invent.", badge: 'skill' },
+  { kind: 'agent', title: '/medsim-rubric-author', sub: "Adds rubric: { ... } to hero cases. Cite-don't-invent.", badge: 'skill' },
   { kind: 'data', title: 'case.rubric', sub: '3 hero cases · 243 auto-fallback. PLAB2 + RCGP + NURSE + SEGUE tagged.' },
 ];
 
@@ -1382,7 +1382,7 @@ function CaseFieldGroup({
 }
 
 // ────────────────────────────────────────────────────────────────────
-// AGENT TAB — medkit-attending Managed Agent deep-dive
+// AGENT TAB — medsim-attending Managed Agent deep-dive
 // ────────────────────────────────────────────────────────────────────
 
 const PRIMITIVES = [
@@ -1453,11 +1453,11 @@ const HARD_RULES = [
 ];
 
 const SKILLS_AROUND = [
-  { name: 'medkit-attending-debrief',   role: "Reference for the live agent's DEBRIEF MODE contract — files, hard rules, smoke tests." },
-  { name: 'medkit-guideline-curator',   role: 'Fills / refreshes the registry from authoritative sources. Designed for /loop 7d.' },
-  { name: 'medkit-rubric-author',       role: 'Authors a CaseRubric per case with citation discipline.' },
-  { name: 'medkit-managed-agent-setup', role: 'Bootstrap, refresh, custom-tool maintenance.' },
-  { name: 'medkit-patient-generator',   role: 'Authors new PatientCase entries from condition + variant brief.' },
+  { name: 'medsim-attending-debrief',   role: "Reference for the live agent's DEBRIEF MODE contract — files, hard rules, smoke tests." },
+  { name: 'medsim-guideline-curator',   role: 'Fills / refreshes the registry from authoritative sources. Designed for /loop 7d.' },
+  { name: 'medsim-rubric-author',       role: 'Authors a CaseRubric per case with citation discipline.' },
+  { name: 'medsim-managed-agent-setup', role: 'Bootstrap, refresh, custom-tool maintenance.' },
+  { name: 'medsim-patient-generator',   role: 'Authors new PatientCase entries from condition + variant brief.' },
 ];
 
 function AgentTab() {
@@ -1478,7 +1478,7 @@ function AgentTab() {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 240 }}>
             <h2 style={{ fontSize: 32, lineHeight: 1.05, margin: '4px 0 8px' }}>
-              medkit-attending
+              medsim-attending
             </h2>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
               Claude Managed Agent · Opus 4.7 · two modes (observing + debriefing)
@@ -1622,7 +1622,7 @@ function AgentTab() {
           wordBreak: 'break-all',
           fontFamily: 'monospace',
         }}>
-{'# 1. edit MEDKIT_ATTENDING_SYSTEM_PROMPT or MEDKIT_CUSTOM_TOOLS in backend/server.py\n# 2. restart the FastAPI process (it caches the constants at import time)\n# 3. push to the platform — bumps agent version\ncurl -X POST http://127.0.0.1:8787/agent/refresh \\\n  -H "Origin: http://localhost:5173"'}
+{'# 1. edit MEDSIM_ATTENDING_SYSTEM_PROMPT or MEDSIM_CUSTOM_TOOLS in backend/server.py\n# 2. restart the FastAPI process (it caches the constants at import time)\n# 3. push to the platform — bumps agent version\ncurl -X POST http://127.0.0.1:8787/agent/refresh \\\n  -H "Origin: http://localhost:5173"'}
         </pre>
       </Card>
     </div>

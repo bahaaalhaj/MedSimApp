@@ -1,4 +1,4 @@
-# medkit backend
+# MedSim backend
 
 Two Python processes power the simulator:
 
@@ -31,7 +31,7 @@ Copy `.env.example` to `.env.local` and fill in:
 - `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` — from LiveKit Cloud.
 - `DEEPGRAM_API_KEY` — streaming STT.
 - `CARTESIA_API_KEY` — streaming TTS.
-- `MEDKIT_AGENT_ID`, `MEDKIT_ENV_ID` — leave blank on first run, paste back from `/agent/bootstrap`.
+- `MEDSIM_AGENT_ID`, `MEDSIM_ENV_ID` — leave blank on first run, paste back from `/agent/bootstrap`.
 
 ## Run
 
@@ -49,5 +49,5 @@ The worker logs `registered worker` once it's connected to LiveKit Cloud. From t
 
 - `GET  /health` — backend + agent + voice config status.
 - `POST /voice/token` — body `{caseId, systemPrompt, initialLine, gender}`. Pre-creates a LiveKit room with the persona payload as metadata, returns `{token, url, roomName}`.
-- `POST /agent/*` — Managed Agents proxy for the medkit-attending. See inline docs in `server.py`.
+- `POST /agent/*` — Managed Agents proxy for the medsim-attending. See inline docs in `server.py`.
 - `POST /agent/patient/stream` — text-only patient persona SSE; used by the right-sidebar text chat.

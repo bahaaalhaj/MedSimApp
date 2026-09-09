@@ -2,7 +2,7 @@
 
 ## Actual style
 
-Medkit is a client-heavy, three-process client/server application. The frontend is a feature-oriented React SPA with one imperative in-memory store. The HTTP backend is a single-file FastAPI service that acts as a security boundary and API proxy, not a domain database. Real-time voice runs as a separate LiveKit Agents worker. Static TypeScript modules form the clinical knowledge layer.
+MedSim is a client-heavy, three-process client/server application. The frontend is a feature-oriented React SPA with one imperative in-memory store. The HTTP backend is a single-file FastAPI service that acts as a security boundary and API proxy, not a domain database. Real-time voice runs as a separate LiveKit Agents worker. Static TypeScript modules form the clinical knowledge layer.
 
 ```mermaid
 flowchart TD
@@ -28,13 +28,13 @@ There is no database, ORM, repository layer, background-job queue, server-side s
 - UI: screen components under `src/components`; shared illustrated primitives in `primitives.tsx`; the active room is `components/three/Polyclinic.tsx`.
 - Clinical data: static TypeScript arrays/maps in `src/data`.
 - AI client: `src/agents/*` for Managed Agent debrief; `src/voice/*` for LiveKit and typed patient chat.
-- Persistence: `localStorage` only (`medkit:onboarded`, music setting, conversation keys, `gr_eval_history`).
+- Persistence: `localStorage` only (`medsim:onboarded`, music setting, conversation keys, `gr_eval_history`).
 
 ## Backend
 
 `backend/server.py` combines configuration loading, security middleware, schemas, prompts, agent bootstrap/versioning, session proxying, SSE, fake EHR data, triage inference, patient text streaming, and LiveKit token/room creation. It is a pragmatic hackathon monolith rather than a layered backend.
 
-The app loads `backend/.env.local` without overwriting non-empty process variables. Middleware order is CORS → SlowAPI → shared-secret check. `/health` is public; localhost-looking Origin/Referer values bypass the shared secret; other protected requests require `x-medkit-auth` when configured.
+The app loads `backend/.env.local` without overwriting non-empty process variables. Middleware order is CORS → SlowAPI → shared-secret check. `/health` is public; localhost-looking Origin/Referer values bypass the shared secret; other protected requests require `x-medsim-auth` when configured.
 
 `backend/voice_agent.py` is an independent worker. It reads persona data from LiveKit room metadata and composes Deepgram Nova-3, Claude Haiku 4.5, Cartesia Sonic-2, and Silero VAD. It implements an RPC farewell and deterministic voice selection.
 

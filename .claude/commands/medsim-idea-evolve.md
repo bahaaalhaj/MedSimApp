@@ -2,9 +2,9 @@
 description: Propose one sharpening tweak to docs/evolution.md based on recent work. Draft-only — waits for approval before writing.
 ---
 
-# `/medkit-idea-evolve`
+# `/medsim-idea-evolve`
 
-Keep-Thinking-prize loop. Designed for `/loop 30m /medkit-idea-evolve` over
+Keep-Thinking-prize loop. Designed for `/loop 30m /medsim-idea-evolve` over
 a work session so the evolution log reflects actual thinking, not just
 the first shower-thought.
 
