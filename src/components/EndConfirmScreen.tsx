@@ -1,6 +1,7 @@
 import { DoodleScatter, PatientFace, TopBar } from './primitives';
 import { getCase } from '../data/cases';
-import { store, useStore, useTweaks } from '../game/store';
+import { disposePatientConversation } from '../voice/conversationStore';
+import { POLYCLINIC_BED_INDEX, store, useStore, useTweaks } from '../game/store';
 import type { EndConfirmChecks } from '../game/types';
 
 interface Item {
@@ -20,6 +21,11 @@ export function EndConfirmScreen() {
   const checked = useStore((s) => s.endConfirm);
   const caseId = useStore((s) => s.selectedCaseId);
   const c = getCase(caseId);
+  const completeEncounter = () => {
+    store.finishPolyclinicCase();
+    disposePatientConversation(POLYCLINIC_BED_INDEX);
+    store.setScreen('debrief');
+  };
 
   return (
     <div className="screen" style={{ background: 'var(--cream)', position: 'relative' }}>
@@ -159,7 +165,7 @@ export function EndConfirmScreen() {
               type="button"
               className="btn-plush primary"
               style={{ flex: 1.4 }}
-              onClick={() => store.setScreen('debrief')}
+              onClick={completeEncounter}
             >
               End consultation →
             </button>

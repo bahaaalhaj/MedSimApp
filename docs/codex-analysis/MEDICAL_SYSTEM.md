@@ -7,7 +7,6 @@ The clinical layer is a hybrid of manually authored static data and LLM interpre
 - Case facts, vitals, questions/answers, test results, diagnosis options, acceptable/critical treatment IDs, medication indications/contraindications, and guideline records are hard-coded TypeScript.
 - Data-integrity scripts deterministically validate IDs and a few invariants, not medical correctness.
 - Patient dialogue is generative, conditioned on static case data.
-- Triage inference is generative and currently disconnected from the UI.
 - Debrief scoring is LLM-generated against a static rubric; only the fallback rubric construction and evidence serialization are deterministic.
 - The deterministic prescription grader exists but is not used by the active workflow.
 
@@ -30,12 +29,12 @@ Relationships use string IDs rather than database foreign keys. `PatientCase.cor
 
 ## Data inventory
 
-- 240 outpatient cases across 24 specialties, plus 6 dormant ER cases.
+- 240 outpatient cases across 24 specialties.
 - 225 distinct correct outpatient diagnosis IDs.
-- 80 tests, 49 panels, 19 generic/ER-style treatments, 107 medications.
+- 80 tests, 49 panels, 19 shared treatment/disposition definitions, 107 medications.
 - 3 NICE guidelines and 22 recommendations, all auto-fetched.
-- 3 authored rubrics (`im-003`, `im-004`, `im-005`); 243 auto-derived rubrics.
-- Outpatient severity labels: 193 stable, 45 urgent, 2 critical. These labels are displayed, but outpatient cases are not run through the triage API.
+- 3 authored rubrics (`im-003`, `im-004`, `im-005`); 237 auto-derived rubrics.
+- Outpatient severity labels preserve routine, urgent, and critical-escalation teaching semantics.
 
 ## Encounter/evaluation pipeline
 
@@ -79,7 +78,6 @@ Authored clinical-management criteria may cite `guidelineId:recId`. `collectRegi
 | Indications/contraindications | Deterministic lists | Needs specialty review; incomplete lists must not imply safety |
 | Guidelines | Citation references resolve | Auto-fetched, not clinician-verified |
 | Rubrics | 3 authored, 243 generated from case fields | Needs assessor validation and fairness testing |
-| Triage | Prompted LLM + parser; dormant UI path | Simplified scale; not a validated ESI implementation |
 | Debrief | Structured output validated | LLM-dependent and evidence-incomplete |
 
 ## Required clinical governance before real use

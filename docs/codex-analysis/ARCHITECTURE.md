@@ -32,7 +32,7 @@ flowchart TD
 
 ## Backend
 
-`backend/server.py` combines configuration loading, security middleware, schemas, prompts, agent bootstrap/versioning, session proxying, SSE, fake EHR data, triage inference, patient text streaming, and LiveKit token/room creation. It is a pragmatic hackathon monolith rather than a layered backend.
+`backend/server.py` combines configuration loading, security middleware, schemas, prompts, agent bootstrap/versioning, session proxying, SSE, fake EHR data, patient text streaming, and LiveKit token/room creation. It is a pragmatic hackathon monolith rather than a layered backend.
 
 The app loads `backend/.env.local` without overwriting non-empty process variables. Middleware order is CORS → SlowAPI → shared-secret check. `/health` is public; localhost-looking Origin/Referer values bypass the shared secret; other protected requests require `x-medsim-auth` when configured.
 
@@ -48,8 +48,7 @@ The app loads `backend/.env.local` without overwriting non-empty process variabl
 
 ## Architectural discrepancies
 
-- README/spec claim ER + polyclinic; only polyclinic is reachable.
-- Documentation references `eventStreamRenderer.tsx`, `triageReasoning.ts`, `PatientPanel.tsx`, `GameOver.tsx`, and `simulation-state.ts`; none exist.
+- Historical planning documents may reference prototype files that no longer exist; current runtime documentation is outpatient-only.
 - Spec says one Managed-Agent session per shift; current debrief hook creates one session per debrief.
 - System prompt says the debrief includes voice transcript/free-text counselling; the request type and builder include neither.
 - README says the frontend can work without the voice worker because text chat remains; `Conversation.init()` failure can prevent the cached conversation from reaching `ready`, so the visible fallback behavior is not fully guaranteed.

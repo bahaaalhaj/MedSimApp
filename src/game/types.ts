@@ -8,7 +8,6 @@ export type Screen =
   | 'onboarding'
   | 'auth'
   | 'home'
-  | 'mode'
   | 'gpRoom'
   | 'library'
   | 'brief'

@@ -195,11 +195,6 @@ def health():
 #                                                server-side and returns
 #                                                a fake record. The token
 #                                                never leaves the process.
-#   POST /agent/triage/classify                — one-shot Opus 4.7 ESI
-#                                                classifier for ER
-#                                                arrivals. Stateless;
-#                                                separate from the
-#                                                Managed Agent session.
 #
 # TODO: verify wire names against
 # https://platform.claude.com/docs/en/managed-agents/ before submission —
@@ -243,38 +238,20 @@ AGENT_MODEL = "claude-opus-4-7"
 AGENT_NAME = "medsim-attending"
 ENV_NAME = "medsim-attending-env"
 
-# Direct-inference model for the dedicated triage-reasoning endpoint.
-# Pinned to Opus 4.7 because the spec reserves triage for the strongest
-# clinical-reasoning model — see CLAUDE.md's "Model routing" table. This
-# is a separate code path from the Managed Agent (AGENT_MODEL); the
-# agent observes the whole encounter, triage classifies one arrival.
-TRIAGE_MODEL = "claude-opus-4-7"
-TRIAGE_MAX_TOKENS = 512
-
 MEDSIM_ATTENDING_SYSTEM_PROMPT = (
     "You are the attending physician supervising a trainee in a clinical "
     "training simulator. Your role is to OBSERVE their decisions and "
     "GRADE the encounter. You are NOT an assistant, a guide, or a "
     "coach. Silence is acceptable and often correct.\n\n"
 
-    "The simulator runs in one of two modes at a time; the event stream "
-    "makes it explicit:\n"
-    "  • EMERGENCY ROOM (ER) — triaged by severity, 4 beds in "
-    "red/yellow/green zones. Events: [ER arrival], [test ordered], "
-    "[treatment given], [diagnosis submitted], [disposition].\n"
-    "  • POLYCLINIC (outpatient) — no triage zones, no beds, one "
-    "patient at a time, tests resolve instantly. Events: "
+    "The simulator is an outpatient polyclinic with one patient at a "
+    "time and instant test results. Events include "
     "[polyclinic arrival], [poly test], [poly diagnosis], [poly rx], "
     "[disposition].\n\n"
 
-    "Custom-tool usage by mode:\n"
-    "  • ER mode only: render_triage_badge (red/yellow/green + one-line "
-    "rationale), render_bed_map.\n"
-    "  • Both modes: render_vitals_chart, render_patient_timeline, "
+    "Custom-tool usage:\n"
+    "  • Available tools: render_vitals_chart, render_patient_timeline, "
     "render_case_evaluation, flag_critical_finding, lookup_ehr_history.\n"
-    "  • DO NOT emit render_triage_badge or render_bed_map during "
-    "polyclinic events — triage zones and beds are ER concepts and "
-    "emitting them confuses the UI.\n\n"
 
     "Permission policy — custom tools:\n"
     "  • All render_* tools are auto-allowed; the trainee's UI renders "
@@ -289,13 +266,9 @@ MEDSIM_ATTENDING_SYSTEM_PROMPT = (
     "credential vault so the EHR auth token never enters your context. "
     "Call it once per patient when prior history or medication list "
     "would change your assessment (e.g., unclear cardiac history, "
-    "possible drug interaction). Do not call it for every arrival.\n\n"
+    "possible drug interaction). Do not call it for every consultation.\n\n"
 
     "What you DO:\n"
-    "  • On [ER arrival]: optionally emit one render_triage_badge with a "
-    "rationale citing specific vitals or chief-complaint evidence. If "
-    "the vitals are unremarkable and the presentation doesn't warrant "
-    "a zone call, stay silent.\n"
     "  • On [polyclinic arrival]: stay silent. Do not greet the patient "
     "or ask the trainee what they want to do.\n"
     "  • At debrief time (see DEBRIEF MODE below): emit exactly one "
@@ -391,32 +364,6 @@ MEDSIM_CUSTOM_TOOLS: list[dict] = [
                 "patient_id": {"type": "string"},
             },
             "required": ["patient_id"],
-        },
-    },
-    {
-        "type": "custom",
-        "name": "render_bed_map",
-        "description": (
-            "Display the current bed occupancy map across the four ER beds."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "type": "custom",
-        "name": "render_triage_badge",
-        "description": (
-            "Display a triage-priority badge with a one-line rationale."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "zone": {"type": "string", "enum": ["red", "yellow", "green"]},
-                "reason": {"type": "string"},
-            },
-            "required": ["zone", "reason"],
         },
     },
     {
@@ -1060,19 +1007,6 @@ FAKE_EHR_RECORDS: dict[str, dict] = {
         ],
         "allergies": [],
     },
-    "er-101": {
-        "patient_id": "er-101",
-        "name": "John Williams",
-        "prior_encounters": [
-            {"date": "2024-12-03", "reason": "STEMI, PCI to LAD"},
-        ],
-        "active_medications": [
-            {"name": "aspirin", "dose": "81 mg", "frequency": "daily"},
-            {"name": "clopidogrel", "dose": "75 mg", "frequency": "daily"},
-            {"name": "metoprolol", "dose": "25 mg", "frequency": "BID"},
-        ],
-        "allergies": [],
-    },
 }
 
 
@@ -1128,191 +1062,8 @@ def vault_ehr_lookup(req: EhrLookupRequest):
 
 
 # ───────────────────────────────────────────────────────────────────────────
-# Triage-reasoning endpoint (direct Opus 4.7 inference)
 # ───────────────────────────────────────────────────────────────────────────
 #
-# Separate from the medsim-attending Managed Agent. That agent observes the
-# whole encounter and grades it; this endpoint is a one-shot ESI triage
-# classification called at ER arrival, before the agent has seen enough
-# to form an opinion. Kept on Opus 4.7 — the spec reserves clinical
-# reasoning for the strongest model.
-#
-# Design notes:
-#   • Pure function `run_triage_reasoning(client, request)` so unit
-#     tests can mock the Anthropic client without spinning HTTP.
-#   • The system prompt inlines the 5 ESI rules we actually apply. It
-#     mirrors `.claude/skills/medsim-triage-logic.md` so keep them in sync
-#     when either changes.
-#   • Model output is constrained to JSON via explicit instruction +
-#     assistant prefill; we parse defensively and raise on malformed
-#     output so the caller sees a 502 rather than silent garbage.
-
-ESI_TRIAGE_SYSTEM_PROMPT = (
-    "You classify ER arrivals on a simplified 3-level ESI scale: "
-    "'critical' (ESI 1-2), 'urgent' (ESI 3), or 'stable' (ESI 4-5).\n\n"
-
-    "Rules you apply, in priority order:\n"
-    "1. RED FLAGS force 'critical' regardless of current vitals: "
-    "ST elevation / new LBBB / troponin elevation; sudden focal neuro "
-    "deficit within the tPA window; sustained VT / VF / torsades; "
-    "anaphylaxis with airway involvement; ectopic with hemodynamic "
-    "compromise; intracranial hemorrhage; qSOFA ≥ 2 of (RR≥22, altered "
-    "mental status, SBP≤100).\n"
-    "2. 'critical' also applies if the patient needs life-saving "
-    "intervention NOW (airway, hemodynamic support, time-critical "
-    "reperfusion).\n"
-    "3. 'urgent' for conditions with significant morbidity but no "
-    "imminent threat — appendicitis, new AFib w/ RVR, moderate asthma "
-    "exacerbation, chest pain without red-flag features.\n"
-    "4. 'stable' only when BOTH red flags and urgent criteria are "
-    "absent AND vitals are compensated AND chief complaint is low-"
-    "acuity (ankle sprain, viral URI, chronic-stable presentations).\n"
-    "5. If uncertain between two levels, choose the higher severity.\n\n"
-
-    "Respond with STRICT JSON ONLY, no prose, matching:\n"
-    '{"esi_level": "critical"|"urgent"|"stable", '
-    '"rationale": "<one sentence citing specific vitals or red flags>", '
-    '"red_flags": [<zero or more of the rule-1 phrases that apply>]}\n'
-)
-
-
-class VitalsSnapshot(BaseModel):
-    hr: Optional[int] = None
-    bp_systolic: Optional[int] = None
-    bp_diastolic: Optional[int] = None
-    spo2: Optional[int] = None
-    rr: Optional[int] = None
-    temp_c: Optional[float] = None
-
-
-class TriageClassifyRequest(BaseModel):
-    patient_id: str
-    chief_complaint: str
-    vitals: VitalsSnapshot
-    ecg_findings: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class TriageClassifyResponse(BaseModel):
-    patient_id: str
-    esi_level: str  # 'critical' | 'urgent' | 'stable'
-    rationale: str
-    red_flags: list[str]
-    model: str
-
-
-ALLOWED_ESI_LEVELS = {"critical", "urgent", "stable"}
-
-
-def _format_triage_user_message(req: TriageClassifyRequest) -> str:
-    v = req.vitals
-    parts = [f"Patient {req.patient_id} — {req.chief_complaint}."]
-    vitals_bits: list[str] = []
-    if v.hr is not None:
-        vitals_bits.append(f"HR {v.hr}")
-    if v.bp_systolic is not None and v.bp_diastolic is not None:
-        vitals_bits.append(f"BP {v.bp_systolic}/{v.bp_diastolic}")
-    if v.spo2 is not None:
-        vitals_bits.append(f"SpO2 {v.spo2}")
-    if v.rr is not None:
-        vitals_bits.append(f"RR {v.rr}")
-    if v.temp_c is not None:
-        vitals_bits.append(f"temp {v.temp_c}°C")
-    if vitals_bits:
-        parts.append("Vitals: " + ", ".join(vitals_bits) + ".")
-    if req.ecg_findings:
-        parts.append(f"ECG: {req.ecg_findings}.")
-    if req.notes:
-        parts.append(f"Notes: {req.notes}.")
-    parts.append("Classify on the simplified ESI 3-level scale.")
-    return " ".join(parts)
-
-
-def _extract_text_blocks(message: object) -> str:
-    """Concatenate every text block in an Anthropic Messages response.
-    Accepts both real SDK Message objects and dict-shaped test doubles."""
-    blocks = getattr(message, "content", None)
-    if blocks is None and isinstance(message, dict):
-        blocks = message.get("content")
-    if not blocks:
-        return ""
-    out: list[str] = []
-    for b in blocks:
-        # Real SDK: TextBlock with .text attribute and .type == 'text'.
-        btype = getattr(b, "type", None)
-        btext = getattr(b, "text", None)
-        if btype is None and isinstance(b, dict):
-            btype = b.get("type")
-            btext = b.get("text")
-        if btype == "text" and isinstance(btext, str):
-            out.append(btext)
-    return "".join(out)
-
-
-def run_triage_reasoning(
-    client: "Anthropic",
-    req: TriageClassifyRequest,
-) -> TriageClassifyResponse:
-    """Invoke Opus 4.7 to classify an ER arrival. Pure function modulo
-    the client handle — unit tests pass a mock client."""
-    message = client.messages.create(  # type: ignore[attr-defined]
-        model=TRIAGE_MODEL,
-        max_tokens=TRIAGE_MAX_TOKENS,
-        system=ESI_TRIAGE_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": _format_triage_user_message(req)}],
-    )
-    raw = _extract_text_blocks(message).strip()
-    if not raw:
-        raise HTTPException(
-            status_code=502,
-            detail="triage model returned empty response",
-        )
-    # The model is instructed to return strict JSON. Strip an accidental
-    # ```json fence if the model wraps it.
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.lower().startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-    try:
-        parsed = json.loads(raw)
-    except ValueError as e:
-        _agent_log.warning("triage: malformed JSON from model: %s", raw[:200])
-        raise HTTPException(
-            status_code=502,
-            detail=f"triage model returned malformed JSON: {e}",
-        )
-    esi = str(parsed.get("esi_level", "")).strip()
-    if esi not in ALLOWED_ESI_LEVELS:
-        raise HTTPException(
-            status_code=502,
-            detail=f"triage model returned invalid esi_level: {esi!r}",
-        )
-    rationale = str(parsed.get("rationale", "")).strip()
-    red_flags_raw = parsed.get("red_flags", [])
-    red_flags = [str(x) for x in red_flags_raw] if isinstance(red_flags_raw, list) else []
-    _agent_log.info(
-        "triage: patient=%s esi=%s flags=%d",
-        req.patient_id, esi, len(red_flags),
-    )
-    return TriageClassifyResponse(
-        patient_id=req.patient_id,
-        esi_level=esi,
-        rationale=rationale,
-        red_flags=red_flags,
-        model=TRIAGE_MODEL,
-    )
-
-
-@app.post("/agent/triage/classify", response_model=TriageClassifyResponse)
-def triage_classify(req: TriageClassifyRequest):
-    """Opus 4.7 one-shot ESI classification for ER arrivals. Separate
-    from the Managed Agent event stream — this is a stateless direct
-    inference endpoint."""
-    client = get_anthropic_client()
-    return run_triage_reasoning(client, req)
-
-
 # ───────────────────────────────────────────────────────────────────────────
 # Patient persona streaming — Haiku 4.5
 # ───────────────────────────────────────────────────────────────────────────

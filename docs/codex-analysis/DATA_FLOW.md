@@ -18,7 +18,7 @@ flowchart TD
 1. `POLYCLINIC_CASES` is flattened by `src/data/cases.ts`; the synthetic `all-specialties` bucket is skipped to avoid duplicates.
 2. `Store.acceptNextPatient()` converts the selected catalogue card back to its full `PatientCase`, creates `ActivePatient`, pre-warms Web Audio, marks the case attempted for this page session, and navigates to `encounter`.
 3. `EncounterScreen` mounts `Polyclinic`, `Player`, and `FloatingVoicePanel`. Structured actions call Store mutators; all outpatient tests complete immediately.
-4. Dispatch snapshots the active patient to `lastEncounter`, clears the live patient, disposes the conversation, and either loads another patient or navigates to the wrap screen.
+4. Finish Consultation opens confirmation while retaining the active patient. Confirmation snapshots it to `lastEncounter`, clears the live patient, disposes the conversation, and opens the debrief.
 5. `DebriefScreen` builds a request from `lastEncounter`, starts a Managed Agent session, validates `render_case_evaluation`, renders it, and saves through `evalHistory.ts`: authenticated users go to the SQLite progress API; guests go to their namespaced device-local key.
 
 ## Voice lifecycle
@@ -56,5 +56,4 @@ Typed chat uses `/agent/patient/stream`, with the same system prompt and accumul
 - `EndConfirmChecks` are not included in the debrief payload, despite UI text saying they affect the debrief.
 - Polyclinic has no Store action that adds `givenTreatmentIds`; only prescriptions are mutable.
 - `gradePrescription()` is never called, so its deterministic indication/contraindication score does not affect the visible grade.
-- The triage API has no frontend caller.
-- No encounter or evaluation is persisted server-side.
+- Authenticated evaluations are persisted server-side; guest evaluations remain in identity-namespaced browser storage.

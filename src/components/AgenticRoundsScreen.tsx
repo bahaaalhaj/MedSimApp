@@ -3,7 +3,6 @@ import { TopBar } from './primitives';
 import { store } from '../game/store';
 import { GUIDELINES } from '../data/guidelines';
 import { POLYCLINIC_CASES } from '../data/polyclinicPatients';
-import { PATIENT_CASES } from '../data/patients';
 
 // ── Visual canvas ───────────────────────────────────────────────────
 //
@@ -78,14 +77,10 @@ function collectAllCases() {
       if (c.rubric) withRubric += 1;
     }
   }
-  for (const c of PATIENT_CASES) {
-    if (c.rubric) withRubric += 1;
-  }
   return {
-    total: polyTotal + PATIENT_CASES.length,
+    total: polyTotal,
     withRubric,
     polyTotal,
-    erTotal: PATIENT_CASES.length,
   };
 }
 
@@ -315,7 +310,7 @@ const NODES: NodeDef[] = [
     subtitle: 'Authors a CaseRubric per case. Citation-disciplined.',
     badge: 'skill',
     details: {
-      what: 'Persistent skill invoked per case. Reads the case anamnesis + critical treatments, picks the relevant recIds from the registry, and writes a PLAB2-style rubric in-place into polyclinicPatients.ts (or patients.ts). Drops any criterion that has no matching rec — never fabricates. Cases without an authored rubric get an auto-derived fallback from autoRubric.ts.',
+      what: 'Persistent skill invoked per case. Reads the outpatient case anamnesis + critical treatments, picks the relevant recIds from the registry, and writes a PLAB2-style rubric in-place into polyclinicPatients.ts. Drops any criterion that has no matching rec — never fabricates. Cases without an authored rubric get an auto-derived fallback from autoRubric.ts.',
       files: [
         { path: '.claude/skills/medsim-rubric-author/SKILL.md', label: 'SKILL.md' },
         { path: '.claude/skills/medsim-rubric-author/rubric-brief.schema.json', label: 'optional input contract' },
@@ -344,7 +339,6 @@ const NODES: NodeDef[] = [
       what: 'Per-case CaseRubric object embedded directly on the PatientCase. Contains data_gathering / clinical_management / interpersonal criteria + optional safety_netting. Cases without an authored rubric fall back to autoRubric.ts which derives a citation-free version from the case\'s critical treatments + relevant anamnesis items.',
       files: [
         { path: 'src/data/polyclinicPatients.ts', label: '240 polyclinic cases' },
-        { path: 'src/data/patients.ts', label: 'ER cases' },
         { path: 'src/game/types.ts', label: 'CaseRubric interface' },
       ],
       liveCounts: [
@@ -1120,7 +1114,7 @@ function CasesTab() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
         gap: 14,
       }}>
-        <BigStat label="cases authored" value={String(CASE_STATS.total)} sub={`${CASE_STATS.polyTotal} polyclinic + ${CASE_STATS.erTotal} ER`} />
+        <BigStat label="cases authored" value={String(CASE_STATS.total)} sub={`${CASE_STATS.polyTotal} outpatient cases`} />
         <BigStat label="hero rubrics" value={String(CASE_STATS.withRubric)} sub={`${CASE_STATS.total - CASE_STATS.withRubric} cases on auto-fallback`} />
         <BigStat label="guidelines in registry" value={String(GUIDELINES.length)} sub={`${recCount} verbatim recommendations`} />
         <BigStat label="conditions covered" value={String(CONDITIONS_FROM_DATA.length)} sub="dx labels in the catalogue" />
@@ -1402,7 +1396,7 @@ const TWO_MODES = [
     bullets: [
       'Watches encounter events: arrivals, tests ordered, treatments, prescriptions, diagnosis submitted.',
       'Stays silent unless something is genuinely critical (peri-arrest vitals, stroke window, anaphylaxis) — then flag_critical_finding fires.',
-      'May emit one render_triage_badge on ER arrivals if vitals warrant a zone call.',
+      'May flag a critical outpatient finding when immediate escalation is warranted.',
       'Never asks the trainee questions, never narrates the scene.',
     ],
   },
@@ -1421,8 +1415,6 @@ const TWO_MODES = [
 
 const TOOLS = [
   { name: 'render_vitals_chart',     perm: 'auto',    desc: 'Line chart of HR / BP / SpO2 / Temp / RR over the encounter.' },
-  { name: 'render_bed_map',          perm: 'auto',    desc: 'ER bed occupancy map. ER mode only.' },
-  { name: 'render_triage_badge',     perm: 'auto',    desc: 'Red/yellow/green triage zone with a one-line rationale. ER arrivals.' },
   { name: 'render_patient_timeline', perm: 'auto',    desc: 'Tests + treatments in chronological order.' },
   { name: 'render_case_evaluation',  perm: 'auto',    desc: 'End-of-encounter PLAB2 debrief — verdict, criteria, citations, narrative.' },
   { name: 'flag_critical_finding',   perm: 'confirm', desc: 'Disruptive critical-finding banner. Reserved for imminent risk.' },

@@ -10,7 +10,7 @@ storage and are never silently merged with an account. See
 `backend/README.md` for database migrations, cookie configuration, development
 reset instructions, and security assumptions.
 
-Browser-based ER + polyclinic clinical training simulator. You play the doctor: new patients arrive at triage, you talk to them in real time, order tests, treat, disposition. An attending physician (Claude Opus 4.7) watches and grades your decisions.
+Browser-based outpatient clinical training simulator. Select a specialty and synthetic patient, take a history, order investigations, diagnose, prescribe, and receive an AI-supported debrief.
 
 > Hackathon submission. Cases are plausible but synthetic — no clinical claims.
 
@@ -37,9 +37,7 @@ Built in three days for the Opus 4.7 hackathon by a medical-doctor-turned-softwa
 | Attending grader | Claude **Opus 4.7** as a Managed Agent (`medsim-attending`) |
 | State | Single `Store` class with `useSyncExternalStore` (no Redux/Zustand) |
 
-Two flows:
-- **ER** — multiple beds, real-time voice with each patient, tests resolve over simulated minutes.
-- **Polyclinic** — one outpatient at a time, tests resolve instantly.
+The implemented flow is outpatient-only: one patient at a time, with instant simulated investigation results and clinically important escalation guidance retained for red-flag cases.
 
 ---
 
@@ -165,7 +163,7 @@ src/
   game/               # Store, types, single source of truth
   data/               # Patients, tests, treatments, medications, guidelines (pure data)
   components/         # React UI
-  components/three/   # Three.js scenes (ER room, polyclinic)
+  components/three/   # Three.js outpatient polyclinic scene
   voice/              # LiveKit conversation + persona builders
   agents/             # Managed Agent client + custom-tool UI renderer
 backend/

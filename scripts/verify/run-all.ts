@@ -5,7 +5,6 @@
  */
 
 import { verifyDataIntegrity } from './data-integrity.ts';
-import { verifyTriagePriority } from './triage-priority.ts';
 import { verifyThreeScene } from './three-scene.ts';
 import { verifyRubricCitations } from './rubric-smoke.ts';
 
@@ -13,7 +12,6 @@ type Violation = { case: string; rule: string; detail: string };
 
 const checks: Array<{ name: string; run: () => Violation[] }> = [
   { name: 'data-integrity', run: verifyDataIntegrity },
-  { name: 'triage-priority', run: verifyTriagePriority },
   { name: 'three-scene', run: verifyThreeScene },
   { name: 'rubric-citations', run: verifyRubricCitations },
 ];

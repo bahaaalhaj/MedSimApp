@@ -2,7 +2,7 @@
  * Medication catalog for the polyclinic prescription workflow.
  *
  * Each entry lists the diagnosis IDs (from `polyclinicPatients.ts` /
- * `patients.ts`) for which the drug is clinically appropriate, plus an
+ * `polyclinicPatients.ts`) for which the drug is clinically appropriate, plus an
  * explicit contraindications list when the drug would be dangerous or
  * medically inappropriate.  Grading uses these lists to award bonuses for
  * correct prescribing and penalties for wrong/dangerous choices.
@@ -72,7 +72,6 @@ export const MEDICATIONS: Medication[] = [
       'otitis-media-adult',
       'acute-otitis-media-child',
       'community-acquired-pna',
-      'pneumonia',
       'cellulitis-non-limb-threatening',
       'dental-abscess',
       'pid-outpatient',
@@ -89,7 +88,6 @@ export const MEDICATIONS: Medication[] = [
     defaultDuration: '5 days',
     indications: [
       'community-acquired-pna',
-      'pneumonia',
       'chronic-bronchitis',
       'pid-outpatient',
       'pid-gonococcal',
@@ -107,7 +105,6 @@ export const MEDICATIONS: Medication[] = [
     indications: [
       'uti-uncomplicated',
       'recurrent-uti-female',
-      'uti',
       'pyelonephritis',
       'prostatitis-chronic',
       'brucellosis',
@@ -178,7 +175,7 @@ export const MEDICATIONS: Medication[] = [
     class: 'Urinary antibiotic',
     defaultDose: '1 cap, 2×1, PO',
     defaultDuration: '5 days',
-    indications: ['uti-uncomplicated', 'recurrent-uti-female', 'uti'],
+    indications: ['uti-uncomplicated', 'recurrent-uti-female'],
     contraindications: ['ckd-stage3a', 'pyelonephritis', 'diabetic-nephropathy'],
   },
   {
@@ -243,7 +240,6 @@ export const MEDICATIONS: Medication[] = [
       'essential-hypertension',
       'htn-uncontrolled',
       'chf-nyha2',
-      'chf',
       'diabetic-nephropathy',
       'iga-nephropathy',
       'ckd-stage3a',
@@ -288,7 +284,6 @@ export const MEDICATIONS: Medication[] = [
       'paroxysmal-afib',
       'stable-angina',
       'chf-nyha2',
-      'chf',
       'ventricular-pvcs',
       'hcm',
       'essential-hypertension',
@@ -306,7 +301,6 @@ export const MEDICATIONS: Medication[] = [
     defaultDuration: 'ongoing',
     indications: [
       'chf-nyha2',
-      'chf',
       'paroxysmal-afib',
       'stable-angina',
       'essential-hypertension',
@@ -343,7 +337,7 @@ export const MEDICATIONS: Medication[] = [
     class: 'Aldosterone antagonist',
     defaultDose: '1 tab, 1×1, PO',
     defaultDuration: 'ongoing',
-    indications: ['chf-nyha2', 'chf', 'htn-uncontrolled', 'pcos', 'pcos-obgyn'],
+    indications: ['chf-nyha2', 'htn-uncontrolled', 'pcos', 'pcos-obgyn'],
     contraindications: ['ckd-stage3a', 'aki-pre-renal'],
   },
 
@@ -388,7 +382,6 @@ export const MEDICATIONS: Medication[] = [
       'type2-diabetes',
       'type2-dm-uncontrolled',
       'chf-nyha2',
-      'chf',
       'diabetic-nephropathy',
     ],
     contraindications: ['type1-dm-new', 'aki-pre-renal'],
@@ -727,7 +720,6 @@ export const MEDICATIONS: Medication[] = [
       'asthma-chronic',
       'asthma-allergic',
       'pediatric-asthma-exacerbation',
-      'asthma-exacerbation',
       'copd-gold2',
       'chronic-bronchitis',
     ],
@@ -895,7 +887,7 @@ export const MEDICATIONS: Medication[] = [
     class: 'Antiplatelet',
     defaultDose: '1 tab, 1×1, PO',
     defaultDuration: 'ongoing',
-    indications: ['stable-angina', 'stemi', 'ischemic-stroke', 'paroxysmal-afib'],
+    indications: ['stable-angina', 'ischemic-stroke', 'paroxysmal-afib'],
     contraindications: ['peptic-ulcer-disease', 'hemorrhagic-stroke', 'warfarin-bleeding-workup'],
   },
   {
@@ -906,7 +898,7 @@ export const MEDICATIONS: Medication[] = [
     class: 'Antiplatelet (P2Y12 inhibitor)',
     defaultDose: '1 tab, 1×1, PO',
     defaultDuration: 'ongoing',
-    indications: ['stable-angina', 'stemi', 'ischemic-stroke'],
+    indications: ['stable-angina', 'ischemic-stroke'],
     contraindications: ['peptic-ulcer-disease', 'hemorrhagic-stroke'],
   },
   {
@@ -938,7 +930,7 @@ export const MEDICATIONS: Medication[] = [
     class: 'Loop diuretic',
     defaultDose: '1 tab, 1×1, PO',
     defaultDuration: 'ongoing',
-    indications: ['chf-nyha2', 'chf', 'pleural-effusion-parapneumonic'],
+    indications: ['chf-nyha2', 'pleural-effusion-parapneumonic'],
     contraindications: ['aki-pre-renal', 'orthostatic-hypotension'],
   },
 
@@ -1158,7 +1150,6 @@ export const MEDICATIONS: Medication[] = [
       'bells-palsy',
       'cluster-headache',
       'polymyalgia-rheumatica',
-      'asthma-exacerbation',
       'pediatric-asthma-exacerbation',
       'sarcoidosis-stage2',
       'lupus-nephritis',

@@ -288,7 +288,7 @@ export function EncounterScreen() {
     setExamineOpen(true);
   };
 
-  const handleInteract = (kind: 'desk' | 'bed' | 'triage', bedIndex?: number) => {
+  const handleInteract = (kind: 'desk' | 'bed', bedIndex?: number) => {
     // E (examine) on the patient — open the cozy examine overlay so the
     // doctor can take a history, order tests, read results, and submit a
     // diagnosis. The voice agent keeps running underneath so the patient
@@ -324,8 +324,6 @@ export function EncounterScreen() {
     }
     if (document.pointerLockElement) document.exitPointerLock();
     interactionBus.setActive(null);
-    store.finishPolyclinicCase();
-    disposePatientConversation(POLYCLINIC_BED_INDEX);
     store.setScreen('endConfirm');
   };
 
@@ -449,39 +447,7 @@ export function EncounterScreen() {
           />
           <ExamineOverlay
             onClose={() => setExamineOpen(false)}
-            onDispatch={async () => {
-              // 1. Close the modal so the patient's farewell bubble is
-              //    visible while the audio plays.
-              setExamineOpen(false);
-
-              // 2. sayFarewell now polls until the agent's TTS actually
-              //    finishes (RPC into voice worker → session.say → wait
-              //    for status to leave 'speaking'). No extra padding here.
-              const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-              if (conv) {
-                try {
-                  await conv.sayFarewell();
-                } catch {
-                  /* network/voice failure — keep going */
-                }
-              }
-
-              // 3. Tear down THIS patient's conversation + clear the bed.
-              if (document.pointerLockElement) document.exitPointerLock();
-              interactionBus.setActive(null);
-              store.finishPolyclinicCase();
-              disposePatientConversation(POLYCLINIC_BED_INDEX);
-
-              // 5. Auto-load the next patient from the active clinic.
-              //    FloatingVoicePanel re-keys on patient.case.id and
-              //    fires the new patient's greeting automatically.
-              const nextId = store.pickNextCaseId();
-              if (nextId) {
-                store.acceptNextPatient(nextId);
-              } else {
-                store.setScreen('endConfirm');
-              }
-            }}
+            onFinish={endConsultation}
           />
         </>
       )}

@@ -1,5 +1,5 @@
 import fs from 'fs';
-const src = fs.readFileSync('src/data/polyclinicPatients.ts','utf8') + '\n' + fs.readFileSync('src/data/patients.ts','utf8');
+const src = fs.readFileSync('src/data/polyclinicPatients.ts', 'utf8');
 const radSrc = fs.readFileSync('src/data/radiologyImages.ts','utf8');
 
 const imgSet = ['cxr','kub','xr-extrem','xr-spine','xr-pelvis','us-abdomen','us-pelvis','echo','ct-head','ct-chest','ct-angio','ct-abdomen','ct-cspine','mri-brain','mri-cspine','mri-lspine','mri-abd','ecg'];

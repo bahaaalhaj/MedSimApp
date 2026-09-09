@@ -16,7 +16,7 @@
 | `backend/voice_agent.py` | LiveKit Agents worker entry |
 | `scripts/verify/` | Deterministic dataset and scene invariants |
 | `scripts/test/` | Node test runner tests for custom tools and loop commands |
-| `backend/tests/` | Python tests for triage and vault endpoints |
+| `backend/tests/` | Python tests for authentication, progress ownership, and vault endpoints |
 | `.claude/`, `agent/skills/`, `loop/` | Authoring/agent workflow instructions, not runtime application code |
 | `dist/` | Checked-in generated frontend build; not source of truth |
 
@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | Splash/onboarding | `SplashScreen.tsx`, `OnboardingScreen.tsx` | First-run flow |
 | Home/history | `HomeScreen.tsx`, `HistoryScreen.tsx` | Reads local evaluation history |
-| Mode/specialty | `ModeSelectScreen.tsx`, `GPRoomScreen.tsx` | Only Polyclinic is enabled |
+| Specialty selection | `GPRoomScreen.tsx` | Direct destination after authentication or guest entry |
 | Cases/brief | `CaseLibraryScreen.tsx`, `BriefScreen.tsx` | Selects from derived 240-case catalogue |
 | Encounter | `EncounterScreen.tsx` | Owns room, pointer lock, voice and overlay lifecycle |
 | Clinical actions | `ExamineOverlay.tsx` | History, chat, tests/results, diagnosis, prescription |
@@ -38,7 +38,6 @@
 | File | Actual content |
 | --- | --- |
 | `polyclinicPatients.ts` | 240 cases: 24 specialties × 10 |
-| `patients.ts` | 6 dormant ER cases |
 | `tests.ts` | 80 tests and 49 convenience panels |
 | `defaultTestResults.ts` | Fallback normal/abnormal text reports |
 | `treatments.ts` | 19 ER-style treatment/disposition IDs |

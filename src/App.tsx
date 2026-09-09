@@ -4,7 +4,6 @@ import { applyIntensity, applyPalette } from './styles/palettes';
 import { SplashScreen } from './components/SplashScreen';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { HomeScreen } from './components/HomeScreen';
-import { ModeSelectScreen } from './components/ModeSelectScreen';
 import { GPRoomScreen } from './components/GPRoomScreen';
 import { CaseLibraryScreen } from './components/CaseLibraryScreen';
 import { BriefScreen } from './components/BriefScreen';
@@ -62,7 +61,6 @@ export default function App() {
       {visibleScreen === 'onboarding' && <OnboardingScreen />}
       {visibleScreen === 'auth' && <AuthScreen />}
       {visibleScreen === 'home' && <HomeScreen />}
-      {visibleScreen === 'mode' && <ModeSelectScreen />}
       {visibleScreen === 'gpRoom' && <GPRoomScreen />}
       {visibleScreen === 'library' && <CaseLibraryScreen />}
       {visibleScreen === 'brief' && <BriefScreen />}

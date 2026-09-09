@@ -13,13 +13,13 @@ type Tab = 'history' | 'chat' | 'tests' | 'results' | 'diagnose' | 'rx';
 
 interface Props {
   onClose: () => void;
-  onDispatch: () => void;
+  onFinish: () => void;
 }
 
 const diagLabel = (id: string): string =>
   POLYCLINIC_DIAGNOSIS_LABELS[id] ?? id.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 
-export function ExamineOverlay({ onClose, onDispatch }: Props) {
+export function ExamineOverlay({ onClose, onFinish }: Props) {
   const state = useGameState();
   const patient = state.polyclinic.patient;
   const [tab, setTab] = useState<Tab>('history');
@@ -217,13 +217,13 @@ export function ExamineOverlay({ onClose, onDispatch }: Props) {
           {tab === 'diagnose' && (
             <DiagnoseTab
               patient={patient}
-              onDispatch={onDispatch}
+              onFinish={onFinish}
               onGoToRx={() => setTab('rx')}
               submitted={submitted}
             />
           )}
           {tab === 'rx' && (
-            <RxTab patient={patient} onDispatch={onDispatch} unlocked={rxUnlocked} />
+            <RxTab patient={patient} onFinish={onFinish} unlocked={rxUnlocked} />
           )}
         </div>
 
@@ -875,12 +875,12 @@ function shuffleSeeded<T>(input: readonly T[], seedKey: string): T[] {
 
 function DiagnoseTab({
   patient,
-  onDispatch,
+  onFinish,
   onGoToRx,
   submitted,
 }: {
   patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']>;
-  onDispatch: () => void;
+  onFinish: () => void;
   onGoToRx: () => void;
   submitted: string | null;
 }) {
@@ -963,9 +963,9 @@ function DiagnoseTab({
             type="button"
             className="btn-plush ghost"
             style={{ fontSize: 16, padding: '14px 0' }}
-            onClick={onDispatch}
+            onClick={onFinish}
           >
-            Dispatch without Rx →
+            Finish without prescription →
           </button>
         </div>
       )}
@@ -1066,11 +1066,11 @@ function ChatTab({ patientName }: { patientName: string }) {
 
 function RxTab({
   patient,
-  onDispatch,
+  onFinish,
   unlocked,
 }: {
   patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']>;
-  onDispatch: () => void;
+  onFinish: () => void;
   unlocked: boolean;
 }) {
   const [picked, setPicked] = useState<Record<string, { dose: string; duration: string }>>({});
@@ -1349,9 +1349,9 @@ function RxTab({
         type="button"
         className="btn-plush primary breathe"
         style={{ fontSize: 18, padding: '14px 0' }}
-        onClick={onDispatch}
+        onClick={onFinish}
       >
-        {submitted.length === 0 ? 'Dispatch without prescription →' : 'Dispatch patient →'}
+        {submitted.length === 0 ? 'Finish without prescription →' : 'Finish consultation →'}
       </button>
     </div>
   );

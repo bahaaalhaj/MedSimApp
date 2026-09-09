@@ -1,4 +1,4 @@
-"""End-to-end smoke test for the ER backend.
+"""End-to-end smoke test for the MedSim outpatient backend.
 
 Run this before a demo to confirm the Managed Agents pipeline is alive.
 It exercises every endpoint the browser uses, in order, and prints a
@@ -184,10 +184,8 @@ def main() -> int:
                         {
                             "type": "text",
                             "text": (
-                                "[ER arrival] patient 62M severity=critical. "
-                                "HR 104 BP 152/94 SpO2 95 RR 22. ST elevation "
-                                "on ECG, crushing chest pain. Emit "
-                                "render_triage_badge."
+                                "[polyclinic arrival] patient test-001. "
+                                "Remain silent while the outpatient consultation begins."
                             ),
                         }
                     ],
@@ -208,11 +206,6 @@ def main() -> int:
         "stream: session.status_running observed",
         type_counts.get("session.status_running", 0) >= 1,
         f"types seen: {type_counts}",
-    )
-    r.check(
-        "stream: agent.custom_tool_use observed",
-        type_counts.get("agent.custom_tool_use", 0) >= 1,
-        f"agent did not emit a custom tool. types seen: {type_counts}",
     )
     r.check(
         "stream: session.status_idle observed",

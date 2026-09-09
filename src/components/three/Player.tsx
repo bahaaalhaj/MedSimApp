@@ -19,7 +19,7 @@ export interface WallCollider {
 interface PlayerProps {
   spawn?: [number, number, number];
   colliders: WallCollider[];
-  onInteract: (kind: 'desk' | 'bed' | 'triage', bedIndex?: number) => void;
+  onInteract: (kind: 'desk' | 'bed', bedIndex?: number) => void;
   onTalk?: (bedIndex: number | null) => void;
   /** Camera eye height. 1.7m for standing, 1.45m for a seated doctor. */
   height?: number;
@@ -85,7 +85,7 @@ export function Player({
         const active = interactionBus.getActive();
         if (
           active &&
-          (active.kind === 'bed' || active.kind === 'triage') &&
+          active.kind === 'bed' &&
           active.bedIndex !== undefined
         ) {
           onTalk(active.bedIndex);

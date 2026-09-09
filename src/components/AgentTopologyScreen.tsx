@@ -81,7 +81,7 @@ const SUB_RULES: ChildNode[] = [
     h: CARD_H,
     details: {
       description:
-        'CLAUDE.md forbids specialist sub-agents like triage-expert or pharmacology-expert. The Managed Agent composes behaviour from skills under .claude/skills/ instead, keeping the topology flat and inspectable.',
+        'CLAUDE.md forbids specialist sub-agents. The Managed Agent composes behaviour from skills under .claude/skills/ instead, keeping the topology flat and inspectable.',
       files: ['CLAUDE.md', '.claude/skills/'],
       bullets: [
         'Skills are markdown procedures the agent loads on demand',

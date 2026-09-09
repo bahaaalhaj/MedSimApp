@@ -7,11 +7,10 @@
  * - Every PatientCase.acceptableTreatmentIds / criticalTreatmentIds exists in TREATMENTS.
  * - criticalTreatmentIds ⊆ acceptableTreatmentIds.
  * - correctDiagnosisId is included in diagnosisOptions.
- * - All PatientCase IDs are unique (across ER + every clinic).
+ * - All outpatient PatientCase IDs are unique across every specialty.
  * - Medication.indications reference diagnoses that at least one case has as correctDiagnosisId.
  */
 
-import { PATIENT_CASES } from '../../src/data/patients.ts';
 import { POLYCLINIC_CASES } from '../../src/data/polyclinicPatients.ts';
 import { TESTS } from '../../src/data/tests.ts';
 import { TREATMENTS } from '../../src/data/treatments.ts';
@@ -24,7 +23,7 @@ function collectAllCases(): PatientCase[] {
   // POLYCLINIC_CASES has an 'all-specialties' virtual bucket that
   // re-flattens every other specialty — skip it so each case is counted
   // exactly once.
-  const out: PatientCase[] = [...PATIENT_CASES];
+  const out: PatientCase[] = [];
   for (const [specialty, cases] of Object.entries(POLYCLINIC_CASES)) {
     if (specialty === 'all-specialties') continue;
     if (cases) out.push(...cases);

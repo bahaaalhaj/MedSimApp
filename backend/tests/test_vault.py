@@ -68,7 +68,7 @@ class VaultEndpointTests(unittest.TestCase):
     def test_second_known_patient(self) -> None:
         resp = self.client.post(
             "/agent/vault/ehr/lookup",
-            json={"patient_id": "er-101"},
+            json={"patient_id": "poly-002"},
         )
         self.assertEqual(resp.status_code, 200, resp.text)
 

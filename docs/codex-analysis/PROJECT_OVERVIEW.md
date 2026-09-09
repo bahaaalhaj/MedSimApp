@@ -4,13 +4,13 @@
 
 MedSim is a desktop-first, browser-based clinical-training prototype built for an Opus 4.7 hackathon. A trainee selects a synthetic outpatient case, speaks with an AI patient in a Three.js consultation room, records structured history questions, orders instant tests, submits a diagnosis, optionally prescribes, and receives an LLM-generated OSCE-style debrief. It is a polished prototype/MVP, not a production medical system.
 
-The implemented, reachable product is **polyclinic only**. The mode screen marks Emergency and Services as “Coming soon”; there is no ER state slice, bed manager, ER screen, or frontend caller for the triage API. Six ER cases and ER-oriented backend/tooling remain as dormant data/scaffolding. README, `CLAUDE.md`, `spec.md`, comments, and architecture-demo screens still describe an ER + polyclinic product and reference files that are absent.
+The implemented product is **outpatient only**. Authentication or guest entry leads directly to specialty selection; there is no mode-selection screen or dormant alternate-care workflow.
 
 The code is a client-heavy modular monolith with three runtime processes: a React/Vite SPA, a FastAPI proxy/token/authentication service, and a LiveKit voice worker. SQLite stores accounts, hashed sessions, and authenticated encounter summaries. Session progress remains in memory; onboarding, chat fragments, and isolated guest debrief records use browser `localStorage`.
 
 ## Implemented product surface
 
-- Splash/onboarding and mode selection.
+- Splash/onboarding, authentication/guest entry, and direct specialty selection.
 - 24 outpatient specialties, 10 cases each (240 cases total).
 - Case library and doorway brief.
 - First-person Three.js consultation room with pointer-lock controls.
@@ -23,10 +23,9 @@ The code is a client-heavy modular monolith with three runtime processes: a Reac
 
 ## Dormant or partial surface
 
-- Six ER cases, 19 ER-style treatments, ER-only test panels, triage prompt/API, and ER-oriented custom-tool definitions exist, but no reachable ER gameplay exists.
-- `render_vitals_chart`, `render_bed_map`, `render_triage_badge`, `render_patient_timeline`, `flag_critical_finding`, and `lookup_ehr_history` are registered, but the active debrief hook only meaningfully surfaces `render_case_evaluation`; non-evaluation auto tools are acknowledged without rendering, and confirm-gated tools are ignored there.
+- `render_vitals_chart`, `render_patient_timeline`, `flag_critical_finding`, and `lookup_ehr_history` are registered, but the active debrief hook only meaningfully surfaces `render_case_evaluation`; non-evaluation auto tools are acknowledged without rendering, and confirm-gated tools are ignored there.
 - The fake EHR vault is a backend demonstration, not connected to a visible active encounter UI.
-- Only three of 246 total cases have authored, guideline-cited rubrics; the other 243 use a generic auto-rubric.
+- Only three of 240 cases have authored, guideline-cited rubrics; the other 237 use a generic auto-rubric.
 
 ## Users and purpose
 
@@ -34,7 +33,7 @@ The intended users are medical students and newly graduated doctors practicing o
 
 ## Maturity assessment
 
-Strong hackathon prototype: coherent visual identity, extensive static case content, working voice architecture, deterministic data checks, and a structured debrief contract. It is not production-ready because access control is coarse, the implemented scope differs from documentation, clinical validation is very limited, critical grading inputs are missing, server persistence is absent, and test coverage is concentrated on tooling rather than core user workflows.
+Strong hackathon prototype: coherent visual identity, extensive static case content, working voice architecture, deterministic data checks, account-owned evaluation persistence, and a structured debrief contract. It is not production-ready because clinical validation is very limited, critical grading inputs are missing, and test coverage remains concentrated on tooling rather than the full browser workflow.
 
 ## Concrete strengths
 
@@ -43,7 +42,7 @@ Strong hackathon prototype: coherent visual identity, extensive static case cont
 - `src/agents/debriefRequest.ts` sends only the guideline recommendations cited by the rubric, reducing citation fabrication.
 - `src/agents/customTools.ts` validates agent tool payloads with Zod.
 - `src/data/guidelines.ts` preserves human verification state and warns agents not to promote it programmatically.
-- `scripts/verify/` catches dangling IDs, duplicate cases, invalid severity invariants, 3D constants, and broken rubric citations.
+- `scripts/verify/` catches dangling IDs, duplicate cases, 3D constants, and broken rubric citations.
 - The browser never receives Anthropic, LiveKit API-secret, Deepgram, Cartesia, or EHR token values.
 
 ## Repository readiness

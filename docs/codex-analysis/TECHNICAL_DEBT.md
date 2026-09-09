@@ -21,9 +21,9 @@
 ### Product scope and documentation have drifted
 
 **Location:** README, `CLAUDE.md`, `spec.md`, comments, explainer screens  
-**Problem:** They claim reachable ER workflows and files that do not exist. Spec test counts (30 Node/22 Python) differ from the current 18 Node tests and current Python source.  
+**Problem:** Historical planning notes contain obsolete prototype workflows and test counts. Current behavior is documented in `README.md` and `spec.md`.  
 **Why it matters:** Contributors will make incorrect assumptions and demos may promise unavailable behavior.  
-**Direction:** Mark ER as dormant/planned and remove or update stale references.
+**Direction:** Keep historical notes clearly archived and current runtime documentation accurate.
 
 ### Oversized mixed-responsibility modules
 

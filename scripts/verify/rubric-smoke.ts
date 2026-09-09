@@ -1,7 +1,7 @@
 /**
  * Rubric + registry citation integrity check.
  *
- * Walks every case in `polyclinicPatients.ts` and `patients.ts`, collects
+ * Walks every outpatient case in `polyclinicPatients.ts`, collects
  * the `guideline_ref` from every rubric criterion, and confirms each one
  * resolves in the registry. Also confirms `getRubricFor()` returns the
  * authored rubric on hero cases and the auto-fallback otherwise.
@@ -10,7 +10,6 @@
  */
 
 import { POLYCLINIC_CASES } from '../../src/data/polyclinicPatients.ts';
-import { PATIENT_CASES } from '../../src/data/patients.ts';
 import { getRecommendation } from '../../src/data/guidelines.ts';
 import { deriveAutoRubric, getRubricFor } from '../../src/data/autoRubric.ts';
 import type { PatientCase, RubricCriterion } from '../../src/game/types.ts';
@@ -18,7 +17,7 @@ import type { PatientCase, RubricCriterion } from '../../src/game/types.ts';
 type Violation = { case: string; rule: string; detail: string };
 
 function allCases(): PatientCase[] {
-  const out: PatientCase[] = [...PATIENT_CASES];
+  const out: PatientCase[] = [];
   for (const [specialty, cases] of Object.entries(POLYCLINIC_CASES)) {
     if (specialty === 'all-specialties') continue;
     out.push(...cases);

@@ -31,6 +31,34 @@ test('welcome and onboarding lead to auth, then identity continues to specialty 
   assert.match(app, /store\.setScreen\('gpRoom'\)/);
 });
 
+test('production navigation has no mode-selection screen or ER option', () => {
+  const app = read('src/App.tsx');
+  const types = read('src/game/types.ts');
+  assert.doesNotMatch(app, /ModeSelectScreen|visibleScreen === 'mode'/);
+  assert.doesNotMatch(types, /\| 'mode'/);
+  assert.equal(read('src/components/GPRoomScreen.tsx').includes('Emergency'), false);
+});
+
+test('patient selection uses only the outpatient catalogue', () => {
+  const cases = read('src/data/cases.ts');
+  const store = read('src/game/store.ts');
+  const library = read('src/components/CaseLibraryScreen.tsx');
+  assert.match(cases, /POLYCLINIC_CASES/);
+  assert.doesNotMatch(cases, /PATIENT_CASES|data\/patients/);
+  assert.match(store, /CASES\.filter\(\(c\) => c\.clinic === clinic\)/);
+  assert.match(library, /Math\.random\(\)/);
+  assert.match(library, /setFilter\(chip\.id\)/);
+});
+
+test('outpatient completion snapshots once and continues to confirmation and debrief', () => {
+  const encounter = read('src/components/EncounterScreen.tsx');
+  const confirmation = read('src/components/EndConfirmScreen.tsx');
+  assert.doesNotMatch(encounter, /pickNextCaseId\(\)/);
+  assert.match(encounter, /store\.setScreen\('endConfirm'\)/);
+  assert.match(confirmation, /store\.finishPolyclinicCase\(\)/);
+  assert.match(confirmation, /store\.setScreen\('debrief'\)/);
+});
+
 test('protected screens are replaced by auth without an account or guest identity', () => {
   const app = read('src/App.tsx');
   assert.match(app, /!isPublicScreen && !hasIdentity \? 'auth' : screen/);

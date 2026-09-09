@@ -2,7 +2,7 @@
 
 ## Project
 
-MedSim is a desktop-first clinical-training prototype. The **implemented UI is polyclinic only**: 24 specialties and 240 synthetic outpatient cases. ER data and APIs exist, but Emergency is locked and there is no ER frontend/state workflow. Do not describe dormant scaffolding as implemented.
+MedSim is a desktop-first, outpatient-only clinical-training prototype with 24 specialties and 240 synthetic cases. There is no Emergency Room mode, dataset, route, or frontend workflow. Urgent outpatient escalation remains part of clinical case safety.
 
 Detailed onboarding analysis is in `docs/codex-analysis/`.
 
@@ -36,7 +36,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Frontend/backend custom-tool schemas are manually duplicated and must remain aligned.
 - `POLYCLINIC_BED_INDEX = -10` is shared by store, scene, and conversation cache.
 - `getCase()` silently returns the first case for an unknown ID.
-- Documentation outside `docs/codex-analysis/` contains stale files, test counts, and ER claims.
+- Historical notes may describe pre-outpatient prototypes; do not treat them as current behavior.
 - Archived `node_modules` is non-portable; reinstall dependencies on the target platform.
 
 ## Commands
@@ -76,6 +76,6 @@ Synthetic cases and simplified doses are not authoritative guidance. Distinguish
 - README/spec matches implementation.
 - A resolvable ID or citation is medically correct.
 - Model output scores are arithmetically or clinically valid merely because Zod accepts them.
-- ER behavior exists because ER data/API definitions exist.
+- Urgent or critical outpatient labels imply a separate application mode.
 - A frontend-only success proves the deployed Agent/LiveKit configuration works.
 - Real secrets may be copied into documentation, tests, logs, or client variables.

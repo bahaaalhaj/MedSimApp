@@ -5,7 +5,7 @@ export interface Interactable {
   position: [number, number, number];
   radius: number;
   prompt: string;
-  kind: 'desk' | 'bed' | 'triage';
+  kind: 'desk' | 'bed';
   bedIndex?: number;
 }
 

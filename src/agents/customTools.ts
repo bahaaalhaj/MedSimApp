@@ -12,8 +12,6 @@ import { z } from 'zod';
 
 export const CUSTOM_TOOL_NAMES = [
   'render_vitals_chart',
-  'render_bed_map',
-  'render_triage_badge',
   'render_patient_timeline',
   'render_case_evaluation',
   'flag_critical_finding',
@@ -31,8 +29,6 @@ export type CustomToolName = (typeof CUSTOM_TOOL_NAMES)[number];
 // covers native + MCP tools), so this is a frontend-enforced layer.
 export const CUSTOM_TOOL_PERMISSIONS = {
   render_vitals_chart: 'auto',
-  render_bed_map: 'auto',
-  render_triage_badge: 'auto',
   render_patient_timeline: 'auto',
   render_case_evaluation: 'auto',
   flag_critical_finding: 'confirm',
@@ -49,15 +45,6 @@ export const vitalsChartInput = z.object({
   patient_id: z.string().min(1),
 });
 export type VitalsChartInput = z.infer<typeof vitalsChartInput>;
-
-export const bedMapInput = z.object({}).strict();
-export type BedMapInput = z.infer<typeof bedMapInput>;
-
-export const triageBadgeInput = z.object({
-  zone: z.enum(['red', 'yellow', 'green']),
-  reason: z.string().min(1),
-});
-export type TriageBadgeInput = z.infer<typeof triageBadgeInput>;
 
 export const patientTimelineInput = z.object({
   patient_id: z.string().min(1),
@@ -131,8 +118,6 @@ export type LookupEhrHistoryInput = z.infer<typeof lookupEhrHistoryInput>;
 
 export const customToolSchemas = {
   render_vitals_chart: vitalsChartInput,
-  render_bed_map: bedMapInput,
-  render_triage_badge: triageBadgeInput,
   render_patient_timeline: patientTimelineInput,
   render_case_evaluation: caseEvaluationInput,
   flag_critical_finding: flagCriticalFindingInput,
@@ -141,8 +126,6 @@ export const customToolSchemas = {
 
 export type ParsedCustomToolUse =
   | { name: 'render_vitals_chart'; input: VitalsChartInput }
-  | { name: 'render_bed_map'; input: BedMapInput }
-  | { name: 'render_triage_badge'; input: TriageBadgeInput }
   | { name: 'render_patient_timeline'; input: PatientTimelineInput }
   | { name: 'render_case_evaluation'; input: CaseEvaluationInput }
   | { name: 'flag_critical_finding'; input: FlagCriticalFindingInput }

@@ -208,7 +208,7 @@ export function BriefScreen() {
                 marginBottom: 8,
               }}
             >
-              TRIAGE VITALS
+              INITIAL VITALS
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
               {VITALS.map((v) => (

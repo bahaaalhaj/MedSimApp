@@ -1,4 +1,8 @@
-# Idea evolution log
+# Archived idea evolution log
+
+> Historical record only. Entries below describe an earlier prototype and may
+> name features or tools removed when MedSim became outpatient-only. They are
+> not current product documentation; see `README.md` and `spec.md`.
 
 Running log of how the medsim simulator concept sharpened during the Built-with-Opus-4.7 hackathon week. Kept for the "Keep Thinking" submission prize — judges want to see that the idea moved, not that the first shower-thought survived to Sunday.
 

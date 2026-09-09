@@ -50,8 +50,6 @@ export function getOrCreatePatientConversation(
     existing.conv.dispose();
     store.delete(bedIndex);
   }
-  // The polyclinic uses sentinel bedIndex -10; everything else is ER.
-  const setting: 'polyclinic' | 'er' = bedIndex === -10 ? 'polyclinic' : 'er';
   const ctx = ensureAudioContext();
   // Speaker gender mirrors the rule in voiceForPatient (now retired):
   // pediatric → parent's gender, adult → patient's gender.
@@ -59,7 +57,7 @@ export function getOrCreatePatientConversation(
     ? parentGenderFor(patientCase)
     : patientCase.gender;
   const conv = new Conversation(ctx, listeners, {
-    systemPrompt: buildPersona(patientCase, setting),
+    systemPrompt: buildPersona(patientCase),
     initialMessage: buildInitialLine(patientCase),
     voiceGender: speakerGender,
     caseId: patientCase.id,

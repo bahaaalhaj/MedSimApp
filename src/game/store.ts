@@ -223,11 +223,7 @@ class Store {
    *  it after the patient has left the chair.
    *
    *  Only overwrites `lastEncounter` if the snapshot has actual encounter
-   *  activity. Otherwise the previous snapshot is preserved. This matters
-   *  because the Dispatch flow auto-loads the next patient — if the trainee
-   *  then clicks "End consultation" before engaging that fresh patient,
-   *  the empty new-patient snapshot would otherwise clobber the real one
-   *  and the debrief request would arrive with empty arrays. */
+   *  activity. Otherwise the previous snapshot is preserved. */
   finishPolyclinicCase = () => {
     const snapshot = this.state.polyclinic.patient;
     const keepSnapshot = snapshot && hasEncounterActivity(snapshot);
@@ -285,6 +281,7 @@ class Store {
         clinic: clinic ?? this.state.polyclinic.clinic,
         patient: toActivePatient(c),
       },
+      endConfirm: { sum: false, safe: false, ice: false },
       screen: 'encounter',
     });
   };

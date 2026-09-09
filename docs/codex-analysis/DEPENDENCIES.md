@@ -29,7 +29,7 @@ Voice environment (`backend/voice_agent_requirements.txt`): `livekit-agents` ~1.
 
 | Variable | Used by | Purpose | Required? | Sensitive? |
 | --- | --- | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | `backend/server.py`, voice worker through provider plugin | Agent, triage, patient LLM | Yes for AI | Yes |
+| `ANTHROPIC_API_KEY` | `backend/server.py`, voice worker through provider plugin | Attending and patient LLMs | Yes for AI | Yes |
 | `MEDSIM_AGENT_ID` | `backend/server.py` | Persistent Managed Agent identity | Yes after bootstrap for debrief | Internal identifier |
 | `MEDSIM_ENV_ID` | `backend/server.py` | Persistent Managed Agent environment | Yes after bootstrap for debrief | Internal identifier |
 | `LIVEKIT_URL` | server and voice worker | WebSocket endpoint | Yes for voice | Usually no, operational |

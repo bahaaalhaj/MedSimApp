@@ -39,15 +39,12 @@ export function buildInitialLine(c: PatientCase) {
   return { role: 'assistant' as const, content: c.chiefComplaint };
 }
 
-export function buildPersona(c: PatientCase, setting: 'er' | 'polyclinic' = 'er'): string {
-  if (isPediatric(c)) return buildPediatricParentPersona(c, setting);
-  return buildAdultPatientPersona(c, setting);
+export function buildPersona(c: PatientCase): string {
+  if (isPediatric(c)) return buildPediatricParentPersona(c);
+  return buildAdultPatientPersona(c);
 }
 
-function buildAdultPatientPersona(
-  c: PatientCase,
-  setting: 'er' | 'polyclinic',
-): string {
+function buildAdultPatientPersona(c: PatientCase): string {
   const genderWord = c.gender === 'F' ? 'woman' : 'man';
   const severityNote =
     c.severity === 'critical'
@@ -57,9 +54,7 @@ function buildAdultPatientPersona(
       : 'You feel unwell but can hold a steady conversation. You are worried but lucid.';
 
   const settingLine =
-    setting === 'polyclinic'
-      ? 'You are seeing a doctor at an outpatient clinic today. You walked in on your own — this is NOT an emergency room. You came because of your concern and you are here for a routine visit.'
-      : 'You are in the emergency department. You came in because of a sudden problem that brought you here today.';
+    'You are seeing a doctor at an outpatient clinic today. You came because of your concern and are here for a scheduled or walk-in consultation.';
 
   const qa = c.anamnesis
     .map((q) => `- If asked something like "${q.question}" → answer honestly: "${q.answer}"`)
@@ -127,7 +122,6 @@ Remember: ONLY the words your character speaks out loud.`;
  */
 function buildPediatricParentPersona(
   c: PatientCase,
-  setting: 'er' | 'polyclinic',
 ): string {
   const childGenderWord = c.gender === 'F' ? 'girl' : 'boy';
   const childPronoun = c.gender === 'F' ? 'she' : 'he';
@@ -145,9 +139,7 @@ function buildPediatricParentPersona(
       : `You are concerned but composed. You can speak in steady sentences about what's been going on.`;
 
   const settingLine =
-    setting === 'polyclinic'
-      ? `You brought ${childObject} to an outpatient clinic for a routine visit — this is NOT an emergency room.`
-      : `You brought ${childObject} to the emergency department because of a sudden problem.`;
+    `You brought ${childObject} to an outpatient clinic for a scheduled or walk-in consultation.`;
 
   const qa = c.anamnesis
     .map(

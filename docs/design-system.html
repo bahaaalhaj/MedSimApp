@@ -119,7 +119,7 @@
     .btn--danger { background: var(--danger); color: #fff; border-color: transparent; }
     .btn--ghost { background: transparent; }
 
-    /* ── Triage chips ── */
+    /* ── Clinical status chips ── */
     .chip {
       display: inline-flex;
       align-items: center;
@@ -153,9 +153,6 @@
       color: var(--text-dim);
       margin-bottom: 8px;
     }
-    .agent-card--triage-red { border-left: 4px solid var(--critical); }
-    .agent-card--triage-yellow { border-left: 4px solid var(--urgent); }
-    .agent-card--triage-green { border-left: 4px solid var(--stable); }
 
     table.tokens { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.tokens th, table.tokens td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
@@ -214,19 +211,19 @@
       <button class="btn btn--ghost">Skip</button>
     </div>
 
-    <h2>Triage chips</h2>
+    <h2>Clinical status chips</h2>
     <div class="panel">
-      <span class="chip chip--red">Red · critical</span>
-      <span class="chip chip--yellow">Yellow · urgent</span>
-      <span class="chip chip--green">Green · stable</span>
+      <span class="chip chip--red">Critical escalation</span>
+      <span class="chip chip--yellow">Urgent referral</span>
+      <span class="chip chip--green">Routine follow-up</span>
     </div>
 
     <h2>Managed Agent cards</h2>
     <p class="mono">These are rendered by <code class="inline">src/agents/eventStreamRenderer.tsx</code>.</p>
     <div class="grid">
-      <div class="agent-card agent-card--triage-red">
-        <header>Triage · RED</header>
-        <p>ST elevation in II, III, aVF · troponin 3.2 — anterior wall MI. Time-to-balloon matters.</p>
+      <div class="agent-card">
+        <header>Critical finding</header>
+        <p>Red-flag findings require immediate escalation from the outpatient clinic.</p>
       </div>
       <div class="agent-card">
         <header>Case grade · 92</header>

@@ -4,9 +4,9 @@
 
 ### Start and select a case
 
-`main.tsx` clears old conversation storage → `App` shows Splash → `beginFromSplash()` chooses Onboarding or Mode from `medsim:onboarded` → Polyclinic door → specialty room → next patient or case library → brief → encounter.
+`main.tsx` clears old conversation storage → `App` shows Splash → `beginFromSplash()` chooses Onboarding or Authentication from `medsim:onboarded` → authenticated/guest entry → specialty selection → next patient or case library → brief → encounter.
 
-Returning users do not go directly to an encounter; they go to Mode. Emergency and Services doors are deliberately locked.
+There is no mode-selection screen. Returning authenticated users and guests proceed directly to specialty selection.
 
 ### Conduct a consultation
 
@@ -35,7 +35,6 @@ The user can enter debrief even without a submitted diagnosis. This conflicts wi
 | `GET /agent/sessions/{id}/events` | Integer limit, no explicit bounds | Anthropic event list |
 | `GET /agent/sessions/{id}/stream` | Path string | Async Anthropic SSE proxy |
 | `POST /agent/vault/ehr/lookup` | Pydantic string + nonblank check | In-memory fake EHR dict |
-| `POST /agent/triage/classify` | Typed vitals/request | Synchronous Opus call + defensive JSON parse |
 | `POST /agent/patient/stream` | Roles/content typed as unrestricted strings | Async Haiku SSE stream |
 | `POST /voice/token` | Strings and optional identity/voice ID | LiveKit room create + JWT mint |
 

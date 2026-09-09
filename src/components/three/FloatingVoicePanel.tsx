@@ -6,7 +6,7 @@ import { getOrCreatePatientConversation } from '../../voice/conversationStore';
 
 interface Props {
   bedPosition: [number, number, number];
-  /** Bed rotation around Y (radians). Service-room beds are -PI/2, triage is 0. */
+  /** Patient-chair rotation around Y (radians). */
   bedRotationY?: number;
   /** Mouth offset in the bed's LOCAL frame (x along the bed, y up, z across).
    *  Default: lying-on-bed head position (-0.88, 1.0, 0). Polyclinic passes
