@@ -21,6 +21,10 @@ const PROXY = {
     target: 'http://127.0.0.1:8787',
     changeOrigin: true,
   },
+  '^/api/': {
+    target: 'http://127.0.0.1:8787',
+    changeOrigin: true,
+  },
 };
 
 export default defineConfig({

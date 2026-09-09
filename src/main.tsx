@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/global.css';
 import { clearAllConversationStorage } from './voice/conversationStore';
+import { AuthProvider } from './auth/AuthProvider';
 
 // Each browser load = fresh shift. Old per-case chat history could otherwise
 // leak the previous farewell into the next encounter as the "last assistant
@@ -14,6 +15,8 @@ if (!rootEl) throw new Error('#root not found');
 
 createRoot(rootEl).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 );

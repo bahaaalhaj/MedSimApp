@@ -53,8 +53,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
+from auth_system import AuthApi, AuthSettings, build_auth_router
 
-# Shared secret protects /agent/* and /voice/* against direct curl abuse.
+# Shared secret protects /agent/*, /voice/*, and /api/* against direct curl abuse.
 # Vercel Edge Middleware injects this header for browser traffic; a
 # missing/wrong value returns 401 before we burn any Anthropic / LiveKit
 # credits. Localhost origins bypass for `npm run dev`.
@@ -113,7 +114,11 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
+
+auth_api = AuthApi(AuthSettings.from_env())
+app.include_router(build_auth_router(auth_api, limiter))
 
 
 @app.get("/health")

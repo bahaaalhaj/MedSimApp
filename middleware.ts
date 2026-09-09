@@ -5,7 +5,7 @@
 // works transparently.
 
 export const config = {
-  matcher: ['/agent/:path*', '/voice/:path*'],
+  matcher: ['/agent/:path*', '/voice/:path*', '/api/:path*'],
 };
 
 // NOTE: keeping `grand-rounds-backend.onrender.com` until/unless we rename

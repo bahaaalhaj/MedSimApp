@@ -1,5 +1,15 @@
 # MedSim
 
+## Accounts and guest sessions
+
+After the welcome/onboarding flow, MedSim checks the FastAPI session and shows
+Login/Create Account when needed. Successful authentication and deliberate
+guest entry continue directly to specialty selection. Account sessions use an
+HttpOnly cookie; guest identity and progress use namespaced, device-local
+storage and are never silently merged with an account. See
+`backend/README.md` for database migrations, cookie configuration, development
+reset instructions, and security assumptions.
+
 Browser-based ER + polyclinic clinical training simulator. You play the doctor: new patients arrive at triage, you talk to them in real time, order tests, treat, disposition. An attending physician (Claude Opus 4.7) watches and grades your decisions.
 
 > Hackathon submission. Cases are plausible but synthetic — no clinical claims.

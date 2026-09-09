@@ -486,9 +486,29 @@ export function DebriefScreen() {
   const state = useGameState();
 
   // Review-mode: when viewedEvalHistoryId is set, render a saved evaluation
-  // from localStorage instead of running the agent against a fresh request.
-  const reviewed = useMemo<EvalHistoryEntry | null>(() => {
-    return state.viewedEvalHistoryId ? getEvalHistory(state.viewedEvalHistoryId) : null;
+  // from the active identity's progress repository instead of running the
+  // agent against a fresh request.
+  const [reviewed, setReviewed] = useState<EvalHistoryEntry | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(Boolean(state.viewedEvalHistoryId));
+  useEffect(() => {
+    let active = true;
+    if (!state.viewedEvalHistoryId) {
+      setReviewed(null);
+      setReviewLoading(false);
+      return;
+    }
+    setReviewLoading(true);
+    void getEvalHistory(state.viewedEvalHistoryId)
+      .then((entry) => {
+        if (active) setReviewed(entry);
+      })
+      .catch(() => {
+        if (active) setReviewed(null);
+      })
+      .finally(() => {
+        if (active) setReviewLoading(false);
+      });
+    return () => { active = false; };
   }, [state.viewedEvalHistoryId]);
 
   // Prefer the snapshot captured by `finishPolyclinicCase` — by the time we
@@ -502,10 +522,10 @@ export function DebriefScreen() {
 
   // In review mode, skip the agent — we already have the evaluation.
   const debriefRequest = useMemo(() => {
-    if (reviewed) return null;
+    if (reviewed || state.viewedEvalHistoryId) return null;
     if (!c || !patient) return null;
     return buildDebriefRequest(c, patient);
-  }, [reviewed, c, patient]);
+  }, [reviewed, state.viewedEvalHistoryId, c, patient]);
 
   const live = useAttendingDebrief(debriefRequest);
   const status = reviewed ? ('got-evaluation' as const) : live.status;
@@ -521,7 +541,7 @@ export function DebriefScreen() {
     if (!evaluation || !patient || !c) return;
     savedRef.current = true;
     const dxId = patient.submittedDiagnosisId ?? c.correctDiagnosisId;
-    saveEvalHistory({
+    void saveEvalHistory({
       caseId: c.id,
       caseName: c.name,
       caseAge: c.age,
@@ -530,6 +550,8 @@ export function DebriefScreen() {
       verdict: evaluation.global_rating,
       evaluation,
       patientSnapshot: patient,
+    }).catch(() => {
+      // The debrief remains usable if persistence is temporarily unavailable.
     });
   }, [evaluation, patient, c, reviewed]);
 
@@ -546,7 +568,9 @@ export function DebriefScreen() {
       <TopBar here={5} steps={['Polyclinic', 'GP', 'Case', 'Brief', 'Encounter', 'Debrief']} />
 
       <div style={{ padding: '28px 36px 60px', maxWidth: 1080, margin: '0 auto' }}>
-        {!c || !patient ? (
+        {reviewLoading ? (
+          <StatusBanner title="Loading saved review…" body="Retrieving this review from your private training history." bg="var(--sky)" />
+        ) : !c || !patient ? (
           <StatusBanner
             title="No active case to debrief"
             body="The encounter has already been cleared. Pick a new case from the library to start fresh."
@@ -581,7 +605,7 @@ export function DebriefScreen() {
             type="button"
             className="btn-plush ghost"
             style={{ flex: 1 }}
-            onClick={() => store.setScreen('mode')}
+            onClick={() => store.setScreen('gpRoom')}
           >
             {'\u2190 Back to polyclinic'}
           </button>

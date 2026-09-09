@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PatientFace, TopBar } from './primitives';
 import { store, useTweaks } from '../game/store';
+import { useAuth } from '../auth/AuthProvider';
 import {
   listEvalHistory,
   deleteEvalHistory,
@@ -147,17 +148,26 @@ function computeStats(history: EvalHistoryEntry[]): TrainingStats {
 
 export function HomeScreen() {
   const tweaks = useTweaks();
+  const auth = useAuth();
   const [history, setHistory] = useState<EvalHistoryEntry[]>([]);
 
   // Load on mount + whenever the screen is shown so it stays current.
   useEffect(() => {
-    setHistory(listEvalHistory());
+    let active = true;
+    void listEvalHistory()
+      .then((entries) => { if (active) setHistory(entries); })
+      .catch(() => { if (active) setHistory([]); });
+    return () => { active = false; };
   }, []);
 
-  const refresh = () => setHistory(listEvalHistory());
-  const onDelete = (id: string) => {
-    deleteEvalHistory(id);
-    refresh();
+  const refresh = async () => setHistory(await listEvalHistory());
+  const onDelete = async (id: string) => {
+    try {
+      await deleteEvalHistory(id);
+      await refresh();
+    } catch {
+      // Keep the row visible when the server could not confirm deletion.
+    }
   };
 
   const stats = computeStats(history);
@@ -182,7 +192,9 @@ export function HomeScreen() {
               {stats.count === 0 ? 'Day one' : 'Welcome back'}
             </div>
             <h1 style={{ fontSize: 44, lineHeight: 1.05, marginTop: 4 }}>
-              {stats.count === 0 ? 'Ready when you are.' : 'Welcome back, doctor.'}
+              {stats.count === 0
+                ? `Ready when you are, ${auth.status === 'guest' ? 'Guest' : auth.user?.displayName ?? 'doctor'}.`
+                : `Welcome back, ${auth.status === 'guest' ? 'Guest' : auth.user?.displayName ?? 'doctor'}.`}
             </h1>
             <div style={{ fontSize: 16, color: 'var(--ink-2)', fontWeight: 600, marginTop: 6 }}>
               {stats.count === 0
@@ -228,7 +240,7 @@ export function HomeScreen() {
                   type="button"
                   className="btn-plush primary"
                   style={{ fontSize: 15, padding: '14px 18px' }}
-                  onClick={() => store.setScreen('mode')}
+                  onClick={() => store.setScreen('gpRoom')}
                 >
                   Start →
                 </button>
@@ -292,7 +304,7 @@ export function HomeScreen() {
             type="button"
             className="btn-plush mint"
             style={{ fontSize: 22, padding: '18px 0', alignSelf: 'stretch' }}
-            onClick={() => store.setScreen('mode')}
+            onClick={() => store.setScreen('gpRoom')}
           >
             ▶ Start a session
           </button>

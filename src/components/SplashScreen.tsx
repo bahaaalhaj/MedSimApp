@@ -3,7 +3,7 @@ import { Doodle, DoodleScatter } from './primitives';
 import { store } from '../game/store';
 
 export function SplashScreen() {
-  // Click anywhere or hit space → onboarding (first run) or home (returning).
+  // Click anywhere or hit space → onboarding (first run) or authentication.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
@@ -92,8 +92,8 @@ export function SplashScreen() {
               gap: 14,
             }}
           >
-            med
-            <span style={{ color: 'var(--peach)' }}>kit</span>
+            Med
+            <span style={{ color: 'var(--peach)' }}>Sim</span>
             <span className="wobble" style={{ display: 'inline-block', marginLeft: 8, marginBottom: 30 }}>
               <Doodle kind="cross" size={86} color="#F47A92" />
             </span>

@@ -6,7 +6,7 @@ MedSim is a desktop-first, browser-based clinical-training prototype built for a
 
 The implemented, reachable product is **polyclinic only**. The mode screen marks Emergency and Services as “Coming soon”; there is no ER state slice, bed manager, ER screen, or frontend caller for the triage API. Six ER cases and ER-oriented backend/tooling remain as dormant data/scaffolding. README, `CLAUDE.md`, `spec.md`, comments, and architecture-demo screens still describe an ER + polyclinic product and reference files that are absent.
 
-The code is a client-heavy modular monolith with three runtime processes: a React/Vite SPA, a FastAPI proxy/token service, and a LiveKit voice worker. There is no database or user account system. Session progress is in memory; onboarding, chat fragments, and up to 100 debrief records are stored in browser `localStorage`.
+The code is a client-heavy modular monolith with three runtime processes: a React/Vite SPA, a FastAPI proxy/token/authentication service, and a LiveKit voice worker. SQLite stores accounts, hashed sessions, and authenticated encounter summaries. Session progress remains in memory; onboarding, chat fragments, and isolated guest debrief records use browser `localStorage`.
 
 ## Implemented product surface
 

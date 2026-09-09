@@ -15,10 +15,16 @@ import { HistoryScreen } from './components/HistoryScreen';
 import { AgenticRoundsScreen } from './components/AgenticRoundsScreen';
 import { AgentTopologyScreen } from './components/AgentTopologyScreen';
 import { BackgroundMusic } from './components/BackgroundMusic';
+import { AuthScreen } from './components/auth/AuthScreen';
+import { useAuth } from './auth/AuthProvider';
 
 export default function App() {
   const screen = useScreen();
   const tweaks = useTweaks();
+  const auth = useAuth();
+  const hasIdentity = auth.status === 'authenticated' || auth.status === 'guest';
+  const isPublicScreen = screen === 'splash' || screen === 'onboarding' || screen === 'auth';
+  const visibleScreen = !isPublicScreen && !hasIdentity ? 'auth' : screen;
 
   useEffect(() => {
     applyPalette(tweaks.palette);
@@ -40,21 +46,32 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (screen === 'auth' && hasIdentity) store.setScreen('gpRoom');
+  }, [hasIdentity, screen]);
+
+  useEffect(() => {
+    if (!isPublicScreen && !hasIdentity && auth.status !== 'loading') {
+      store.setScreen('auth');
+    }
+  }, [auth.status, hasIdentity, isPublicScreen]);
+
   return (
     <div className="app">
-      {screen === 'splash' && <SplashScreen />}
-      {screen === 'onboarding' && <OnboardingScreen />}
-      {screen === 'home' && <HomeScreen />}
-      {screen === 'mode' && <ModeSelectScreen />}
-      {screen === 'gpRoom' && <GPRoomScreen />}
-      {screen === 'library' && <CaseLibraryScreen />}
-      {screen === 'brief' && <BriefScreen />}
-      {screen === 'encounter' && <EncounterScreen />}
-      {screen === 'endConfirm' && <EndConfirmScreen />}
-      {screen === 'debrief' && <DebriefScreen />}
-      {screen === 'history' && <HistoryScreen />}
-      {screen === 'agenticRounds' && <AgenticRoundsScreen />}
-      {screen === 'agentTopology' && <AgentTopologyScreen />}
+      {visibleScreen === 'splash' && <SplashScreen />}
+      {visibleScreen === 'onboarding' && <OnboardingScreen />}
+      {visibleScreen === 'auth' && <AuthScreen />}
+      {visibleScreen === 'home' && <HomeScreen />}
+      {visibleScreen === 'mode' && <ModeSelectScreen />}
+      {visibleScreen === 'gpRoom' && <GPRoomScreen />}
+      {visibleScreen === 'library' && <CaseLibraryScreen />}
+      {visibleScreen === 'brief' && <BriefScreen />}
+      {visibleScreen === 'encounter' && <EncounterScreen />}
+      {visibleScreen === 'endConfirm' && <EndConfirmScreen />}
+      {visibleScreen === 'debrief' && <DebriefScreen />}
+      {visibleScreen === 'history' && <HistoryScreen />}
+      {visibleScreen === 'agenticRounds' && <AgenticRoundsScreen />}
+      {visibleScreen === 'agentTopology' && <AgentTopologyScreen />}
       <BackgroundMusic />
     </div>
   );

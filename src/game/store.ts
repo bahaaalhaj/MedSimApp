@@ -14,7 +14,7 @@ import { DEFAULT_CLINIC } from './clinic';
 import type { PaletteName } from '../styles/palettes';
 import type { Case as MedSimCase } from '../data/cases';
 import { CASES, getCase, getCaseClinic, getPatientCase } from '../data/cases';
-import { ensureAudioContext } from '../voice/conversationStore';
+import { clearAllConversationStorage, ensureAudioContext } from '../voice/conversationStore';
 
 const ONBOARDED_KEY = 'medsim:onboarded';
 
@@ -142,7 +142,7 @@ class Store {
 
   /** Splash → onboarding (first run) or polyclinic (returning). */
   beginFromSplash = () => {
-    this.set({ screen: this.state.hasOnboarded ? 'mode' : 'onboarding' });
+    this.set({ screen: this.state.hasOnboarded ? 'auth' : 'onboarding' });
   };
 
   // ── onboarding ────────────────────────────────
@@ -151,7 +151,19 @@ class Store {
 
   finishOnboarding = () => {
     writeOnboarded(true);
-    this.set({ hasOnboarded: true, screen: 'mode', onboardingStep: 0 });
+    this.set({ hasOnboarded: true, screen: 'auth', onboardingStep: 0 });
+  };
+
+  resetForIdentityExit = () => {
+    clearAllConversationStorage();
+    this.attemptedCaseIds.clear();
+    this.set({
+      screen: 'auth',
+      polyclinic: { ...this.state.polyclinic, patient: null },
+      lastEncounter: null,
+      viewedEvalHistoryId: null,
+      endConfirm: { sum: false, safe: false, ice: false },
+    });
   };
 
   // ── tweaks ────────────────────────────────────

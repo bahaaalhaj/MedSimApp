@@ -12,6 +12,7 @@ backend/.venv/
 backend/.venv-voice/
 backend/__pycache__/
 backend/**/__pycache__/
+backend/data/
 backend/samples/*.wav
 !backend/samples/ref_voice.wav
 !backend/samples/test.wav

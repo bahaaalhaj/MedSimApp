@@ -52,11 +52,11 @@ Raw exception strings can expose internal provider, configuration, or topology d
 It returns Managed Agent and environment IDs. These are not API secrets, but disclose internal resource identifiers unnecessarily.  
 **Direction:** expose booleans publicly and keep identifiers in authenticated diagnostics.
 
-### Clinical/evaluation data stored unencrypted in localStorage
+### Guest clinical/evaluation data stored unencrypted in localStorage
 
-**Location:** conversation storage and `gr_eval_history`  
-Data is synthetic, but transcripts and learner performance may still be sensitive. Any same-origin script can read them, and there is no retention consent beyond a 100-entry cap.  
-**Direction:** document retention, minimize stored content, validate on read, and use server-side protected storage if real users/clinical data are introduced.
+**Location:** conversation storage and `medsim:guest:*:eval-history`
+Authenticated evaluations now use server-side, identity-owned SQLite records. Guest evaluations and chat transcripts remain device-local and readable by same-origin scripts; legacy `gr_eval_history` is left untouched and is not imported.
+**Direction:** add retention controls and minimize locally stored transcript content before handling non-synthetic data.
 
 ## Low / informational
 
@@ -64,10 +64,10 @@ Data is synthetic, but transcripts and learner performance may still be sensitiv
 - Secrets stay server-side and `.env.local` is gitignored.
 - EHR token redaction has dedicated tests; the EHR itself is only an in-memory stub.
 - Case IDs are sanitized before inclusion in room names; JWTs are minted per room with scoped room grants.
-- No SQL, file upload, template rendering, shell execution, dynamic `eval`, or database injection surface exists.
+- SQLite queries use bound parameters behind `AuthRepository`; no dynamic SQL is built from request values.
 - Remote GLB and Wikimedia assets are trusted at runtime without integrity pinning.
 - Content Security Policy, security headers, audit logging, and dependency scanning configuration are absent.
 
 ## Deployment caution
 
-Do not expose the Render/FastAPI origin publicly until the localhost-header bypass is removed and admin/session authorization is designed. Confirm `BACKEND_SHARED_SECRET` is configured at both edge and backend; it is missing from `.env.example`.
+Do not expose the Render/FastAPI origin publicly until the localhost Origin/Referer bypass is removed. User progress routes have cookie-session authorization, but the shared edge secret must still be configured at both Vercel and the backend.

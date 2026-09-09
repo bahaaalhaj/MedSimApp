@@ -14,7 +14,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - FastAPI proxy/token service (`backend/server.py`).
 - Separate LiveKit voice worker (`backend/voice_agent.py`): Deepgram → Claude Haiku → Cartesia.
 - Managed Agent debrief uses Opus and frontend Zod schemas (`src/agents/`).
-- No database/accounts; browser `localStorage` holds onboarding, chat, and debrief history.
+- SQLite-backed accounts and server sessions live in `backend/auth_system.py`; authenticated debrief history is server-owned, while onboarding/chat and namespaced guest history use browser `localStorage`.
 
 ## Critical paths
 

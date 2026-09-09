@@ -12,14 +12,14 @@ flowchart TD
     F --> G[DebriefRequest builder]
     G --> H[Managed Agent session]
     H --> I[Validated evaluation]
-    I --> J[Debrief UI + localStorage]
+    I --> J[Debrief UI + identity-owned history]
 ```
 
 1. `POLYCLINIC_CASES` is flattened by `src/data/cases.ts`; the synthetic `all-specialties` bucket is skipped to avoid duplicates.
 2. `Store.acceptNextPatient()` converts the selected catalogue card back to its full `PatientCase`, creates `ActivePatient`, pre-warms Web Audio, marks the case attempted for this page session, and navigates to `encounter`.
 3. `EncounterScreen` mounts `Polyclinic`, `Player`, and `FloatingVoicePanel`. Structured actions call Store mutators; all outpatient tests complete immediately.
 4. Dispatch snapshots the active patient to `lastEncounter`, clears the live patient, disposes the conversation, and either loads another patient or navigates to the wrap screen.
-5. `DebriefScreen` builds a request from `lastEncounter`, starts a Managed Agent session, validates `render_case_evaluation`, renders it, and saves it to `gr_eval_history`.
+5. `DebriefScreen` builds a request from `lastEncounter`, starts a Managed Agent session, validates `render_case_evaluation`, renders it, and saves through `evalHistory.ts`: authenticated users go to the SQLite progress API; guests go to their namespaced device-local key.
 
 ## Voice lifecycle
 

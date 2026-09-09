@@ -1,5 +1,6 @@
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { store } from '../game/store';
+import { useAuth } from '../auth/AuthProvider';
 
 // ─── PATIENT FACE ───────────────────────────────────────────
 // style: 'cute' | 'portrait' | 'animal' | 'initials'
@@ -283,7 +284,7 @@ export function Doodle({ kind, size = 50, color, style }: DoodleProps) {
 import type { Screen } from '../game/types';
 
 const LABEL_TO_SCREEN: Record<string, Screen> = {
-  Polyclinic: 'mode',
+  Polyclinic: 'gpRoom',
   GP: 'gpRoom',
   Case: 'library',
   Brief: 'brief',
@@ -343,6 +344,9 @@ export function TopBar({
   steps = ['Polyclinic'],
   showProfile = true,
 }: TopBarProps) {
+  const auth = useAuth();
+  const displayName = auth.status === 'authenticated' ? auth.user?.displayName ?? 'Doctor' : 'Guest';
+  const initial = displayName.trim().charAt(0).toUpperCase() || 'G';
   return (
     <div
       style={{
@@ -364,13 +368,10 @@ export function TopBar({
       </span>
       <Breadcrumb steps={steps} here={here} />
       {showProfile ? (
-        <div
-          className="tap"
-          onClick={() => store.setScreen('home')}
-          title="Open profile"
-          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-        >
-          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink-2)' }}>Bedirhan</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {auth.notice && <span className="chip mint" role="status" style={{ fontSize: 10 }}>{auth.notice}</span>}
+          <button className="topbar-profile tap" type="button" onClick={() => store.setScreen('home')} title="Open profile">
+          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink-2)' }}>{displayName}</span>
           <div
             style={{
               width: 36,
@@ -386,8 +387,16 @@ export function TopBar({
               fontSize: 14,
             }}
           >
-            B
+            {initial}
           </div>
+          </button>
+          <button
+            type="button"
+            className="topbar-exit"
+            onClick={() => auth.status === 'authenticated' ? void auth.logout() : auth.exitGuest()}
+          >
+            {auth.status === 'authenticated' ? 'Logout' : 'Exit guest'}
+          </button>
         </div>
       ) : (
         <div style={{ width: 80 }} />
@@ -417,7 +426,7 @@ export function Wordmark({ size = 36, dark = false }: WordmarkProps) {
       }}
     >
       <span style={{ position: 'relative', display: 'inline-block' }}>
-        med
+        Med
         <span
           style={{
             color: 'var(--peach-deep)',
@@ -426,7 +435,7 @@ export function Wordmark({ size = 36, dark = false }: WordmarkProps) {
             paintOrder: 'stroke fill',
           }}
         >
-          kit
+          Sim
         </span>
         <span
           style={{

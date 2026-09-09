@@ -46,6 +46,7 @@ _VAULT_TOKEN = os.environ["EHR_API_TOKEN"]
 class VaultEndpointTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(server.app)
+        self.client.headers["Origin"] = "http://localhost:5173"
 
     # ─── happy path ──────────────────────────────────────────────
     def test_known_patient_returns_record(self) -> None:

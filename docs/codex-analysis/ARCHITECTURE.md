@@ -2,7 +2,7 @@
 
 ## Actual style
 
-MedSim is a client-heavy, three-process client/server application. The frontend is a feature-oriented React SPA with one imperative in-memory store. The HTTP backend is a single-file FastAPI service that acts as a security boundary and API proxy, not a domain database. Real-time voice runs as a separate LiveKit Agents worker. Static TypeScript modules form the clinical knowledge layer.
+MedSim is a client-heavy, three-process client/server application. The frontend is a feature-oriented React SPA with one imperative in-memory game store and one authentication context. The FastAPI backend is the security boundary and API proxy, with an isolated SQLite repository for accounts, sessions, and owned encounter summaries. Real-time voice runs as a separate LiveKit Agents worker. Static TypeScript modules form the clinical knowledge layer.
 
 ```mermaid
 flowchart TD
@@ -17,7 +17,7 @@ flowchart TD
     VW --> CT[Cartesia TTS]
 ```
 
-There is no database, ORM, repository layer, background-job queue, server-side session store, authentication provider, or microservice mesh.
+`backend/auth_system.py` provides the SQLite repository, migration runner, Argon2id authentication service, cookie-session endpoints, and owned progress endpoints. There is no ORM, background-job queue, third-party authentication provider, or microservice mesh.
 
 ## Frontend
 
@@ -28,7 +28,7 @@ There is no database, ORM, repository layer, background-job queue, server-side s
 - UI: screen components under `src/components`; shared illustrated primitives in `primitives.tsx`; the active room is `components/three/Polyclinic.tsx`.
 - Clinical data: static TypeScript arrays/maps in `src/data`.
 - AI client: `src/agents/*` for Managed Agent debrief; `src/voice/*` for LiveKit and typed patient chat.
-- Persistence: `localStorage` only (`medsim:onboarded`, music setting, conversation keys, `gr_eval_history`).
+- Persistence: SQLite for accounts, hashed server sessions, and authenticated evaluations; `localStorage` for onboarding, music, conversation keys, and identity-namespaced guest evaluations. Legacy `gr_eval_history` is retained but not imported.
 
 ## Backend
 

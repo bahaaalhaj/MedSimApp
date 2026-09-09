@@ -159,6 +159,7 @@ class TriageEndpointIntegrationTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.client = TestClient(server.app)
+        self.client.headers["Origin"] = "http://localhost:5173"
 
     def test_endpoint_returns_response_from_mocked_client(self) -> None:
         # Patch the lazy-built client so the route sees our mock.

@@ -1,34 +1,30 @@
+import { useEffect, useMemo, useState } from 'react';
 import { TopBar } from './primitives';
 import { store } from '../game/store';
+import { listEvalHistory, type EvalHistoryEntry } from '../data/evalHistory';
+import { useAuth } from '../auth/AuthProvider';
 
-interface HistoryCase {
-  day: string;
-  name: string;
-  cond: string;
-  verdict: string;
-  color: string;
-}
+const VERDICT_COLOR: Record<EvalHistoryEntry['verdict'], string> = {
+  excellent: 'var(--mint)', good: 'var(--mint)', satisfactory: 'var(--butter)',
+  borderline: 'var(--peach)', 'clear-fail': 'var(--rose)',
+};
 
-const CASES: HistoryCase[] = [
-  { day: 'Tue 25 Apr', name: 'Aisha Rahman', cond: 'Hypertension', verdict: 'Satisfactory', color: 'var(--mint)' },
-  { day: 'Mon 24 Apr', name: 'Tom Whitford', cond: 'Heart failure', verdict: 'Borderline', color: 'var(--butter)' },
-  { day: 'Mon 24 Apr', name: 'Leila Haddad', cond: 'Tonsillitis', verdict: 'Good', color: 'var(--mint)' },
-  { day: 'Fri 21 Apr', name: 'Davy Chen', cond: 'Dyspepsia', verdict: 'Satisfactory', color: 'var(--mint)' },
-  { day: 'Thu 20 Apr', name: 'Mei Tan', cond: 'T2DM', verdict: 'Good', color: 'var(--mint)' },
-  { day: 'Wed 19 Apr', name: 'Priya Iyer', cond: 'Headache', verdict: 'Borderline', color: 'var(--butter)' },
-  { day: 'Tue 18 Apr', name: 'Henrik Solberg', cond: 'AF', verdict: 'Clear-fail', color: 'var(--rose)' },
-];
-
-function TrendChart() {
+function TrendChart({ history }: { history: EvalHistoryEntry[] }) {
+  const ordered = history.slice(0, 12).reverse();
+  const points = (key: 'data_gathering' | 'clinical_management' | 'interpersonal') =>
+    ordered.map((entry) => {
+      const score = entry.evaluation.domain_scores[key];
+      return score.max > 0 ? Math.round((score.raw / score.max) * 100) : 0;
+    });
   const series = [
-    { color: 'var(--peach-deep)', pts: [40, 42, 38, 44, 46, 48, 52, 50, 55, 58, 54, 60] },
-    { color: 'var(--mint-deep)', pts: [55, 58, 60, 58, 62, 64, 66, 68, 68, 70, 72, 74] },
-    { color: 'var(--sky-deep)', pts: [60, 62, 65, 64, 68, 70, 72, 74, 75, 76, 78, 76] },
+    { color: 'var(--peach-deep)', pts: points('data_gathering') },
+    { color: 'var(--mint-deep)', pts: points('clinical_management') },
+    { color: 'var(--sky-deep)', pts: points('interpersonal') },
   ];
   const W = 980;
   const H = 180;
   const P = 16;
-  const x = (i: number) => P + (i / 11) * (W - 2 * P);
+  const x = (i: number) => P + (i / Math.max(1, ordered.length - 1)) * (W - 2 * P);
   const y = (v: number) => H - P - (v / 100) * (H - 2 * P);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 180 }}>
@@ -77,6 +73,26 @@ function Legend({ color, label }: { color: string; label: string }) {
 }
 
 export function HistoryScreen() {
+  const auth = useAuth();
+  const [history, setHistory] = useState<EvalHistoryEntry[]>([]);
+  useEffect(() => {
+    let active = true;
+    void listEvalHistory().then((entries) => { if (active) setHistory(entries); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  const weakest = useMemo(() => {
+    if (!history.length) return null;
+    const domains = [
+      ['Data Gathering', 'data_gathering'], ['Clinical Management', 'clinical_management'], ['Interpersonal', 'interpersonal'],
+    ] as const;
+    return domains.map(([label, key]) => ({
+      label,
+      score: history.reduce((sum, entry) => {
+        const value = entry.evaluation.domain_scores[key];
+        return sum + (value.max > 0 ? value.raw / value.max : 0);
+      }, 0) / history.length,
+    })).sort((a, b) => a.score - b.score)[0];
+  }, [history]);
   return (
     <div className="screen" style={{ background: 'var(--cream)', overflowY: 'auto' }}>
       <TopBar here={1} steps={['Profile', 'History']} />
@@ -122,7 +138,7 @@ export function HistoryScreen() {
           >
             DOMAIN TRENDS · last 30 days
           </div>
-          <TrendChart />
+          {history.length ? <TrendChart history={history} /> : <div style={{ padding: 34, textAlign: 'center', fontWeight: 700, color: 'var(--ink-2)' }}>Your trend appears after the first completed debrief.</div>}
           <div
             style={{
               display: 'flex',
@@ -154,39 +170,42 @@ export function HistoryScreen() {
               CASE TIMELINE
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {CASES.map((c, i) => (
+              {history.map((c, i) => (
                 <div
-                  key={`${c.day}-${c.name}`}
+                  key={c.id}
+                  className="tap"
+                  onClick={() => store.viewEvalHistory(c.id)}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '90px 28px 1fr 110px 30px',
                     gap: 10,
                     alignItems: 'center',
                     padding: '8px 8px',
-                    borderBottom: i < CASES.length - 1 ? '2px dashed rgba(43,30,22,0.15)' : 'none',
+                    borderBottom: i < history.length - 1 ? '2px dashed rgba(43,30,22,0.15)' : 'none',
                   }}
                 >
-                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-2)' }}>{c.day}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-2)' }}>{new Date(c.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                   <div
                     style={{
                       width: 22,
                       height: 22,
                       borderRadius: '50%',
-                      background: c.color,
+                      background: VERDICT_COLOR[c.verdict],
                       border: '2.5px solid var(--line)',
                       boxShadow: '0 2px 0 var(--line)',
                     }}
                   />
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 14 }}>{c.name}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-2)' }}>{c.cond}</div>
+                    <div style={{ fontWeight: 800, fontSize: 14 }}>{c.caseName}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-2)' }}>{c.diagnosisLabel}</div>
                   </div>
-                  <span className="chip" style={{ background: c.color, fontSize: 11 }}>
-                    {c.verdict}
+                  <span className="chip" style={{ background: VERDICT_COLOR[c.verdict], fontSize: 11 }}>
+                    {c.verdict.replace('-', ' ')}
                   </span>
                   <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--ink-2)' }}>›</span>
                 </div>
               ))}
+              {!history.length && <div style={{ padding: 24, textAlign: 'center', fontWeight: 700, color: 'var(--ink-2)' }}>No completed reviews for this {auth.status === 'guest' ? 'guest session' : 'account'} yet.</div>}
             </div>
           </div>
 
@@ -195,9 +214,9 @@ export function HistoryScreen() {
               <div className="chip" style={{ background: 'white', marginBottom: 10 }}>
                 🎯 FOCUS AREA
               </div>
-              <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1 }}>Data Gathering</div>
+              <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.1 }}>{weakest?.label ?? 'Your first case'}</div>
               <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>
-                You're missing ICE in 6 of your last 10 cases. Tomorrow's suggested case is built around it.
+                {weakest ? `This is currently your lowest average domain at ${Math.round(weakest.score * 100)}%.` : 'Complete a debrief to receive a personal focus area.'}
               </div>
             </div>
 
@@ -212,25 +231,17 @@ export function HistoryScreen() {
                   marginBottom: 10,
                 }}
               >
-                GUIDELINES YOU'VE TOUCHED
+                PRIVATE PROGRESS
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {['NICE NG136', 'NICE NG28', 'GINA 2025', 'ESC 2023', 'BSG 2024', 'NICE NG209', 'NICE CG69', 'NICE NG217'].map(
-                  (g) => (
-                    <span key={g} className="chip" style={{ fontSize: 11 }}>
-                      📖 {g}
-                    </span>
-                  ),
-                )}
-              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>{auth.status === 'guest' ? 'Stored only for this guest identity on this device.' : 'Loaded only from your authenticated account.'}</div>
             </div>
 
             <div className="plush" style={{ padding: 16, background: 'var(--rose)' }}>
               <div className="chip" style={{ background: 'white', marginBottom: 10 }}>
-                🚩 RED-FLAG CASES
+                COMPLETED REVIEWS
               </div>
-              <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1 }}>3 / 7</div>
-              <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>red-flag cases attempted</div>
+              <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1 }}>{history.length}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>owned by this identity</div>
             </div>
           </div>
         </div>

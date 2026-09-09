@@ -6,6 +6,7 @@ import type { ClinicId } from './clinic';
 export type Screen =
   | 'splash'
   | 'onboarding'
+  | 'auth'
   | 'home'
   | 'mode'
   | 'gpRoom'

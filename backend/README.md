@@ -1,5 +1,62 @@
 # MedSim backend
 
+## Authentication and progress
+
+The FastAPI process owns account authentication and authenticated training
+history. It uses SQLite locally through `auth_system.py`; SQL is isolated in
+`migrations/001_auth.sql`, so a later PostgreSQL repository can replace the
+SQLite repository without changing the HTTP or frontend contracts.
+
+Tables are initialized reproducibly when the server starts:
+
+- `users`: profile identity and Argon2id password hash.
+- `auth_sessions`: hashed opaque session tokens, expiry, last use, and revocation.
+- `clinical_encounters`: completed evaluation snapshots owned by `user_id`.
+
+Install and start on Windows:
+
+```powershell
+python -m venv backend/.venv
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+backend/.venv/Scripts/python.exe backend/server.py
+```
+
+The migration runner applies every unapplied `backend/migrations/*.sql` file
+and records it in `schema_migrations`; no manual table creation is required.
+For local HTTPS-free development use `MEDSIM_ENVIRONMENT=development` and
+`MEDSIM_COOKIE_SECURE=0`. Production/Render defaults cookies to secure, and
+should explicitly use `MEDSIM_ENVIRONMENT=production` and
+`MEDSIM_COOKIE_SECURE=1`; keep `MEDSIM_COOKIE_SAMESITE=lax` unless the
+frontend and API truly live on different sites, in which case `none` also
+requires HTTPS. Set `MEDSIM_DATABASE_PATH` to persistent storage in production.
+
+Authentication uses an HttpOnly session cookie and a separate double-submit
+CSRF cookie/header. Login and registration are rate-limited. Passwords and raw
+session tokens are never stored or logged. The existing shared backend secret
+protects proxy access but is not treated as user identity.
+
+Authenticated evaluations are stored in `clinical_encounters` and all queries
+derive ownership from the verified cookie session. Guests never receive a
+database user: their history is stored under
+`medsim:guest:<anonymous-id>:eval-history` in that browser. Legacy
+`gr_eval_history` data is left untouched and is not merged automatically.
+
+To reset only local development account/progress data, stop the backend and
+remove the exact file configured by `MEDSIM_DATABASE_PATH` (the default is
+`backend/data/medsim.db`), then restart to reapply migrations. Do not remove the
+whole `backend/data` directory if it contains other files.
+
+Current limitations: password reset and email verification are not yet
+implemented; SQLite is intended for a single local/server instance; guest data
+does not sync between devices and is not migrated into an account.
+
+API surface:
+
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`
+- `GET /api/auth/me`, `GET /api/auth/session`
+- `GET/POST /api/progress/encounters`
+- `GET/DELETE /api/progress/encounters/{encounter_id}`
+
 Two Python processes power the simulator:
 
 1. **FastAPI server** (`server.py`) — Managed Agents proxy (`/agent/*`), patient-text-chat SSE (`/agent/patient/stream`), and the LiveKit token mint (`/voice/token`). Lives at `127.0.0.1:8787`.
