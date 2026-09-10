@@ -4,6 +4,7 @@ import type { ClinicId } from '../game/clinic';
 import { CLINIC_LABELS } from '../game/clinic';
 import { POLYCLINIC_CASES } from './polyclinicPatients';
 import { caseVersionFor, isAssignableCase, reviewStatusForCase } from '../clinical/cases';
+import { isCuratedCaseId } from '../clinical/curation';
 import type { CaseReviewStatus, LearnerLevel, TrainingMode } from '../clinical/types';
 
 /** Cute-cartoon face descriptor for the case library. Derived deterministically
@@ -102,7 +103,7 @@ function toCase(p: PatientCase, clinic: ClinicId): Case {
     sex: p.gender,
     complaint: p.chiefComplaint,
     tags: tagsFor(p, clinic),
-    guideline: reviewStatusForCase(p.id) === 'approved-formative' ? 'Approved for formative training' : 'Pending clinical review',
+    guideline: reviewStatusForCase(p.id) === 'source-verified-formative' ? 'Educational case · Source-backed formative case' : 'Not assignable',
     skin: pickSkin(p),
     hair: pickHair(p),
     mood: pickMood(p),
@@ -124,6 +125,7 @@ const ALL_CASES_RAW: Case[] = [];
 for (const [clinic, list] of Object.entries(POLYCLINIC_CASES) as Array<[ClinicId, PatientCase[]]>) {
   if (clinic === 'all-specialties') continue; // skip the synthetic mixed bucket
   for (const p of list) {
+    if (!isCuratedCaseId(p.id)) continue;
     if (BY_ID.has(p.id)) continue;
     BY_ID.set(p.id, { p, clinic });
     ALL_CASES_RAW.push(toCase(p, clinic));

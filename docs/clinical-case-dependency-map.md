@@ -18,3 +18,6 @@ This map records the runtime dependencies inspected before the governance migrat
 | `src/data/evalHistory.ts` / auth progress API | home/history/debrief | Stores exact patient snapshot plus case version, rubric version, and variant seed; old entries remain readable with optional provenance fields. |
 
 Stable compatibility constraints: public case IDs are unchanged, `POLYCLINIC_BED_INDEX = -10` is unchanged, the singleton store remains, all 24 specialty IDs and `all-specialties` remain, and no Emergency Room workflow was introduced.
+# Curation boundary
+
+`src/clinical/curation.ts` is the selection contract. `src/clinical/cases.ts`, `src/data/cases.ts`, the store, server-safe manifest, exports and tests consume that boundary. Archived IDs may remain in `polyclinicPatients.ts` only as historical source records and must never feed learner assignment.

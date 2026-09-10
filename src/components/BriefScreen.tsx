@@ -83,7 +83,7 @@ export function BriefScreen() {
 
           <h1 style={{ fontSize: 32, lineHeight: 1.1, marginBottom: 4 }}>{c.name}</h1>
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-2)', marginBottom: 16 }}>
-            {c.age} y · {c.sex === 'F' ? 'Female' : 'Male'} · {c.reviewStatus === 'legacy-unreviewed' ? 'Legacy unreviewed case' : c.reviewStatus === 'approved-formative' ? 'Approved for formative training' : 'Pending clinical review'}
+            {c.age} y · {c.sex === 'F' ? 'Female' : 'Male'} · Educational case · Source-backed formative case
           </div>
 
           <div

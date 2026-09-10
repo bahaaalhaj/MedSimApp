@@ -14,3 +14,6 @@ For each case decide `accepted`, `revision-required`, `not-applicable`, or `not-
 - rubric observability, weights, critical failures, and fairness.
 
 Resolve every critical comment. Record an explicit approval statement and next review date. Only then may an authorized human change status to `approved-formative`. A code check, author self-review, source-link check, or AI opinion cannot approve a case.
+# 72-case release checks
+
+Confirm the case ID is in the curation manifest, the specialty has exactly three cases, learner DTOs exclude answers/results/rationales/rubrics, investigation absence is `not-modeled` or `not-indicated`, and the rubric totals 100. `source-verified-formative` must never be described as medical approval or accreditation.

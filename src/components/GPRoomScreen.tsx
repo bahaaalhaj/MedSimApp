@@ -93,15 +93,8 @@ export function GPRoomScreen() {
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: '12px 36px 4px' }}>
         <div className="plush" style={{ marginBottom: 10, padding: 12, background: state.trainingMode === 'curated' ? 'var(--mint)' : 'var(--butter)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 800 }}>
-            {state.trainingMode === 'curated'
-              ? 'Curated formative training · approved cases only'
-              : 'Development inspection · pending and legacy cases are not clinically approved'}
+            Curated 72-case bank · Educational cases · Source-backed formative use only
           </div>
-          {import.meta.env.DEV && (
-            <button type="button" className="btn-plush ghost" style={{ fontSize: 11, padding: '8px 12px' }} onClick={() => store.setTrainingMode(state.trainingMode === 'curated' ? 'development' : 'curated')}>
-              {state.trainingMode === 'curated' ? 'Inspect development cases' : 'Use curated mode'}
-            </button>
-          )}
         </div>
         <button
           type="button"
@@ -257,7 +250,7 @@ export function GPRoomScreen() {
                   {next.name.split(' ')[0]} · {next.age}
                 </span>
                 <span className="chip rose">
-                  {next.reviewStatus === 'legacy-unreviewed' ? 'Legacy unreviewed case' : next.reviewStatus === 'approved-formative' ? 'Clinically reviewed' : 'Pending clinical review'}
+                  Educational case · Source-backed formative case
                 </span>
               </>
             )}

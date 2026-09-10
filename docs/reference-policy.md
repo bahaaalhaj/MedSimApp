@@ -6,4 +6,4 @@ Open the official source page; verify title, year/update, jurisdiction, exact se
 
 `source-verified` means the official metadata and link were checked. `clinician-verified` requires a documented human review. A superseded source flags all dependent cases for a new case version or documented exception. Conflicting guidance is recorded, scoped by jurisdiction and population, and referred to the clinical reviewer.
 
-The pilot uses NICE because the existing authored rubrics were UK-scoped. Medication and referral rules must be reconciled before use in another jurisdiction. Run `npm run clinical:references` to rebuild the thesis exports.
+The 72-case bank is UK-first and maps each diagnosis, investigation, escalation plan and rubric to its workbook-designated publisher target. Medication scoring is disabled until exact drug/dose details are reconciled with current BNF, product information and local formulary. Run `npm run clinical:references` to rebuild thesis exports.

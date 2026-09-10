@@ -15,7 +15,9 @@ export function validateCaseSpecificPrescription(
 ): CaseSpecificPrescriptionResult {
   const clinicalCase = CLINICAL_CASE_BY_ID.get(caseId);
   if (!clinicalCase) return { status: 'not-canonical', entries: [] };
-  const reviewed = clinicalCase.medicationExpectations.every((m) => m.unit !== 'not-finalized' && !m.dose.includes('requires reviewer confirmation'));
+  const reviewed = clinicalCase.medicationScoring.enabled
+    && clinicalCase.medicationExpectations.length > 0
+    && clinicalCase.medicationExpectations.every((m) => m.unit !== 'not-finalized' && !m.dose.includes('requires reviewer confirmation'));
   const entries = prescriptions.map((p) => {
     const expectation = clinicalCase.medicationExpectations.find((m) => m.medicationId === p.medication_id || m.acceptableAlternatives.includes(p.medication_id));
     if (!expectation) return { medicationId: p.medication_id, medicationChoice: 'not-listed' as const, doseAndDuration: 'not-reviewed' as const };

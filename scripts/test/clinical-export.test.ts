@@ -9,11 +9,11 @@ test('clinical review export reconciles legacy and canonical representations', (
   const model = buildExportModel(options);
   assert.equal(model.exportMetadata.unique_clinical_concepts, 240);
   assert.equal(model.exportMetadata.total_legacy_cases, 240);
-  assert.equal(model.exportMetadata.total_canonical_cases, 3);
-  assert.equal(model.exportMetadata.total_unique_case_versions, 243);
-  assert.equal(model.exportMetadata.duplicate_representations, 3);
+  assert.equal(model.exportMetadata.total_canonical_cases, 72);
+  assert.equal(model.exportMetadata.total_unique_case_versions, 312);
+  assert.equal(model.exportMetadata.duplicate_representations, 72);
   assert.equal(model.exportMetadata.total_approved_formative, 0);
-  assert.equal(model.sheets.Case_Index.length, 243);
+  assert.equal(model.sheets.Case_Index.length, 312);
   validateExportModel(model);
 });
 
@@ -30,7 +30,7 @@ test('clinical review export is deterministic and every normalized sheet has exa
 
 test('investigation export preserves unavailable results and never substitutes defaults', () => {
   const model = buildExportModel(options);
-  assert.equal(model.sheets.Investigations.length, 243 * 80);
+  assert.equal(model.sheets.Investigations.length, 312 * 80);
   assert.ok(model.sheets.Investigations.some((row) => row.result_is_case_specific === true));
   assert.ok(model.sheets.Investigations.some((row) => row.result_source === 'UNAVAILABLE / NOT MODELED'));
   assert.equal(model.sheets.Investigations.some((row) => row.result_is_default === true), false);

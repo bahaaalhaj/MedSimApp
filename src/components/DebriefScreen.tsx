@@ -816,7 +816,7 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
         <div className="plush" style={{ padding: 16, marginBottom: 22 }}>
           <SectionLabel>CASE VERSION &amp; SOURCES</SectionLabel>
           <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
-            Case {postSubmission.caseId} v{postSubmission.caseVersion} · rubric v{postSubmission.rubricVersion} · {canonical?.reviewStatus === 'approved-formative' ? 'Approved for formative training' : 'Pending clinical review'}
+            Case {postSubmission.caseId} v{postSubmission.caseVersion} · rubric v{postSubmission.rubricVersion} · Educational case · Source-backed formative case
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {postSubmission.references.map((reference) => (

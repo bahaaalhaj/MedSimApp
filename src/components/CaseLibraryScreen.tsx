@@ -33,8 +33,8 @@ function CaseCard({ c, delay = 0, avatarStyle }: CaseCardProps) {
           boxShadow: '0 -2px 0 var(--line)',
         }}
       >
-        {c.reviewStatus === 'approved-formative'
-          ? 'Clinically reviewed'
+        {c.reviewStatus === 'source-verified-formative'
+          ? 'Educational case · Source-backed formative case'
           : c.reviewStatus === 'legacy-unreviewed'
             ? 'Legacy unreviewed case'
             : 'Pending clinical review'}
@@ -249,14 +249,6 @@ export function CaseLibraryScreen() {
         >
           🔀 Shuffle ({totalVisible})
         </button>
-        {import.meta.env.DEV && <button
-          type="button"
-          className="btn-plush ghost"
-          style={{ fontSize: 12, padding: '10px 14px', whiteSpace: 'nowrap' }}
-          onClick={() => store.setTrainingMode(game.trainingMode === 'curated' ? 'development' : 'curated')}
-        >
-          {game.trainingMode === 'curated' ? 'Development cases (unreviewed)' : 'Return to curated mode'}
-        </button>}
       </div>
 
       {/* Clinic filter chip row */}

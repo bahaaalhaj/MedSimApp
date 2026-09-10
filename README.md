@@ -16,7 +16,7 @@ Browser-based outpatient clinical training simulator. Select a specialty and syn
 
 ## Clinical case governance
 
-The legacy synthetic catalogue is preserved for compatibility but is labeled `legacy-unreviewed` and excluded from the default curated mode. Three versioned pilot cases are currently `clinical-review`; zero cases have documented human approval, so curated mode honestly shows a pending-review state. Development mode may inspect pending and legacy content with explicit labels. See [clinical case governance](docs/clinical-case-governance.md), [dependency map](docs/clinical-case-dependency-map.md), [authoring guide](docs/case-authoring-guide.md), and [review checklist](docs/clinical-review-checklist.md).
+The learner-facing bank contains exactly 72 versioned cases (three per specialty) at `1.1.0`. The other 168 legacy records remain archived and cannot be assigned or resolved through learner routes. Curated cases use `source-verified-formative` with `approvalBasis: source-only`: this records source provenance, not medical approval or clinical accreditation. See [clinical case governance](docs/clinical-case-governance.md), [dependency map](docs/clinical-case-dependency-map.md), [authoring guide](docs/case-authoring-guide.md), and [review checklist](docs/clinical-review-checklist.md).
 
 > Hackathon submission. Cases are plausible but synthetic — no clinical claims.
 
@@ -161,6 +161,8 @@ npm run test       # custom-tools + loop-commands tests
 npm run clinical:validate   # canonical schema, lifecycle, references, migration, variants
 npm run clinical:references # regenerate thesis-friendly reference exports
 npm run clinical:audit      # review-status and migration counts
+npm run clinical:verify-curation # enforce 72/168 counts, 3 per specialty, schemas and archive boundary
+npm run clinical:export-curation # regenerate the server-safe curation manifest
 ```
 
 ---

@@ -1,6 +1,13 @@
 import { POLYCLINIC_CASES, POLYCLINIC_DIAGNOSIS_LABELS } from '../data/polyclinicPatients.ts';
 import type { PatientCase } from '../game/types';
 import { CLINICAL_REFERENCE_BY_ID } from './references.ts';
+import {
+  CURATED_CASE_IDS_BY_SPECIALTY,
+  PRIMARY_REFERENCE_BY_CASE_ID,
+  TIME_CRITICAL_CASE_IDS,
+  isCuratedCaseId,
+} from './curation.ts';
+import { CURATION_REQUIREMENTS } from './curationRequirements.ts';
 import type {
   CaseReviewRecord,
   ClinicalCase,
@@ -62,30 +69,38 @@ function baseFromLegacy(
 ): Pick<ClinicalCase,
   'schemaVersion' | 'caseId' | 'caseVersion' | 'rubricVersion' | 'referenceSetVersion' |
   'title' | 'specialtyId' | 'targetLearnerLevel' | 'difficulty' | 'reviewStatus' |
-  'clinicalRegion' | 'language' | 'intendedUse' | 'patientProfile' | 'presentingComplaint' |
+  'clinicalRegion' | 'language' | 'intendedUse' | 'approvalBasis' | 'clinicalSetting' |
+  'chronology' | 'pertinentNegatives' | 'riskModifiers' | 'patientProfile' | 'presentingComplaint' |
   'history' | 'physicalExamination' | 'vitalSigns' | 'investigations' | 'imaging' |
-  'correctDiagnosis' | 'references' | 'reviewRecord' | 'changeSummary'> {
+  'correctDiagnosis' | 'medicationScoring' | 'criticalFailureRules' | 'evidenceMappings' |
+  'references' | 'reviewRecord' | 'changeSummary'> {
   const p = legacy(id);
   return {
     schemaVersion: '1.0.0', caseId: id, caseVersion, rubricVersion: '1.0.0',
     referenceSetVersion: '1.0.0', title, specialtyId: 'internal-medicine',
     targetLearnerLevel: 'undergraduate-clinical-years', difficulty: 'intermediate',
     reviewStatus: 'clinical-review', clinicalRegion: 'United Kingdom pilot', language: 'en',
-    intendedUse: 'formative-only',
+    intendedUse: 'formative-only', approvalBasis: 'source-only', clinicalSetting: 'outpatient-clinic',
+    chronology: [p.chiefComplaint, p.arrivalBlurb],
+    pertinentNegatives: p.anamnesis.filter((q) => q.relevant && /\b(no|denies|without|never)\b/i.test(q.answer)).map((q) => q.answer),
+    riskModifiers: p.anamnesis.filter((q) => q.relevant).slice(0, 4).map((q) => `${q.question} ${q.answer}`),
     patientProfile: { displayName: p.name, age: p.age, gender: p.gender, syntheticComposite: true },
     presentingComplaint: { publicSummary: p.chiefComplaint, fullClinicalDescription: p.arrivalBlurb },
     history: p.anamnesis.map((q) => ({ itemId: q.id, question: q.question, answer: q.answer })),
     physicalExamination: [{ findingId: 'general', description: p.arrivalBlurb }],
-    vitalSigns: p.vitals,
+    vitalSigns: { ...p.vitals, hrUnit: 'beats/min', bpUnit: 'mmHg', spo2Unit: '%', tempUnit: '°C', rrUnit: 'breaths/min' },
     investigations: p.testResults.map((result) => ({
       testId: result.testId, reason: 'Available as a case-specific simulated investigation result.',
-      classification: 'useful', result: result.result, abnormal: result.abnormal,
+      availability: 'available-on-request', classification: 'useful', result: result.result, abnormal: result.abnormal,
       rubricCriterionIds: [], referenceIds,
     })),
     imaging: p.testResults
       .filter((r) => ['cxr', 'ecg', 'echo', 'fundoscopy'].includes(r.testId))
       .map((r) => ({ testId: r.testId, interpretation: r.result, sourceKind: 'case-specific-simulation' as const })),
     correctDiagnosis: { diagnosisId: p.correctDiagnosisId, label: label(p.correctDiagnosisId) },
+    medicationScoring: { enabled: false, reason: 'Exact drug, dose, contraindication, interaction and monitoring data have not been jointly verified against current BNF and local policy.', verificationRequired: 'BNF-and-local-formulary' },
+    criticalFailureRules: [],
+    evidenceMappings: referenceIds.map((referenceId) => ({ fieldPath: 'case-level-source-target', referenceId, jurisdiction: 'United Kingdom', accessedAt: '2026-09-10', verificationMethod: 'workbook-source-target' as const })),
     references: referenceIds,
     reviewRecord: { ...PENDING_REVIEW, checklist: { ...PENDING_REVIEW.checklist }, unresolvedComments: [...PENDING_REVIEW.unresolvedComments] },
     changeSummary: 'Initial migration from the legacy synthetic case bank into schema 1.0.0; pending clinical review.',
@@ -185,7 +200,105 @@ const pneumonia: ClinicalCase = {
   variantPolicy: { allowedDisplayNames: ['David Jones', 'Robert Harris'], ageRange: { min: 40, max: 54 }, allowedComplaintPhrasings: ["I've had a cough with yellow phlegm and fever for 5 days.", 'I have had fever and a chesty cough for nearly a week.'], difficultyOptions: ['intermediate'] },
 };
 
-export const CLINICAL_CASES: ClinicalCase[] = [hypertension, diabetes, pneumonia];
+export const HISTORICAL_CLINICAL_CASE_VERSIONS: ClinicalCase[] = [hypertension, diabetes, pneumonia];
+
+const timeCriticalSet = new Set(TIME_CRITICAL_CASE_IDS);
+
+function rebuiltCase(caseId: string, specialtyId: ClinicalCase['specialtyId']): ClinicalCase {
+  const p = legacy(caseId);
+  const requirements = CURATION_REQUIREMENTS[caseId as keyof typeof CURATION_REQUIREMENTS];
+  if (!requirements) throw new Error(`Curated case ${caseId} has no workbook rebuild requirements`);
+  const referenceId = PRIMARY_REFERENCE_BY_CASE_ID[caseId];
+  if (!referenceId) throw new Error(`Curated case ${caseId} has no primary reference target`);
+  const objectivePrefix = `${caseId}-o`;
+  const diagnosisOptions = [...p.diagnosisOptions];
+  if (!diagnosisOptions.includes(p.correctDiagnosisId)) diagnosisOptions.unshift(p.correctDiagnosisId);
+  const five = [...new Set(diagnosisOptions)].slice(0, 5);
+  if (five.length !== 5) throw new Error(`Curated case ${caseId} requires exactly five diagnosis options`);
+  const urgent = timeCriticalSet.has(caseId) || p.severity !== 'stable';
+  const verifiedSafetyAction = caseId === 'uro-006'
+    ? 'Immediate surgical/urology assessment; diagnostic imaging must not delay definitive assessment.'
+    : caseId === 'obgyn-002'
+      ? 'Transfer directly for emergency early-pregnancy/gynaecology assessment when unstable or pain/bleeding is concerning.'
+      : caseId === 'ent-010'
+        ? 'Immediate ENT or emergency referral, to be seen within 24 hours for recent sudden unexplained hearing loss.'
+        : urgent
+          ? 'Escalate immediately or the same day when modeled deterioration or specialty red flags are present.'
+          : 'Arrange urgent assessment if red flags, rapid deterioration, or inability to manage safely as an outpatient develops.';
+  const safetyAction = `${requirements.safetyEscalationRequirement} ${verifiedSafetyAction}`;
+  const rubric = [
+    rubricCriterion(`${caseId}-r1`, 'history', 'Elicits the onset, chronology, severity, functional effect, and relevant contextual risks.', [`${objectivePrefix}1`], [referenceId], 20),
+    rubricCriterion(`${caseId}-r2`, 'history', 'Checks pertinent negatives and condition-specific red flags before narrowing the differential.', [`${objectivePrefix}1`, `${objectivePrefix}4`], [referenceId], 15, true),
+    rubricCriterion(`${caseId}-r3`, 'examination', 'Performs and interprets a focused examination, including the recorded vital signs.', [`${objectivePrefix}2`], [referenceId], 15),
+    rubricCriterion(`${caseId}-r4`, 'investigation', 'Selects proportionate investigations and distinguishes available, not-modeled, and not-indicated results.', [`${objectivePrefix}2`], [referenceId], 15),
+    rubricCriterion(`${caseId}-r5`, 'diagnosis', 'Chooses the single best diagnosis and explains evidence for and against plausible alternatives.', [`${objectivePrefix}3`], [referenceId], 15),
+    rubricCriterion(`${caseId}-r6`, 'patient-safety', 'States a safe outpatient disposition, explicit escalation threshold, and follow-up safety net.', [`${objectivePrefix}4`], [referenceId], 20, true),
+  ];
+  const result = baseFromLegacy(caseId, `Assessment of ${p.chiefComplaint.replace(/[.!?]+$/, '').toLowerCase()}`, '1.1.0', [referenceId]);
+  return {
+    ...result,
+    curationRequirements: {
+      diagnosisConcept: requirements.diagnosisConcept,
+      requiredClinicalCorrection: requirements.requiredClinicalCorrection,
+      safetyEscalationRequirement: requirements.safetyEscalationRequirement,
+      sourceKind: 'user-supplied-curation-workbook',
+    },
+    specialtyId,
+    reviewStatus: 'source-verified-formative',
+    learningObjectives: [
+      { objectiveId: `${objectivePrefix}1`, description: 'Gather a focused, chronological history and identify safety-relevant negatives and risk modifiers.' },
+      { objectiveId: `${objectivePrefix}2`, description: 'Use focused examination and proportionate investigations without inventing unmodeled results.' },
+      { objectiveId: `${objectivePrefix}3`, description: 'Compare five plausible diagnoses and select one best answer from modeled evidence.' },
+      { objectiveId: `${objectivePrefix}4`, description: 'Create a safe outpatient plan with explicit escalation, follow-up, and communication.' },
+    ],
+    physicalExamination: [
+      { findingId: 'general-appearance', description: p.arrivalBlurb },
+      { findingId: 'focused-examination', description: 'Focused system examination is required; only findings explicitly returned by the simulation may be treated as observed.' },
+    ],
+    investigations: p.testResults.map((test) => ({
+      testId: test.testId,
+      reason: 'Case-specific simulated result available only after the learner requests this investigation.',
+      availability: 'available-on-request', classification: 'useful', result: test.result,
+      abnormal: test.abnormal, rubricCriterionIds: [`${caseId}-r4`], referenceIds: [referenceId],
+    })),
+    differentialDiagnoses: five.map((diagnosisId) => ({
+      diagnosisId,
+      label: label(diagnosisId),
+      isCorrect: diagnosisId === p.correctDiagnosisId,
+      rationale: diagnosisId === p.correctDiagnosisId
+        ? 'This is the best fit for the modeled history, examination context, and available investigation pattern.'
+        : 'This remains a plausible alternative, but the complete modeled pattern is less supportive than for the best answer.',
+      supportingFindings: p.anamnesis.filter((q) => q.relevant).slice(0, 2).map((q) => q.answer),
+      findingsAgainst: diagnosisId === p.correctDiagnosisId ? [] : ['The overall modeled pattern is less consistent than the designated one-best answer.'],
+    })),
+    managementPlan: {
+      summary: `${requirements.requiredClinicalCorrection} Use the cited source pathway, patient preferences, and local services to agree a proportionate outpatient plan; exact prescribing is outside scored content.`,
+      nonPharmacological: ['Explain the working diagnosis and uncertainty', 'Agree condition-appropriate self-care and follow-up'],
+      referral: [safetyAction],
+    },
+    medicationExpectations: [],
+    contraindications: [{ description: 'Do not score or infer exact medicines or doses until current BNF, product information, contraindications, interactions, monitoring, and local policy are verified.', referenceIds: [referenceId] }],
+    redFlags: [{ description: requirements.safetyEscalationRequirement, action: safetyAction, referenceIds: [referenceId] }],
+    referralCriteria: [{ criterion: urgent ? 'Time-critical presentation or unsafe outpatient stability' : 'Red flags, diagnostic uncertainty with safety concern, or failed outpatient management', action: safetyAction, referenceIds: [referenceId] }],
+    safetyNetting: [{ instruction: `${safetyAction} Give the learner/patient a clear timeframe and route for reassessment.`, referenceIds: [referenceId] }],
+    assessmentRubric: { rubricVersion: '1.1.0', criteria: rubric },
+    rubricVersion: '1.1.0', referenceSetVersion: '1.1.0',
+    criticalFailureRules: [{ ruleId: `${caseId}-cf1`, trigger: 'Fails to identify or act on the case safety/escalation requirement.', consequence: urgent ? 'fail' : 'score-cap', referenceIds: [referenceId] }],
+    evidenceMappings: ['curationRequirements.requiredClinicalCorrection', 'curationRequirements.safetyEscalationRequirement', 'correctDiagnosis', 'investigations', 'managementPlan', 'redFlags', 'referralCriteria', 'assessmentRubric'].map((fieldPath) => ({ fieldPath, referenceId, jurisdiction: 'United Kingdom-first', accessedAt: '2026-09-10', verificationMethod: 'workbook-source-target' as const })),
+    reviewRecord: {
+      ...PENDING_REVIEW,
+      reviewStatus: 'source-verified-formative',
+      checklist: { ...PENDING_REVIEW.checklist, referencesVerified: 'accepted' },
+      unresolvedComments: [{ commentId: 'human-clinical-review-required', area: 'clinical governance', comment: 'Source-backed formative rebuild completed; independent clinician sign-off and exact recommendation reconciliation remain outstanding.', critical: true }],
+      approvalStatement: 'Source-backed formative use only. No medical approval or clinical accreditation is claimed.',
+    },
+    variantPolicy: { allowedDisplayNames: [p.name], ageRange: { min: p.age, max: p.age }, allowedComplaintPhrasings: [p.chiefComplaint], difficultyOptions: ['intermediate'] },
+    changeSummary: 'Version 1.1.0 rebuild for the 72-case curated bank: explicit provenance, availability states, 100-point deterministic rubric, safety gates, and non-scoreable medication policy.',
+  };
+}
+
+export const CLINICAL_CASES: ClinicalCase[] = Object.entries(CURATED_CASE_IDS_BY_SPECIALTY)
+  .flatMap(([specialtyId, ids]) => ids.map((caseId) => rebuiltCase(caseId, specialtyId as ClinicalCase['specialtyId'])));
 export const CLINICAL_CASE_BY_ID = new Map(CLINICAL_CASES.map((c) => [c.caseId, c]));
 
 export function reviewStatusForCase(caseId: string): ClinicalCase['reviewStatus'] | 'legacy-unreviewed' {
@@ -198,8 +311,8 @@ export function caseVersionFor(caseId: string): string {
 
 export function isAssignableCase(caseId: string, mode: 'curated' | 'development'): boolean {
   const status = reviewStatusForCase(caseId);
-  if (mode === 'curated') return status === 'approved-formative';
-  return status !== 'retired';
+  if (mode === 'curated') return isCuratedCaseId(caseId) && status === 'source-verified-formative';
+  return isCuratedCaseId(caseId) && status !== 'retired';
 }
 
 export function toSafeCaseSummary(c: ClinicalCase): SafeCaseSummary {
@@ -207,8 +320,7 @@ export function toSafeCaseSummary(c: ClinicalCase): SafeCaseSummary {
 }
 
 export function toSafeEncounterCase(c: ClinicalCase): SafeEncounterCase {
-  const p = legacy(c.caseId);
-  return { ...toSafeCaseSummary(c), arrivalBlurb: c.presentingComplaint.fullClinicalDescription, vitalSigns: c.vitalSigns, availableQuestionIds: c.history.map((h) => h.itemId), availableInvestigationIds: c.investigations.map((i) => i.testId), diagnosisOptions: p.diagnosisOptions.map((diagnosisId) => ({ diagnosisId, label: label(diagnosisId) })) };
+  return { ...toSafeCaseSummary(c), arrivalBlurb: c.presentingComplaint.fullClinicalDescription, vitalSigns: c.vitalSigns, availableQuestionIds: c.history.map((h) => h.itemId), investigations: c.investigations.map((i) => ({ testId: i.testId, availability: i.availability })), diagnosisOptions: c.differentialDiagnoses.map(({ diagnosisId, label: diagnosisLabel }) => ({ diagnosisId, label: diagnosisLabel })) };
 }
 
 export function toPostSubmissionReview(c: ClinicalCase): PostSubmissionReview {

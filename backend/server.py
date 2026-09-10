@@ -15,6 +15,7 @@ POST /voice/token    → mint LiveKit JWT for a patient room
 from __future__ import annotations
 
 import os
+import json
 import threading
 from pathlib import Path
 from typing import Optional
@@ -124,11 +125,21 @@ app.include_router(build_auth_router(auth_api, limiter))
 # medicines, and unrequested results are deliberately absent. The current SPA
 # still has legacy in-bundle case data for compatibility; moving all encounter
 # truth behind server-owned attempt APIs is tracked in the governance docs.
-_SAFE_PILOT_CASES = [
-    {"caseId": "im-003", "caseVersion": "1.0.0", "specialtyId": "internal-medicine", "displayName": "Michael Williams", "age": 52, "gender": "M", "publicComplaint": "My pharmacist said my blood pressure is too high. I feel fine.", "difficulty": "intermediate", "learnerLevel": "undergraduate-clinical-years", "reviewStatus": "clinical-review"},
-    {"caseId": "im-004", "caseVersion": "1.0.0", "specialtyId": "internal-medicine", "displayName": "Patricia Brown", "age": 58, "gender": "F", "publicComplaint": "I'm thirsty all the time and urinating constantly.", "difficulty": "intermediate", "learnerLevel": "undergraduate-clinical-years", "reviewStatus": "clinical-review"},
-    {"caseId": "im-005", "caseVersion": "1.0.0", "specialtyId": "internal-medicine", "displayName": "David Jones", "age": 47, "gender": "M", "publicComplaint": "I've had a cough with yellow phlegm and fever for 5 days.", "difficulty": "intermediate", "learnerLevel": "undergraduate-clinical-years", "reviewStatus": "clinical-review"},
-]
+_CURATION_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "docs" / "generated" / "curation-manifest.json"
+
+
+def _load_safe_curated_cases():
+    try:
+        payload = json.loads(_CURATION_MANIFEST_PATH.read_text(encoding="utf-8"))
+        cases = payload.get("safeCases", [])
+        if payload.get("counts", {}).get("curated") != 72 or len(cases) != 72:
+            raise ValueError("curation manifest must contain exactly 72 cases")
+        return cases
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid or missing curation manifest: {exc}") from exc
+
+
+_SAFE_CURATED_CASES = _load_safe_curated_cases()
 
 
 def _development_cases_enabled() -> bool:
@@ -137,9 +148,8 @@ def _development_cases_enabled() -> bool:
 
 @app.get("/api/clinical/cases")
 def list_safe_cases(mode: str = "curated"):
-    if mode == "development" and _development_cases_enabled():
-        return _SAFE_PILOT_CASES
-    return [case for case in _SAFE_PILOT_CASES if case["reviewStatus"] == "approved-formative"]
+    del mode
+    return _SAFE_CURATED_CASES
 
 
 @app.get("/api/clinical/cases/{case_id}")

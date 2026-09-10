@@ -22,6 +22,7 @@ import { TREATMENTS } from '../data/treatments.ts';
 import { getTestReport } from '../data/defaultTestResults.ts';
 import { getExistingConversation } from '../voice/conversationStore.ts';
 import { validateCaseSpecificPrescription, type CaseSpecificPrescriptionResult } from '../clinical/prescriptionValidation.ts';
+import { CLINICAL_CASE_BY_ID } from '../clinical/cases.ts';
 
 export interface DebriefRequest {
   case_id: string;
@@ -29,6 +30,7 @@ export interface DebriefRequest {
   rubric_version: string;
   variant_seed: string;
   prescription_validation: CaseSpecificPrescriptionResult;
+  critical_criterion_ids: string[];
   case_summary: {
     chief_complaint: string;
     correct_diagnosis_id: string;
@@ -98,7 +100,8 @@ export function buildDebriefRequest(
   patient: ActivePatient,
   endedAt: number = Date.now(),
 ): DebriefRequest {
-  const rubric = getRubricFor(c);
+  const canonical = CLINICAL_CASE_BY_ID.get(c.id);
+  const rubric = canonical ? canonicalRubric(canonical) : getRubricFor(c);
   const registry_slice = collectRegistrySlice(rubric);
 
   const askedById = new Map(c.anamnesis.map((q) => [q.id, q]));
@@ -157,6 +160,7 @@ export function buildDebriefRequest(
     rubric_version: patient.rubricVersion,
     variant_seed: patient.variantSeed,
     prescription_validation: validateCaseSpecificPrescription(c.id, prescriptions),
+    critical_criterion_ids: canonical?.assessmentRubric.criteria.filter((criterion) => criterion.isCritical).map((criterion) => criterion.criterionId) ?? [],
     case_summary: {
       chief_complaint: c.chiefComplaint,
       correct_diagnosis_id: c.correctDiagnosisId,
@@ -188,6 +192,27 @@ export function buildDebriefRequest(
       } : null,
     },
   };
+}
+
+function canonicalRubric(canonical: NonNullable<ReturnType<typeof CLINICAL_CASE_BY_ID.get>>): CaseRubric {
+  const mapped: Record<'data_gathering' | 'clinical_management' | 'interpersonal', RubricCriterion[]> = {
+    data_gathering: [], clinical_management: [], interpersonal: [],
+  };
+  for (const criterion of canonical.assessmentRubric.criteria) {
+    const domain = criterion.domain === 'communication'
+      ? 'interpersonal'
+      : ['history', 'examination', 'investigation'].includes(criterion.domain)
+        ? 'data_gathering'
+        : 'clinical_management';
+    mapped[domain].push({
+      criterion_id: criterion.criterionId,
+      label: criterion.description,
+      weight: criterion.weight,
+      framework: criterion.domain === 'communication' ? 'SEGUE' : 'PLAB2',
+      evidence: criterion.observableEvidence.join(' '),
+    });
+  }
+  return { ...mapped, global_rating: 'borderline-regression' };
 }
 
 /** Encode the request as a single chat-message text block. The agent

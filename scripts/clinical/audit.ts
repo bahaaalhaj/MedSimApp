@@ -6,6 +6,6 @@ for (const c of CLINICAL_CASES) counts.set(c.reviewStatus, (counts.get(c.reviewS
 console.log('Clinical case-bank audit');
 console.log(`Canonical cases: ${CLINICAL_CASES.length}`);
 for (const [status, count] of counts) console.log(`${status}: ${count}`);
-console.log(`Legacy unresolved: ${LEGACY_CASE_MIGRATIONS.filter((m) => m.migrationStatus === 'legacy-unreviewed').length}`);
+console.log(`Archived nonassignable: ${LEGACY_CASE_MIGRATIONS.filter((m) => m.migrationStatus === 'retired-from-curated-bank').length}`);
 console.log(`Approved-formative: ${CLINICAL_CASES.filter((c) => c.reviewStatus === 'approved-formative').length}`);
-console.log('Curated mode will remain empty until genuine reviewer evidence is recorded.');
+console.log('Curated mode exposes source-backed formative cases only; no human clinical approval or accreditation is claimed.');

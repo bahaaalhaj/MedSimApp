@@ -13,3 +13,6 @@ Medication fields include generic name, indication, dose or explicitly pending r
 Variants may change only allowlisted presentation fields within reviewed bounds. They are deterministic from canonical ID, version, and stored seed. Never randomize diagnosis, results, management, medicine, safety, or scoring truth.
 
 Run `npm run clinical:validate`, `npm run clinical:references`, `npm run clinical:audit`, `npm run verify`, `npm test`, and `npm run build` before review.
+# Curated-bank requirements
+
+Every learner case must belong to `CURATED_CASE_IDS`, use version `1.1.0` or later, contain exactly five differential diagnoses with one best answer, declare investigation availability, carry a 5–8 criterion rubric totaling 100, and include explicit critical-failure logic. Exact medication choices remain non-scoreable without current BNF and local-formulary verification.

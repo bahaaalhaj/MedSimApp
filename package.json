@@ -12,7 +12,9 @@
     "clinical:validate": "node scripts/clinical/validate.ts",
     "clinical:references": "node scripts/clinical/references.ts",
     "clinical:audit": "node scripts/clinical/audit.ts",
-    "clinical:export-review": "node --max-old-space-size=8192 scripts/clinical/export-review.ts"
+    "clinical:export-review": "node --max-old-space-size=8192 scripts/clinical/export-review.ts",
+    "clinical:export-curation": "node scripts/clinical/export-curation.ts",
+    "clinical:verify-curation": "node scripts/clinical/verify-curation.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -191,9 +191,9 @@ class Store {
   setPolyclinicClinic = (clinic: ClinicId) =>
     this.set({ polyclinic: { ...this.state.polyclinic, clinic } });
 
-  setTrainingMode = (trainingMode: TrainingMode) => {
+  setTrainingMode = (_trainingMode: TrainingMode) => {
     this.attemptedCaseIds.clear();
-    this.set({ trainingMode, polyclinic: { ...this.state.polyclinic, patient: null } });
+    this.set({ trainingMode: 'curated', polyclinic: { ...this.state.polyclinic, patient: null } });
   };
 
   /** Track which patients have been finished this session so the

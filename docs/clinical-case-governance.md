@@ -1,6 +1,6 @@
 # Clinical case governance
 
-MedSim is a formative educational prototype, not clinical decision-support or a high-stakes examination. The legacy catalogue contains synthetic cases and technical consistency checks; neither establishes medical accuracy. The canonical pilot bank therefore uses explicit lifecycle states and defaults to showing only `approved-formative` cases.
+MedSim is a formative educational prototype, not clinical decision-support or a high-stakes examination. The learner catalogue is the workbook-controlled 72-case bank (three per specialty); 168 other legacy records are archived and nonassignable. `source-verified-formative` means the case has an authoritative source target and technical gates, not clinician approval or accreditation.
 
 ## Scope
 
@@ -12,17 +12,17 @@ MedSim is a formative educational prototype, not clinical decision-support or a 
 
 ## Lifecycle
 
-`legacy-unreviewed → draft → technical-review → clinical-review → approved-formative`
+`legacy-unreviewed → draft → technical-review → clinical-review → source-verified-formative → approved-formative`
 
 `revision-required` can be entered from review. `retired` prevents new assignment while retaining versioned history. Automated checks may support movement to `technical-review`; only a qualified clinician or faculty reviewer, identified in the review record, may assign `approved-formative`. Approval requires a completed checklist, an approval statement, no unresolved critical comment, and a future review date. Source verification is not clinical approval.
 
 At 2026-09-10 the exact bank status is:
 
-- `clinical-review`: 3 (`im-003`, `im-004`, `im-005`)
+- `source-verified-formative`: 72 at version `1.1.0`
 - `approved-formative`: 0
-- legacy records: all other preserved catalogue IDs, marked `legacy-unreviewed`
+- archived legacy records: 168, marked `retired-from-curated-bank` in the migration manifest
 
-No clinician review identity or approval has been supplied. Curated mode is consequently empty. Development mode explicitly labels pending and legacy cases.
+No clinician review identity or accreditation has been supplied. The 72 cases are available only for explicitly labelled source-backed formative practice; the 168 archived records are not exposed even in development UI.
 
 ## Responsibilities and controls
 

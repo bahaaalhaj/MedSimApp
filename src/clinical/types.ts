@@ -6,6 +6,7 @@ export const CASE_REVIEW_STATUSES = [
   'technical-review',
   'clinical-review',
   'revision-required',
+  'source-verified-formative',
   'approved-formative',
   'retired',
 ] as const;
@@ -14,6 +15,7 @@ export type CaseReviewStatus = (typeof CASE_REVIEW_STATUSES)[number];
 export type TrainingMode = 'curated' | 'development';
 export type LearnerLevel = 'undergraduate-clinical-years' | 'recent-graduate';
 export type ReviewDecision = 'not-reviewed' | 'accepted' | 'revision-required' | 'not-applicable';
+export type InvestigationAvailability = 'available-on-request' | 'not-modeled' | 'not-indicated';
 
 export interface ClinicalReference {
   referenceId: string;
@@ -99,6 +101,7 @@ export interface DifferentialDiagnosis {
 export interface CaseInvestigation {
   testId: string;
   reason: string;
+  availability: InvestigationAvailability;
   classification: 'essential' | 'useful' | 'unnecessary' | 'potentially-harmful';
   result: string;
   abnormal: boolean;
@@ -169,23 +172,43 @@ export interface ClinicalCase {
   clinicalRegion: string;
   language: 'en';
   intendedUse: 'formative-only';
+  curationRequirements?: {
+    diagnosisConcept: string;
+    requiredClinicalCorrection: string;
+    safetyEscalationRequirement: string;
+    sourceKind: 'user-supplied-curation-workbook';
+  };
+  approvalBasis: 'source-only' | 'human-clinical-review';
+  clinicalSetting: 'outpatient-clinic';
+  chronology: string[];
+  pertinentNegatives: string[];
+  riskModifiers: string[];
   learningObjectives: LearningObjective[];
   patientProfile: { displayName: string; age: number; gender: 'M' | 'F'; syntheticComposite: true };
   presentingComplaint: { publicSummary: string; fullClinicalDescription: string };
   history: Array<{ itemId: string; question: string; answer: string }>;
   physicalExamination: Array<{ findingId: string; description: string }>;
-  vitalSigns: { hr: number; bp: string; spo2: number; temp: number; rr: number };
+  vitalSigns: {
+    hr: number; hrUnit: 'beats/min'; bp: string; bpUnit: 'mmHg';
+    spo2: number; spo2Unit: '%'; temp: number; tempUnit: '°C'; rr: number; rrUnit: 'breaths/min';
+  };
   investigations: CaseInvestigation[];
   imaging: Array<{ testId: string; interpretation: string; sourceKind: 'case-specific-simulation' | 'educational-reference'; attribution?: string; license?: string }>;
   differentialDiagnoses: DifferentialDiagnosis[];
   correctDiagnosis: { diagnosisId: string; label: string };
   managementPlan: { summary: string; nonPharmacological: string[]; referral: string[] };
   medicationExpectations: MedicationExpectation[];
+  medicationScoring: { enabled: boolean; reason: string; verificationRequired: 'BNF-and-local-formulary' };
   contraindications: Array<{ description: string; referenceIds: string[] }>;
   redFlags: Array<{ description: string; action: string; referenceIds: string[] }>;
   referralCriteria: Array<{ criterion: string; action: string; referenceIds: string[] }>;
   safetyNetting: Array<{ instruction: string; referenceIds: string[] }>;
   assessmentRubric: { rubricVersion: string; criteria: ClinicalRubricCriterion[] };
+  criticalFailureRules: Array<{ ruleId: string; trigger: string; consequence: 'fail' | 'score-cap'; referenceIds: string[] }>;
+  evidenceMappings: Array<{
+    fieldPath: string; referenceId: string; jurisdiction: string; accessedAt: string;
+    verificationMethod: 'publisher-page-reviewed' | 'workbook-source-target';
+  }>;
   references: string[];
   reviewRecord: CaseReviewRecord;
   variantPolicy?: ControlledVariantPolicy;
@@ -209,7 +232,7 @@ export interface SafeEncounterCase extends SafeCaseSummary {
   arrivalBlurb: string;
   vitalSigns: ClinicalCase['vitalSigns'];
   availableQuestionIds: string[];
-  availableInvestigationIds: string[];
+  investigations: Array<{ testId: string; availability: InvestigationAvailability }>;
   diagnosisOptions: Array<{ diagnosisId: string; label: string }>;
 }
 

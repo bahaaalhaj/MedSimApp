@@ -16,3 +16,6 @@ The proposed study sequence is:
 10. Report actual sample size, recruitment, missing data, limitations, and all negative findings.
 
 Participant/reviewer information must be access-controlled, minimized, and separated from public progress displays. Do not use identifiable clinical data. The study protocol must distinguish content validity, usability, scoring agreement, and educational impact; success in one does not establish another or justify high-stakes use.
+# Curated cohort
+
+Academic validation samples the fixed 72-case cohort and reports results separately from the 168-record historical archive. Source verification, clinician review, learner usability, and scoring reliability are distinct evidence claims and must not be collapsed into one approval label.

@@ -47,6 +47,10 @@ export function normalizeEvaluation(
 
   const totalRaw = Object.values(domain_scores).reduce((sum, x) => sum + x.raw, 0);
   const totalMax = Object.values(domain_scores).reduce((sum, x) => sum + x.max, 0);
-  const global_rating = model.safety_breach ? 'clear-fail' : band(totalMax > 0 ? totalRaw / totalMax : 0);
-  return { ...model, case_id: request.case_id, criteria, domain_scores, global_rating };
+  const criticalMissed = criteria.some((criterion) => request.critical_criterion_ids.includes(criterion.criterion_id) && criterion.verdict === 'missed');
+  const safety_breach = criticalMissed
+    ? { what: 'A mandatory patient-safety criterion was missed.', guideline_ref: null }
+    : null;
+  const global_rating = criticalMissed ? 'clear-fail' : band(totalMax > 0 ? totalRaw / totalMax : 0);
+  return { ...model, case_id: request.case_id, criteria, domain_scores, safety_breach, global_rating };
 }

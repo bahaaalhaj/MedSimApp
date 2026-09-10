@@ -217,6 +217,7 @@ async function createWorkbook(model: ExportModel, artifact: any): Promise<any> {
   const metadataTable = summary.tables.add(`A4:${columnName(metadataHeaders.length - 1)}5`, true, 'ExportMetadataTable');
   metadataTable.style = 'TableStyleMedium2';
   metadataTable.showFilterButton = true;
+  summary.getRange('B5').format.numberFormat = 'yyyy-mm-dd hh:mm:ss';
   summary.getRange('A4:U4').format = { fill: TEAL, font: { name: FONT, size: 10, bold: true, color: '#FFFFFF' }, horizontalAlignment: 'center', verticalAlignment: 'center', wrapText: true };
   summary.getRange('A4:U4').format.rowHeight = 32;
   summary.getRange('A5:U5').format.wrapText = true;

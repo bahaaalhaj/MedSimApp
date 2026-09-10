@@ -1,8 +1,8 @@
 # Legacy case migration
 
-The original catalogue is preserved for compatibility and is not automatically considered clinically reliable. Existing IDs remain resolvable for stored history. All non-pilot entries are `legacy-unreviewed` and appear only in explicitly labeled development mode.
+The original 240-record catalogue is preserved as source history and is not automatically considered clinically reliable. Exactly 72 IDs are rebuilt and learner-resolvable; the remaining 168 IDs are `retired-from-curated-bank` and cannot be assigned or opened through learner routes.
 
-Phase 1 is implemented through lifecycle metadata, curated filtering, honest UI labels, and generated compatibility records. Phase 2 migrated `im-003` (raised blood pressure), `im-004` (new diabetes presentation), and `im-005` (community-acquired pneumonia) to version `1.0.0`; all remain `clinical-review`. No case is approved. Phase 3 requires real reviewer records and completed checklists. Phase 4 retirement decisions are intentionally deferred to qualified review.
+The curation manifest implements the workbook selection contract: 72 rebuilt cases at `1.1.0`, 168 archived records, and exactly three cases for each of 24 specialties. Source-backed status is separate from human approval. Historical `1.0.0` pilots remain available for audit, not assignment.
 
 `src/clinical/migration.ts` generates the mapping shape:
 
