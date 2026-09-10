@@ -1,6 +1,7 @@
 import type { PaletteName } from '../styles/palettes';
 import type { ClinicId } from './clinic';
 import type { CaseReviewStatus, TrainingMode } from '../clinical/types';
+import type { InvestigationAvailability, InvestigationCategory, InvestigationResult, InvestigationRole } from '../clinical/types';
 
 // ── MedSim cozy-cartoon UI state ──────────────────────────
 
@@ -172,6 +173,22 @@ export interface ActivePatient {
   orderedTestIds: string[];
   testOrderedAt: Record<string, number>;
   completedTestIds: string[];
+  investigationAttemptId: string | null;
+  investigationAttemptStatus: 'initializing' | 'ready' | 'error';
+  investigationCatalogue: Array<{
+    testId: string; name: string; category: InvestigationCategory; role: InvestigationRole;
+    availability: InvestigationAvailability; reason: string; turnaroundSec: number; prerequisite?: string;
+  }>;
+  investigationOrders: Array<{
+    orderId: string; investigationId: string; orderedAt: number; availableAt: number;
+    status: 'pending' | 'available' | 'unavailable' | 'error'; indication: string;
+    statusDetail?: string | null;
+    resultSnapshot?: {
+      investigationId: string; name: string; category: InvestigationCategory;
+      structuredResult?: InvestigationResult; resultText: string; abnormal: boolean | null;
+      verificationStatus: 'source-verified' | 'unresolved'; scoreable: boolean;
+    };
+  }>;
   givenTreatmentIds: string[];
   submittedDiagnosisId: string | null;
   arrivedAt: number;

@@ -8,6 +8,7 @@ import {
   isCuratedCaseId,
 } from './curation.ts';
 import { CURATION_REQUIREMENTS } from './curationRequirements.ts';
+import { buildCaseInvestigations } from './investigations.ts';
 import type {
   CaseReviewRecord,
   ClinicalCase,
@@ -89,11 +90,11 @@ function baseFromLegacy(
     history: p.anamnesis.map((q) => ({ itemId: q.id, question: q.question, answer: q.answer })),
     physicalExamination: [{ findingId: 'general', description: p.arrivalBlurb }],
     vitalSigns: { ...p.vitals, hrUnit: 'beats/min', bpUnit: 'mmHg', spo2Unit: '%', tempUnit: '°C', rrUnit: 'breaths/min' },
-    investigations: p.testResults.map((result) => ({
-      testId: result.testId, reason: 'Available as a case-specific simulated investigation result.',
-      availability: 'available-on-request', classification: 'useful', result: result.result, abnormal: result.abnormal,
-      rubricCriterionIds: [], referenceIds,
-    })),
+    investigations: buildCaseInvestigations({
+      caseId: id, caseVersion, tests: p.testResults,
+      differentials: [{ diagnosisId: p.correctDiagnosisId, label: label(p.correctDiagnosisId), isCorrect: true, rationale: '', supportingFindings: [], findingsAgainst: [] }],
+      rubricCriterionId: `${id}-investigation`, referenceId: referenceIds[0] ?? 'unresolved-reference', timeCritical: false,
+    }),
     imaging: p.testResults
       .filter((r) => ['cxr', 'ecg', 'echo', 'fundoscopy'].includes(r.testId))
       .map((r) => ({ testId: r.testId, interpretation: r.result, sourceKind: 'case-specific-simulation' as const })),
@@ -255,12 +256,11 @@ function rebuiltCase(caseId: string, specialtyId: ClinicalCase['specialtyId']): 
       { findingId: 'general-appearance', description: p.arrivalBlurb },
       { findingId: 'focused-examination', description: 'Focused system examination is required; only findings explicitly returned by the simulation may be treated as observed.' },
     ],
-    investigations: p.testResults.map((test) => ({
-      testId: test.testId,
-      reason: 'Case-specific simulated result available only after the learner requests this investigation.',
-      availability: 'available-on-request', classification: 'useful', result: test.result,
-      abnormal: test.abnormal, rubricCriterionIds: [`${caseId}-r4`], referenceIds: [referenceId],
-    })),
+    investigations: buildCaseInvestigations({
+      caseId, caseVersion: '1.1.0', tests: p.testResults,
+      differentials: five.map((diagnosisId) => ({ diagnosisId, label: label(diagnosisId), isCorrect: diagnosisId === p.correctDiagnosisId, rationale: '', supportingFindings: [], findingsAgainst: [] })),
+      rubricCriterionId: `${caseId}-r4`, referenceId, timeCritical: urgent,
+    }),
     differentialDiagnoses: five.map((diagnosisId) => ({
       diagnosisId,
       label: label(diagnosisId),
@@ -283,7 +283,10 @@ function rebuiltCase(caseId: string, specialtyId: ClinicalCase['specialtyId']): 
     safetyNetting: [{ instruction: `${safetyAction} Give the learner/patient a clear timeframe and route for reassessment.`, referenceIds: [referenceId] }],
     assessmentRubric: { rubricVersion: '1.1.0', criteria: rubric },
     rubricVersion: '1.1.0', referenceSetVersion: '1.1.0',
-    criticalFailureRules: [{ ruleId: `${caseId}-cf1`, trigger: 'Fails to identify or act on the case safety/escalation requirement.', consequence: urgent ? 'fail' : 'score-cap', referenceIds: [referenceId] }],
+    criticalFailureRules: [
+      { ruleId: `${caseId}-cf1`, trigger: 'Fails to identify or act on the case safety/escalation requirement.', consequence: urgent ? 'fail' : 'score-cap', referenceIds: [referenceId] },
+      ...(urgent ? [{ ruleId: `${caseId}-cf-investigation-delay`, trigger: 'Orders or waits for a non-essential investigation in a way that delays immediate stabilization or specialty escalation.', consequence: 'fail' as const, referenceIds: [referenceId] }] : []),
+    ],
     evidenceMappings: ['curationRequirements.requiredClinicalCorrection', 'curationRequirements.safetyEscalationRequirement', 'correctDiagnosis', 'investigations', 'managementPlan', 'redFlags', 'referralCriteria', 'assessmentRubric'].map((fieldPath) => ({ fieldPath, referenceId, jurisdiction: 'United Kingdom-first', accessedAt: '2026-09-10', verificationMethod: 'workbook-source-target' as const })),
     reviewRecord: {
       ...PENDING_REVIEW,
@@ -320,7 +323,7 @@ export function toSafeCaseSummary(c: ClinicalCase): SafeCaseSummary {
 }
 
 export function toSafeEncounterCase(c: ClinicalCase): SafeEncounterCase {
-  return { ...toSafeCaseSummary(c), arrivalBlurb: c.presentingComplaint.fullClinicalDescription, vitalSigns: c.vitalSigns, availableQuestionIds: c.history.map((h) => h.itemId), investigations: c.investigations.map((i) => ({ testId: i.testId, availability: i.availability })), diagnosisOptions: c.differentialDiagnoses.map(({ diagnosisId, label: diagnosisLabel }) => ({ diagnosisId, label: diagnosisLabel })) };
+  return { ...toSafeCaseSummary(c), arrivalBlurb: c.presentingComplaint.fullClinicalDescription, vitalSigns: c.vitalSigns, availableQuestionIds: c.history.map((h) => h.itemId), investigations: c.investigations.map(({ testId, name, category, role, availability, reason, turnaroundSec, prerequisite }) => ({ testId, name, category, role, availability, reason, turnaroundSec, prerequisite })), diagnosisOptions: c.differentialDiagnoses.map(({ diagnosisId, label: diagnosisLabel }) => ({ diagnosisId, label: diagnosisLabel })) };
 }
 
 export function toPostSubmissionReview(c: ClinicalCase): PostSubmissionReview {

@@ -11,6 +11,10 @@ const XLSX_PATH = join(OUTPUT_DIR, 'medsim-medical-cases-review.xlsx');
 const JSON_PATH = join(OUTPUT_DIR, 'medsim-medical-cases-review.json');
 const EXPECTED_SHEETS = [
   'Case_Index','Patient_Profile','Vital_Signs','History_Questions','Physical_Examination','Investigations',
+  'Investigation_Catalogue','Case_Investigation_Roles','Investigation_Results','Investigation_Diff_Links',
+  'Investigation_References','Investigation_Scoring','Investigation_Safety','Investigation_Review_Queue',
+  'Case_Investigation_Matrix','Laboratory_Results','Imaging_Results','Investigation_Reference_Matrix',
+  'Image_Provenance','Investigation_Issues','Investigation_Audit_Summary',
   'Differential_Diagnoses','Management','Medications','Rubric_Criteria','Learning_Objectives','References',
   'Case_Reference_Matrix','Review_Records','Legacy_Migration','Issues','Export_Summary',
 ] as const;
@@ -307,7 +311,7 @@ export async function exportClinicalReview(): Promise<{ model: ExportModel; xlsx
   await output.save(XLSX_PATH);
   const artifactInspectSidecar = `${XLSX_PATH}.inspect.ndjson`;
   if (existsSync(artifactInspectSidecar)) await unlink(artifactInspectSidecar);
-  console.log('Reopening and checking all 17 worksheets...');
+  console.log(`Reopening and checking all ${EXPECTED_SHEETS.length} worksheets...`);
   await validateSavedWorkbook(XLSX_PATH, model, artifact);
   return { model, xlsxPath: XLSX_PATH, jsonPath: JSON_PATH };
 }

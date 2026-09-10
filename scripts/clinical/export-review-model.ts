@@ -5,7 +5,6 @@ import { LEGACY_CASE_MIGRATIONS } from '../../src/clinical/migration.ts';
 import { CLINICAL_REFERENCES } from '../../src/clinical/references.ts';
 import { POLYCLINIC_CASES, POLYCLINIC_DIAGNOSIS_LABELS } from '../../src/data/polyclinicPatients.ts';
 import { TESTS } from '../../src/data/tests.ts';
-import { getImagingExamples } from '../../src/data/radiologyImages.ts';
 import { MEDICATIONS } from '../../src/data/medications.ts';
 import { TREATMENTS } from '../../src/data/treatments.ts';
 import { GUIDELINES } from '../../src/data/guidelines.ts';
@@ -23,6 +22,21 @@ export const SHEET_COLUMNS = {
   History_Questions: ['export_case_key','case_id','case_version','history_item_id','category','question','patient_answer','relevant_flag','essential_flag','information_release_condition','learning_objective_ids','rubric_criterion_ids','reference_ids','source_file'],
   Physical_Examination: ['export_case_key','case_id','case_version','examination_id','system','examination_name','finding','normal_or_abnormal','essential_flag','learning_objective_ids','rubric_criterion_ids','reference_ids','source_file'],
   Investigations: ['export_case_key','case_id','case_version','test_id','test_name','test_category','reason_for_test','result','unit','reference_range','abnormal_flag','essential_or_optional','appropriateness_classification','result_source','result_is_case_specific','result_is_default','result_is_unavailable','imaging_present','imaging_id','imaging_url','imaging_source','imaging_license','image_is_patient_specific','interpretation','learning_objective_ids','rubric_criterion_ids','reference_ids','source_file'],
+  Investigation_Catalogue: ['export_case_key','case_id','case_version','investigation_id','name','category','role','availability','reason','turnaround_seconds','prerequisite','verification_status','scoreable'],
+  Case_Investigation_Roles: ['export_case_key','case_id','case_version','investigation_id','role','selection_weight','stewardship_effect','safety_effect','rubric_criterion_ids'],
+  Investigation_Results: ['export_case_key','case_id','case_version','investigation_id','result_kind','structured_result','display_result','abnormal','unit','reference_range','variability_notes'],
+  Investigation_Diff_Links: ['export_case_key','case_id','case_version','investigation_id','supports_diagnosis_ids','argues_against_diagnosis_ids','limitations','learner_safe_summary','post_submission_explanation'],
+  Investigation_References: ['export_case_key','case_id','case_version','investigation_id','reference_id','verification_status','scoreable'],
+  Investigation_Scoring: ['export_case_key','case_id','case_version','investigation_id','scoreable','selection_points','interpretation_points','stewardship_rule','safety_rule'],
+  Investigation_Safety: ['export_case_key','case_id','case_version','investigation_id','role','prerequisite','potential_delay_or_harm','required_safety_action'],
+  Investigation_Review_Queue: ['export_case_key','case_id','case_version','investigation_id','verification_status','scoreable','review_reason','recommended_reviewer','resolution_status'],
+  Case_Investigation_Matrix: ['export_case_key','case_id','case_version','specialty','investigation_id','category','role','indication','availability','turnaround_seconds','scoreable'],
+  Laboratory_Results: ['export_case_key','case_id','case_version','investigation_id','category','result_type','structured_result','units','reference_range','abnormality','learner_visible_report'],
+  Imaging_Results: ['export_case_key','case_id','case_version','investigation_id','result_type','structured_report','learner_visible_report','limitations','turnaround_seconds','educational_image_status'],
+  Investigation_Reference_Matrix: ['export_case_key','case_id','case_version','investigation_id','reference_id','verification_status','scoreable','clinical_field_supported'],
+  Image_Provenance: ['export_case_key','case_id','case_version','investigation_id','asset_id','source_type','attribution','license','original_url','synthetic','retention_status'],
+  Investigation_Issues: ['export_case_key','case_id','case_version','investigation_id','severity','issue_code','description','blocks_scoring','status'],
+  Investigation_Audit_Summary: ['export_case_key','case_id','case_version','specialty','investigation_count','essential_count','conditional_count','not_indicated_count','harmful_count','unresolved_count','scoreable_count','audit_status'],
   Differential_Diagnoses: ['export_case_key','case_id','case_version','diagnosis_option_id','diagnosis_name','display_order_if_fixed','is_correct','supporting_findings','findings_against','differential_rationale','same_diagnostic_level_flag','reference_ids','source_file'],
   Management: ['export_case_key','case_id','case_version','management_action_id','management_category','action_name','acceptable_flag','critical_flag','contraindicated_flag','timing','indication','monitoring','referral_requirement','escalation_requirement','safety_netting','acceptable_alternatives','learning_objective_ids','rubric_criterion_ids','reference_ids','source_file'],
   Medications: ['export_case_key','case_id','case_version','medication_id','generic_name','brand_name_if_present','indication_in_case','expected_status','dose','dose_min','dose_max','dose_unit','route','frequency','duration','acceptable_alternatives','contraindications','allergy_considerations','renal_adjustment','hepatic_adjustment','pregnancy_considerations','age_restrictions','monitoring','case_specific_expectation','review_sufficiency','reference_ids','source_file'],
@@ -41,7 +55,6 @@ export type Row = Record<string, string | number | boolean | null>;
 const LEGACY_SOURCE = 'src/data/polyclinicPatients.ts';
 const CANONICAL_SOURCE = 'src/clinical/cases.ts';
 const TEST_SOURCE = 'src/data/tests.ts';
-const IMAGE_SOURCE = 'src/data/radiologyImages.ts';
 const MED_SOURCE = 'src/data/medications.ts';
 const TREATMENT_SOURCE = 'src/data/treatments.ts';
 const GUIDELINE_SOURCE = 'src/data/guidelines.ts';
@@ -67,11 +80,6 @@ function diagnosisName(id: string): string {
 function splitBp(bp: string): [number | null, number | null] {
   const match = /^(\d{2,3})\/(\d{2,3})$/.exec(bp.trim());
   return match ? [Number(match[1]), Number(match[2])] : [null, null];
-}
-
-function imageLicense(credit: string): string | null {
-  const match = credit.match(/(CC0(?: \(public domain\))?|CC BY(?:-SA)? [0-9.]+|Public domain)$/i);
-  return match?.[1] ?? null;
 }
 
 interface Representation {
@@ -207,11 +215,8 @@ function legacyManagement(rep: Representation): Row[] {
 function investigationRows(rep: Representation): Row[] {
   const explicit = new Map((rep.canonical?.investigations ?? rep.legacy.testResults).map((result) => [result.testId, result]));
   const canonicalImaging = new Map((rep.canonical?.imaging ?? []).map((item) => [item.testId, item]));
-  return TESTS.map((test) => {
+  return TESTS.filter((test) => explicit.has(test.id)).map((test) => {
     const result = explicit.get(test.id) as any;
-    const image = result && (test.category === 'imaging' || test.id === 'ecg')
-      ? getImagingExamples(test.id, Boolean(result.abnormal), rep.canonical?.correctDiagnosis.diagnosisId ?? rep.legacy.correctDiagnosisId)[0]
-      : undefined;
     const canonicalResult = rep.canonical ? result : null;
     const modeledInterpretation = canonicalImaging.get(test.id)?.interpretation;
     return {
@@ -224,10 +229,9 @@ function investigationRows(rep: Representation): Row[] {
       appropriateness_classification: canonicalResult?.classification ?? null,
       result_source: result ? (rep.caseSystem === 'canonical' ? 'canonical-case-specific' : 'legacy-case-specific') : 'UNAVAILABLE / NOT MODELED',
       result_is_case_specific: Boolean(result), result_is_default: false, result_is_unavailable: !result,
-      imaging_present: Boolean(image), imaging_id: image ? `${test.id}:${sha256(image.url).slice(0, 12)}` : null,
-      imaging_url: image?.url ?? null, imaging_source: image ? IMAGE_SOURCE : null,
-      imaging_license: image ? imageLicense(image.credit) : null, image_is_patient_specific: image ? false : null,
-      interpretation: modeledInterpretation ?? image?.caption ?? null,
+      imaging_present: false, imaging_id: null, imaging_url: null, imaging_source: null,
+      imaging_license: null, image_is_patient_specific: null,
+      interpretation: modeledInterpretation ?? canonicalResult?.postSubmissionExplanation ?? null,
       learning_objective_ids: j([]), rubric_criterion_ids: j(canonicalResult?.rubricCriterionIds ?? []),
       reference_ids: j(canonicalResult?.referenceIds ?? []), source_file: result ? rep.sourceFile : 'src/data/defaultTestResults.ts',
     };
@@ -382,6 +386,25 @@ export function buildExportModel(options: ExportBuildOptions): ExportModel {
       reference_ids: j([]), source_file: CANONICAL_SOURCE,
     }));
     sheets.Investigations.push(...investigations);
+    if (c) for (const investigation of c.investigations) {
+      const common = { export_case_key: rep.exportCaseKey, case_id: rep.caseId, case_version: rep.caseVersion, investigation_id: investigation.testId };
+      sheets.Investigation_Catalogue.push({ ...common, name: investigation.name, category: investigation.category, role: investigation.role, availability: investigation.availability, reason: investigation.reason, turnaround_seconds: investigation.turnaroundSec, prerequisite: investigation.prerequisite ?? null, verification_status: investigation.verificationStatus, scoreable: investigation.scoreable });
+      sheets.Case_Investigation_Roles.push({ ...common, role: investigation.role, selection_weight: investigation.role === 'essential' ? 2 : investigation.role === 'useful' ? 1 : 0, stewardship_effect: ['optional', 'not-indicated'].includes(investigation.role) ? 'avoid unless justified' : 'neutral', safety_effect: investigation.role === 'potentially-harmful' ? 'critical penalty if ordered' : 'none', rubric_criterion_ids: j(investigation.rubricCriterionIds) });
+      sheets.Investigation_Results.push({ ...common, result_kind: investigation.structuredResult?.kind ?? null, structured_result: j(investigation.structuredResult), display_result: investigation.result, abnormal: investigation.abnormal, unit: investigation.units ?? null, reference_range: investigation.referenceRange ?? null, variability_notes: investigation.variabilityNotes ?? null });
+      sheets.Investigation_Diff_Links.push({ ...common, supports_diagnosis_ids: j(investigation.supportsDiagnosisIds), argues_against_diagnosis_ids: j(investigation.arguesAgainstDiagnosisIds), limitations: j(investigation.limitations), learner_safe_summary: investigation.learnerSafeSummary, post_submission_explanation: investigation.postSubmissionExplanation });
+      for (const referenceId of investigation.referenceIds) sheets.Investigation_References.push({ ...common, reference_id: referenceId, verification_status: investigation.verificationStatus, scoreable: investigation.scoreable });
+      sheets.Investigation_Scoring.push({ ...common, scoreable: investigation.scoreable, selection_points: investigation.role === 'essential' ? 2 : investigation.role === 'useful' ? 1 : 0, interpretation_points: investigation.scoreable ? 1 : 0, stewardship_rule: ['optional', 'not-indicated'].includes(investigation.role) ? 'credit when appropriately omitted' : 'not applicable', safety_rule: investigation.role === 'potentially-harmful' ? 'zero safety domain if ordered' : 'no penalty' });
+      sheets.Investigation_Safety.push({ ...common, role: investigation.role, prerequisite: investigation.prerequisite ?? null, potential_delay_or_harm: investigation.role === 'potentially-harmful', required_safety_action: investigation.prerequisite ?? 'None modeled' });
+      if (investigation.verificationStatus === 'unresolved') sheets.Investigation_Review_Queue.push({ ...common, verification_status: investigation.verificationStatus, scoreable: investigation.scoreable, review_reason: 'Legacy wording is ambiguous, generic, or lacks a sufficiently specific verified value/report.', recommended_reviewer: `${c.specialtyId} clinician`, resolution_status: 'open' });
+      sheets.Case_Investigation_Matrix.push({ ...common, specialty: c.specialtyId, category: investigation.category, role: investigation.role, indication: investigation.reason, availability: investigation.availability, turnaround_seconds: investigation.turnaroundSec, scoreable: investigation.scoreable });
+      const resultRow = { ...common, category: investigation.category, result_type: investigation.structuredResult?.kind ?? null, structured_result: j(investigation.structuredResult), units: investigation.units ?? null, reference_range: investigation.referenceRange ?? null, abnormality: investigation.structuredResult && 'abnormality' in investigation.structuredResult ? investigation.structuredResult.abnormality : investigation.abnormal ? 'abnormal' : 'normal', learner_visible_report: investigation.result };
+      if (investigation.category === 'imaging') sheets.Imaging_Results.push({ ...common, result_type: investigation.structuredResult?.kind ?? null, structured_report: j(investigation.structuredResult), learner_visible_report: investigation.result, limitations: j(investigation.limitations), turnaround_seconds: investigation.turnaroundSec, educational_image_status: 'Educational image not available for this case version.' });
+      else sheets.Laboratory_Results.push(resultRow);
+      for (const referenceId of investigation.referenceIds) sheets.Investigation_Reference_Matrix.push({ ...common, reference_id: referenceId, verification_status: investigation.verificationStatus, scoreable: investigation.scoreable, clinical_field_supported: 'Investigation selection and interpretation pathway; exact simulated value remains pending clinician review.' });
+      if (investigation.category === 'imaging') sheets.Image_Provenance.push({ ...common, asset_id: null, source_type: null, attribution: null, license: null, original_url: null, synthetic: false, retention_status: 'No image retained; written case-specific report only.' });
+      if (investigation.verificationStatus === 'unresolved') sheets.Investigation_Issues.push({ ...common, severity: 'high', issue_code: 'RESULT_PENDING_CLINICIAN_VERIFICATION', description: 'Exact simulated value/report has not been independently verified.', blocks_scoring: true, status: 'open' });
+    }
+    if (c) sheets.Investigation_Audit_Summary.push({ export_case_key: rep.exportCaseKey, case_id: rep.caseId, case_version: rep.caseVersion, specialty: c.specialtyId, investigation_count: c.investigations.length, essential_count: c.investigations.filter((i) => i.role === 'essential').length, conditional_count: c.investigations.filter((i) => i.role === 'conditional').length, not_indicated_count: c.investigations.filter((i) => i.role === 'not-indicated').length, harmful_count: c.investigations.filter((i) => i.role === 'potentially-harmful').length, unresolved_count: c.investigations.filter((i) => i.verificationStatus === 'unresolved').length, scoreable_count: c.investigations.filter((i) => i.scoreable).length, audit_status: c.investigations.every((i) => i.verificationStatus === 'source-verified') ? 'verified' : 'clinical review required' });
     if (c) c.differentialDiagnoses.forEach((diagnosis, index) => sheets.Differential_Diagnoses.push({
       export_case_key: rep.exportCaseKey, case_id: rep.caseId, case_version: rep.caseVersion,
       diagnosis_option_id: diagnosis.diagnosisId, diagnosis_name: diagnosis.label, display_order_if_fixed: index + 1,
@@ -442,7 +465,7 @@ export function buildExportModel(options: ExportBuildOptions): ExportModel {
     }
     addIssue({ severity: 'high', category: 'Missing review evidence', ...issueBase, field_or_section: 'reviewRecord', issue_code: 'NO_GENUINE_REVIEW_EVIDENCE', issue_description: 'No reviewer identity or approval statement is recorded for this case representation.', observed_value: reviewStatus, expected_requirement: 'A qualified reviewer must record review evidence before publication eligibility.', source_file: c ? CANONICAL_SOURCE : 'src/clinical/migration.ts', blocks_publication: true });
     const unavailable = investigations.filter((row) => row.result_is_unavailable).map((row) => row.test_id);
-    if (unavailable.length) addIssue({ severity: 'information', category: 'Missing investigation result', ...issueBase, field_or_section: 'investigations', issue_code: 'INVESTIGATIONS_UNAVAILABLE_NOT_MODELED', issue_description: `${unavailable.length} runtime-orderable investigations have no case-specific result and return UNAVAILABLE / NOT MODELED.`, observed_value: j(unavailable), expected_requirement: 'Do not substitute generic normal defaults.', source_file: 'src/data/defaultTestResults.ts', blocks_publication: false });
+    if (unavailable.length) addIssue({ severity: 'information', category: 'Missing investigation result', ...issueBase, field_or_section: 'investigations', issue_code: 'INVESTIGATIONS_UNAVAILABLE_NOT_MODELED', issue_description: `${unavailable.length} explicitly unavailable investigations have no case-specific result.`, observed_value: j(unavailable), expected_requirement: 'Unavailable and not-indicated investigations must not fabricate a result.', source_file: 'src/clinical/investigations.ts', blocks_publication: false });
     if (diagnosisOptions.length !== 5 || new Set(diagnosisOptions).size !== 5) addIssue({ severity: 'high', category: 'Differential diagnosis problem', ...issueBase, field_or_section: 'diagnosisOptions', issue_code: 'DIAGNOSIS_OPTION_COUNT_OR_DUPLICATE', issue_description: 'The case does not contain exactly five distinct diagnosis options.', observed_value: j(diagnosisOptions), expected_requirement: 'Exactly five distinct options.', source_file: rep.sourceFile, blocks_publication: true });
     if (diagnosisOptions.filter((id) => id === correctId).length !== 1) addIssue({ severity: 'critical', category: 'Broken relationship', ...issueBase, field_or_section: 'correctDiagnosisId', issue_code: 'CORRECT_DIAGNOSIS_NOT_EXACTLY_ONCE', issue_description: 'The correct diagnosis is not present exactly once among diagnosis options.', observed_value: correctId, expected_requirement: 'Exactly one option must match the correct diagnosis.', source_file: rep.sourceFile, blocks_publication: true });
     for (const id of [...rep.legacy.acceptableTreatmentIds, ...rep.legacy.criticalTreatmentIds]) if (!treatmentIds.has(id)) addIssue({ severity: 'medium', category: 'Broken relationship', ...issueBase, field_or_section: 'treatmentIds', issue_code: 'UNKNOWN_TREATMENT_ID', issue_description: 'A legacy treatment ID does not resolve in the treatment catalog.', observed_value: id, expected_requirement: 'Treatment IDs should resolve in TREATMENTS.', source_file: LEGACY_SOURCE, blocks_publication: true });
@@ -542,7 +565,7 @@ export function buildExportModel(options: ExportBuildOptions): ExportModel {
     limitations: [
       'For independent clinical review — not evidence of medical accreditation.',
       'The 243 Case_Index rows are versioned representations: 240 legacy versions plus 3 canonical pilot versions mapped to the same underlying legacy concepts. They represent 240 unique clinical concepts, not 243 independent clinically approved cases.',
-      'All runtime-orderable tests are listed per case. Missing case-specific results are explicitly UNAVAILABLE / NOT MODELED; legacy default normal text is not substituted.',
+      'Only case-catalogued investigations are listed. Unavailable and not-indicated options never receive a fabricated result.',
       'Legacy medication rows are generic catalog relationships only unless explicitly marked otherwise.',
       'No case is currently approved-formative, and no genuine clinician review evidence is recorded.',
       'Clinical plausibility and medical validity require independent qualified-clinician review.',

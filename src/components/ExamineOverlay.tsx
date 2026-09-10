@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { store, useGameState, POLYCLINIC_BED_INDEX } from '../game/store';
-import { TESTS, TEST_PANELS, testById } from '../data/tests';
-import { getTestReport } from '../data/defaultTestResults';
-import { getImagingExamples } from '../data/radiologyImages';
+import { testById } from '../data/tests';
+import { investigationResultText } from '../clinical/investigations';
 import { POLYCLINIC_DIAGNOSIS_LABELS, getCaseSpecialty } from '../data/polyclinicPatients';
 import { MEDICATIONS, CATEGORY_LABELS, SPECIALTY_MEDICATION_CATEGORIES, medicationById, type Medication, type MedicationCategory } from '../data/medications';
 import { CLINIC_LABELS } from '../game/clinic';
@@ -360,29 +359,31 @@ function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
 // ── Order Tests tab ───────────────────────────────────────────────
 
 function TestsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
-  const state = useGameState();
-  const currentClinic = state.polyclinic.clinic;
+  const [testQuery, setTestQuery] = useState('');
+  const currentClinic = useGameState().polyclinic.clinic;
   const ordered = new Set(patient.orderedTestIds);
   const groups = useMemo(() => {
-    const out: Record<'bedside' | 'lab' | 'imaging', typeof TESTS> = { bedside: [], lab: [], imaging: [] };
-    TESTS.forEach((t) => out[t.category].push(t));
+    const out = new Map<string, typeof patient.investigationCatalogue>();
+    for (const item of patient.investigationCatalogue.filter((candidate) => `${candidate.name} ${candidate.category} ${candidate.role}`.toLowerCase().includes(testQuery.trim().toLowerCase()))) {
+      const category = item.testId.startsWith('urine') || item.testId === 'beta-hcg-q' ? 'Urine tests'
+        : item.category === 'laboratory' || item.category === 'pathology' ? 'Blood tests'
+          : item.category === 'microbiology' ? 'Microbiology'
+            : item.category === 'cardiac' ? 'Cardiac tests'
+              : item.category === 'physiological' && ['peak-flow', 'spirometry'].includes(item.testId) ? 'Respiratory tests'
+                : item.category === 'imaging' ? 'Imaging'
+                  : item.category === 'bedside' ? 'Bedside'
+                    : 'Specialist procedures';
+      out.set(category, [...(out.get(category) ?? []), item]);
+    }
     return out;
-  }, []);
+  }, [patient.investigationCatalogue, testQuery]);
 
   // Specialty-aware panel filter: only panels tagged for the active clinic.
   // 'all-specialties' surfaces every polyclinic panel; ED-only panels (no
   // clinicIds) are always hidden from the polyclinic view.
-  const visiblePanels = useMemo(() => {
-    return TEST_PANELS.filter((panel) => {
-      if (!panel.clinicIds || panel.clinicIds.length === 0) return false;
-      if (currentClinic === 'all-specialties') return true;
-      return panel.clinicIds.includes(currentClinic);
-    });
-  }, [currentClinic]);
+  const visiblePanels: Array<{ id: string; label: string; description: string; testIds: string[] }> = [];
 
-  const orderPanel = (testIds: string[]) => {
-    testIds.forEach((id) => store.orderPolyclinicTest(id));
-  };
+  const orderPanel = (testIds: string[]) => { testIds.forEach((id) => void store.orderPolyclinicTest(id)); };
 
   const cardStyle: React.CSSProperties = {
     fontSize: 13,
@@ -394,8 +395,10 @@ function TestsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameS
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
-        Polyclinic tests return <strong>instantly</strong>. Sections are collapsed — click a row to open it.
+        Case-specific investigations are ordered individually. Results remain hidden while pending; no local fallback is used.
       </div>
+      <input aria-label="Search investigations" value={testQuery} onChange={(event) => setTestQuery(event.target.value)} placeholder="Search investigations" style={{ padding: '10px 12px', border: '2px solid var(--line)', borderRadius: 10 }} />
+      {patient.investigationAttemptStatus === 'error' && <div role="alert">Investigation service unavailable. No result was generated locally.</div>}
 
       {/* Panels — clinic-scoped, collapsible. */}
       {visiblePanels.length > 0 && (
@@ -455,15 +458,13 @@ function TestsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameS
       )}
 
       {/* Per-category lists, also collapsible. */}
-      {(['bedside', 'lab', 'imaging'] as const).map((cat) => {
-        const list = groups[cat];
-        const available = list.filter((t) => !ordered.has(t.id));
-        const label = cat === 'bedside' ? 'Bedside' : cat === 'lab' ? 'Laboratory' : 'Imaging';
-        const icon = cat === 'bedside' ? '🩺' : cat === 'lab' ? '🧬' : '📷';
-        const tone = cat === 'bedside' ? 'var(--mint)' : cat === 'lab' ? 'var(--sky)' : 'var(--peach)';
+      {[...groups.entries()].map(([label, list]) => {
+        const available = list.filter((t) => !ordered.has(t.testId));
+        const icon = label === 'Bedside' ? '🩺' : label === 'Imaging' ? '📷' : '🧬';
+        const tone = label === 'Bedside' ? 'var(--mint)' : label === 'Imaging' ? 'var(--peach)' : 'var(--sky)';
         return (
           <CollapsibleSection
-            key={cat}
+            key={label}
             icon={icon}
             label={label}
             count={list.length}
@@ -478,14 +479,19 @@ function TestsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameS
               }}
             >
               {list.map((t) => {
-                const isOrdered = ordered.has(t.id);
+                const isOrdered = ordered.has(t.testId);
+                const definition = t;
+                const orderStatus = patient.investigationOrders.find((order) => order.investigationId === t.testId)?.status;
                 return (
                   <button
-                    key={t.id}
+                    key={t.testId}
                     type="button"
                     className={`tap btn-plush ${isOrdered ? '' : 'ghost'}`}
                     disabled={isOrdered}
-                    onClick={() => store.orderPolyclinicTest(t.id)}
+                    onClick={() => {
+                      const indication = definition?.role === 'conditional' ? window.prompt('Document the clinical indication for this conditional investigation:') ?? '' : '';
+                      void store.orderPolyclinicTest(t.testId, indication);
+                    }}
                     style={{
                       ...cardStyle,
                       opacity: isOrdered ? 0.55 : 1,
@@ -518,7 +524,7 @@ function TestsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameS
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {isOrdered ? 'ordered' : 'instant'}
+                        {orderStatus ?? (isOrdered ? 'pending' : definition?.role ?? patient.investigationAttemptStatus)}
                       </span>
                     </div>
                   </button>
@@ -629,7 +635,6 @@ function CollapsibleSection({
 // ── Results tab ──────────────────────────────────────────────────
 
 function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
-  const c = patient.case;
   const completed = new Set(patient.completedTestIds);
   const [zoomed, setZoomed] = useState<{ url: string; caption: string; credit: string } | null>(null);
 
@@ -656,13 +661,12 @@ function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
         const test = testById(tid);
         if (!test) return null;
         const done = completed.has(tid);
-        const caseResult = c.testResults.find((r) => r.testId === tid);
-        const report = done ? getTestReport(tid, caseResult?.result, !!caseResult?.abnormal) : null;
-        const tone = report?.abnormal ? 'var(--rose)' : 'var(--mint)';
+        const order = patient.investigationOrders.find((item) => item.investigationId === tid);
+        const caseResult = order?.resultSnapshot;
+        const report = done && caseResult ? { text: investigationResultText(caseResult.structuredResult, caseResult.resultText), abnormal: !!caseResult.abnormal } : null;
+        const tone = order?.status === 'error' || order?.status === 'unavailable' ? 'var(--butter)' : report?.abnormal ? 'var(--rose)' : 'var(--mint)';
         const isImaging = test.category === 'imaging' || tid === 'ecg';
-        const images = done && isImaging && caseResult
-          ? getImagingExamples(tid, !!caseResult?.abnormal, c.correctDiagnosisId)
-          : [];
+        const images: Array<{ url: string; caption: string; credit: string }> = [];
         return (
           <details
             key={tid}
@@ -691,7 +695,7 @@ function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
               />
               <span>{test.name}</span>
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--ink-2)' }}>
-                {!caseResult && done ? 'not modeled' : report?.abnormal ? 'abnormal' : 'normal'}
+                {order?.status ?? 'pending'}
               </span>
             </summary>
 
@@ -741,6 +745,11 @@ function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
                 ))}
               </div>
             )}
+            {done && isImaging && images.length === 0 && (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'var(--cream)', fontSize: 12, fontWeight: 700 }}>
+                Educational image not available. Use the case-specific written report below.
+              </div>
+            )}
 
             <details style={{ marginTop: 10 }}>
               <summary
@@ -768,6 +777,7 @@ function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
                 }}
               >
                 {report?.text ?? 'Pending…'}
+                {order?.statusDetail ? `\n${order.statusDetail}` : ''}
               </div>
             </details>
           </details>

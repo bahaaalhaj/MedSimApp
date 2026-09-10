@@ -50,7 +50,7 @@ export function validateClinicalCases(): ClinicalViolation[] {
       if (resolved?.verificationStatus === 'superseded') out.push({ case: c.caseId, rule: 'superseded reference', detail: ref });
     }
     for (const investigation of c.investigations) {
-      if (!investigation.result.trim()) out.push({ case: c.caseId, rule: 'investigation result missing', detail: investigation.testId });
+      if (['available-if-ordered', 'result-available'].includes(investigation.availability) && !investigation.result.trim()) out.push({ case: c.caseId, rule: 'orderable investigation result missing', detail: investigation.testId });
       if (!investigation.availability) out.push({ case: c.caseId, rule: 'investigation availability missing', detail: investigation.testId });
     }
     for (const medication of c.medicationExpectations) {

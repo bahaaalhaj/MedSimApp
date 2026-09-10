@@ -28,12 +28,14 @@ test('clinical review export is deterministic and every normalized sheet has exa
   }
 });
 
-test('investigation export preserves unavailable results and never substitutes defaults', () => {
+test('investigation export contains only modeled case-specific results and never substitutes defaults', () => {
   const model = buildExportModel(options);
-  assert.equal(model.sheets.Investigations.length, 312 * 80);
+  assert.equal(model.sheets.Investigations.length, 1210);
   assert.ok(model.sheets.Investigations.some((row) => row.result_is_case_specific === true));
-  assert.ok(model.sheets.Investigations.some((row) => row.result_source === 'UNAVAILABLE / NOT MODELED'));
+  assert.equal(model.sheets.Investigations.some((row) => row.result_source === 'UNAVAILABLE / NOT MODELED'), false);
   assert.equal(model.sheets.Investigations.some((row) => row.result_is_default === true), false);
+  assert.equal(model.sheets.Investigation_Catalogue.length, 422);
+  assert.equal(model.sheets.Investigation_Review_Queue.length, 422);
 });
 
 test('all child case and reference relationships resolve', () => {

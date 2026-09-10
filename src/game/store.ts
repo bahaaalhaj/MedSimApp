@@ -18,6 +18,7 @@ import { clearAllConversationStorage, ensureAudioContext } from '../voice/conver
 import { caseVersionFor, CLINICAL_CASE_BY_ID } from '../clinical/cases';
 import { generateControlledVariant } from '../clinical/variants';
 import type { TrainingMode } from '../clinical/types';
+import { createInvestigationAttempt, getInvestigationResult, orderInvestigation } from '../clinical/investigationApi';
 
 const ONBOARDED_KEY = 'medsim:onboarded';
 
@@ -104,6 +105,10 @@ function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): 
     orderedTestIds: [],
     testOrderedAt: {},
     completedTestIds: [],
+    investigationAttemptId: null,
+    investigationAttemptStatus: 'initializing',
+    investigationCatalogue: [],
+    investigationOrders: [],
     givenTreatmentIds: [],
     submittedDiagnosisId: null,
     arrivedAt: now,
@@ -236,6 +241,7 @@ class Store {
       selectedCaseId: id,
       polyclinic: { ...this.state.polyclinic, patient: toActivePatient(c) },
     });
+    void this.initializeInvestigationAttempt();
   };
 
   /** Clear the patient — triggers the walk-out animation in the 3D scene.
@@ -307,6 +313,7 @@ class Store {
       endConfirm: { sum: false, safe: false, ice: false },
       screen: 'encounter',
     });
+    void this.initializeInvestigationAttempt();
   };
 
   // ── examine flow ───────────────────────────────
@@ -325,19 +332,46 @@ class Store {
       return { ...p, askedQuestionIds: [...p.askedQuestionIds, qid] };
     });
 
-  /** Order Tests tab: in the polyclinic the result is instant, so we set
-   *  both `orderedTestIds` and `completedTestIds` in one shot. */
-  orderPolyclinicTest = (testId: string) =>
-    this.updatePolyclinicPatient((p) => {
-      if (p.orderedTestIds.includes(testId)) return p;
-      const now = Date.now();
-      return {
+  initializeInvestigationAttempt = async () => {
+    const patient = this.state.polyclinic.patient;
+    if (!patient || patient.investigationAttemptId || patient.investigationAttemptStatus === 'ready') return;
+    try {
+      const attempt = await createInvestigationAttempt(patient.case.id, patient.caseVersion);
+      this.updatePolyclinicPatient((current) => current.case.id !== patient.case.id ? current : {
+        ...current, investigationAttemptId: attempt.attemptId, investigationAttemptStatus: 'ready', investigationCatalogue: attempt.investigations,
+      });
+    } catch {
+      this.updatePolyclinicPatient((current) => ({ ...current, investigationAttemptStatus: 'error' }));
+    }
+  };
+
+  /** Order an individual case-available investigation through the server.
+   * The server owns and returns the immutable result snapshot. */
+  orderPolyclinicTest = async (testId: string, indication = '') => {
+    let patient = this.state.polyclinic.patient;
+    if (!patient || patient.orderedTestIds.includes(testId)) return;
+    if (!patient.investigationAttemptId) {
+      await this.initializeInvestigationAttempt();
+      patient = this.state.polyclinic.patient;
+    }
+    if (!patient?.investigationAttemptId) return;
+    const now = Date.now();
+    this.updatePolyclinicPatient((p) => ({ ...p, orderedTestIds: [...p.orderedTestIds, testId], testOrderedAt: { ...p.testOrderedAt, [testId]: now } }));
+    try {
+      const ordered = await orderInvestigation(patient.investigationAttemptId, testId, indication);
+      this.updatePolyclinicPatient((p) => ({ ...p, investigationOrders: [...p.investigationOrders.filter((item) => item.investigationId !== testId), ordered] }));
+      const delay = Math.max(0, ordered.availableAt * 1000 - Date.now()) + 40;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      const resolved = await getInvestigationResult(patient.investigationAttemptId, ordered.orderId);
+      this.updatePolyclinicPatient((p) => ({
         ...p,
-        orderedTestIds: [...p.orderedTestIds, testId],
-        testOrderedAt: { ...p.testOrderedAt, [testId]: now },
-        completedTestIds: [...p.completedTestIds, testId],
-      };
-    });
+        investigationOrders: [...p.investigationOrders.filter((item) => item.investigationId !== testId), resolved],
+        completedTestIds: resolved.status === 'available' ? [...new Set([...p.completedTestIds, testId])] : p.completedTestIds,
+      }));
+    } catch {
+      this.updatePolyclinicPatient((p) => ({ ...p, investigationOrders: [...p.investigationOrders, { orderId: `error-${testId}`, investigationId: testId, orderedAt: now / 1000, availableAt: now / 1000, status: 'error', indication, statusDetail: 'The investigation service did not return a result; no local fallback was used.' }] }));
+    }
+  };
 
   /** Diagnose tab: lock in a diagnosis. Once submitted, options become
    *  disabled and the prescription tab unlocks. */

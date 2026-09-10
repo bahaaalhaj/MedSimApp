@@ -15,7 +15,30 @@ export type CaseReviewStatus = (typeof CASE_REVIEW_STATUSES)[number];
 export type TrainingMode = 'curated' | 'development';
 export type LearnerLevel = 'undergraduate-clinical-years' | 'recent-graduate';
 export type ReviewDecision = 'not-reviewed' | 'accepted' | 'revision-required' | 'not-applicable';
-export type InvestigationAvailability = 'available-on-request' | 'not-modeled' | 'not-indicated';
+export const INVESTIGATION_CATEGORIES = [
+  'bedside', 'laboratory', 'microbiology', 'pathology', 'physiological',
+  'cardiac', 'imaging', 'endoscopy', 'specialist-procedure',
+] as const;
+export type InvestigationCategory = (typeof INVESTIGATION_CATEGORIES)[number];
+export type InvestigationRole = 'essential' | 'useful' | 'conditional' | 'optional' | 'not-indicated' | 'potentially-harmful';
+export type InvestigationAvailability = 'available-if-ordered' | 'result-available' | 'conditional' | 'not-modeled' | 'not-indicated';
+export type InvestigationAbnormality = 'low' | 'normal' | 'high' | 'positive' | 'negative' | 'indeterminate' | 'abnormal';
+
+export interface InvestigationNumericValue {
+  kind: 'numeric'; value: number; unit: string; referenceRange?: { low?: number; high?: number; text?: string };
+  abnormality: InvestigationAbnormality;
+}
+export interface InvestigationPanelComponent {
+  analyteId: string; label: string; value: number | string; unit?: string;
+  referenceRange?: { low?: number; high?: number; text?: string };
+  abnormality: InvestigationAbnormality;
+}
+export type InvestigationResult =
+  | InvestigationNumericValue
+  | { kind: 'panel'; components: InvestigationPanelComponent[]; summary?: string }
+  | { kind: 'report'; report: string; impression?: string; abnormality: InvestigationAbnormality }
+  | { kind: 'score'; score: number; scale: string; interpretation: string; abnormality: InvestigationAbnormality }
+  | { kind: 'image'; report: string; assetId?: string; caption?: string; license?: string; abnormality: InvestigationAbnormality };
 
 export interface ClinicalReference {
   referenceId: string;
@@ -100,14 +123,29 @@ export interface DifferentialDiagnosis {
 
 export interface CaseInvestigation {
   testId: string;
+  name: string;
+  category: InvestigationCategory;
+  role: InvestigationRole;
   reason: string;
   availability: InvestigationAvailability;
+  /** @deprecated Kept for review-workbook compatibility; use role. */
   classification: 'essential' | 'useful' | 'unnecessary' | 'potentially-harmful';
+  structuredResult?: InvestigationResult;
+  /** @deprecated Human-readable projection of structuredResult. */
   result: string;
   abnormal: boolean;
   units?: string;
   referenceRange?: string;
   variabilityNotes?: string;
+  turnaroundSec: number;
+  prerequisite?: string;
+  learnerSafeSummary: string;
+  postSubmissionExplanation: string;
+  supportsDiagnosisIds: string[];
+  arguesAgainstDiagnosisIds: string[];
+  limitations: string[];
+  verificationStatus: 'source-verified' | 'unresolved';
+  scoreable: boolean;
   rubricCriterionIds: string[];
   referenceIds: string[];
 }
@@ -232,7 +270,7 @@ export interface SafeEncounterCase extends SafeCaseSummary {
   arrivalBlurb: string;
   vitalSigns: ClinicalCase['vitalSigns'];
   availableQuestionIds: string[];
-  investigations: Array<{ testId: string; availability: InvestigationAvailability }>;
+  investigations: Array<Pick<CaseInvestigation, 'testId' | 'name' | 'category' | 'role' | 'availability' | 'reason' | 'turnaroundSec' | 'prerequisite'>>;
   diagnosisOptions: Array<{ diagnosisId: string; label: string }>;
 }
 

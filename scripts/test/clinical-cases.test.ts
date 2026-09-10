@@ -50,7 +50,8 @@ test('safe DTOs do not serialize ground truth or rubrics', () => {
     assert.equal(json.includes('assessmentRubric'), false);
     assert.equal(json.includes('medicationExpectations'), false);
     assert.equal(json.includes('rationale'), false);
-    assert.equal(json.includes('result'), false);
+    assert.equal(json.includes('"result":'), false);
+    assert.equal(json.includes('"structuredResult":'), false);
   }
 });
 

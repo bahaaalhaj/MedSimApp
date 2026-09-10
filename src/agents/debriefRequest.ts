@@ -19,10 +19,10 @@ import {
 } from '../data/guidelines.ts';
 import { TESTS } from '../data/tests.ts';
 import { TREATMENTS } from '../data/treatments.ts';
-import { getTestReport } from '../data/defaultTestResults.ts';
 import { getExistingConversation } from '../voice/conversationStore.ts';
 import { validateCaseSpecificPrescription, type CaseSpecificPrescriptionResult } from '../clinical/prescriptionValidation.ts';
 import { CLINICAL_CASE_BY_ID } from '../clinical/cases.ts';
+import { investigationResultText } from '../clinical/investigations.ts';
 
 export interface DebriefRequest {
   case_id: string;
@@ -116,20 +116,20 @@ export function buildDebriefRequest(
     }));
 
   const testById = new Map(TESTS.map((t) => [t.id, t]));
-  const resultByTest = new Map(c.testResults.map((r) => [r.testId, r]));
+  const orderByTest = new Map(patient.investigationOrders.map((order) => [order.investigationId, order]));
   const tests_ordered = patient.orderedTestIds.map((tid) => {
     const t = testById.get(tid);
-    const result = resultByTest.get(tid);
+    const snapshot = orderByTest.get(tid)?.resultSnapshot;
     const orderedAt = patient.testOrderedAt[tid];
     return {
       test_id: tid,
-      test_name: t?.name ?? tid,
+      test_name: snapshot?.name ?? t?.name ?? tid,
       ordered_at_seconds_from_arrival:
         typeof orderedAt === 'number'
           ? Math.round((orderedAt - patient.arrivedAt) / 1000)
           : null,
-      result_shown_to_trainee: getTestReport(tid, result?.result, !!result?.abnormal).text,
-      abnormal: result?.abnormal ?? null,
+      result_shown_to_trainee: snapshot ? investigationResultText(snapshot.structuredResult, snapshot.resultText) : null,
+      abnormal: snapshot?.abnormal ?? null,
     };
   });
 

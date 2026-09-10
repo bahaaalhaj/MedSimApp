@@ -17,8 +17,12 @@ from __future__ import annotations
 import os
 import json
 import threading
+import copy
+import hashlib
+import secrets
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 
 def _load_env_local() -> None:
@@ -126,6 +130,7 @@ app.include_router(build_auth_router(auth_api, limiter))
 # still has legacy in-bundle case data for compatibility; moving all encounter
 # truth behind server-owned attempt APIs is tracked in the governance docs.
 _CURATION_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "docs" / "generated" / "curation-manifest.json"
+_INVESTIGATION_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "docs" / "generated" / "investigation-manifest.server.json"
 
 
 def _load_safe_curated_cases():
@@ -140,6 +145,145 @@ def _load_safe_curated_cases():
 
 
 _SAFE_CURATED_CASES = _load_safe_curated_cases()
+
+
+def _load_investigation_cases() -> dict[str, dict[str, Any]]:
+    try:
+        payload = json.loads(_INVESTIGATION_MANIFEST_PATH.read_text(encoding="utf-8"))
+        cases = payload.get("cases", [])
+        if len(cases) != 72:
+            raise ValueError("investigation manifest must contain exactly 72 cases")
+        return {item["caseId"]: item for item in cases}
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid or missing investigation manifest: {exc}") from exc
+
+
+_INVESTIGATION_CASES = _load_investigation_cases()
+_INVESTIGATION_ATTEMPTS: dict[str, dict[str, Any]] = {}
+_INVESTIGATION_LOCK = threading.Lock()
+_ATTEMPT_TTL_SECONDS = 6 * 60 * 60
+
+
+def _attempt_owner(request: Request) -> str:
+    user = auth_api.service.current_user(request.cookies.get(auth_api.SESSION_COOKIE))
+    if user:
+        return f"user:{user['id']}"
+    # Guest attempts are bound to the browser/network fingerprint as a second
+    # layer in addition to the 256-bit opaque attempt id. No clinical truth is
+    # encoded in either identifier.
+    raw = f"{request.client.host if request.client else ''}|{request.headers.get('user-agent', '')}"
+    return "guest:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _get_attempt(request: Request, attempt_id: str) -> dict[str, Any]:
+    attempt = _INVESTIGATION_ATTEMPTS.get(attempt_id)
+    if not attempt or attempt["expiresAt"] <= time.time() or attempt["owner"] != _attempt_owner(request):
+        raise HTTPException(status_code=404, detail="attempt not found")
+    return attempt
+
+
+class CreateClinicalAttemptRequest(BaseModel):
+    caseId: str
+    caseVersion: str
+
+
+class InvestigationOrderRequest(BaseModel):
+    investigationId: str
+    indication: str = ""
+
+
+def _safe_investigation(investigation: dict[str, Any]) -> dict[str, Any]:
+    allowed = ("testId", "name", "category", "role", "availability", "reason", "turnaroundSec", "prerequisite")
+    return {key: investigation[key] for key in allowed if key in investigation}
+
+
+def _public_order(order: dict[str, Any], include_result: bool) -> dict[str, Any]:
+    if order["status"] == "pending" and order["availableAt"] <= time.time():
+        order["status"] = "available"
+    result = {
+        "orderId": order["orderId"], "investigationId": order["investigationId"],
+        "orderedAt": order["orderedAt"], "availableAt": order["availableAt"], "status": order["status"],
+        "indication": order["indication"], "statusDetail": order.get("statusDetail"),
+    }
+    if include_result and order["status"] == "available":
+        result["resultSnapshot"] = copy.deepcopy(order["resultSnapshot"])
+    return result
+
+
+@app.post("/api/attempts", status_code=201)
+def create_clinical_attempt(payload: CreateClinicalAttemptRequest, request: Request):
+    clinical_case = _INVESTIGATION_CASES.get(payload.caseId)
+    if not clinical_case or clinical_case["caseVersion"] != payload.caseVersion:
+        raise HTTPException(status_code=404, detail="assignable case/version not found")
+    attempt_id = secrets.token_urlsafe(32)
+    attempt = {
+        "attemptId": attempt_id, "owner": _attempt_owner(request), "caseId": payload.caseId,
+        "caseVersion": payload.caseVersion, "createdAt": time.time(),
+        "expiresAt": time.time() + _ATTEMPT_TTL_SECONDS, "orders": {}, "orderByInvestigation": {},
+    }
+    with _INVESTIGATION_LOCK:
+        _INVESTIGATION_ATTEMPTS[attempt_id] = attempt
+    return {
+        "attemptId": attempt_id, "caseId": payload.caseId, "caseVersion": payload.caseVersion,
+        "investigations": [_safe_investigation(item) for item in clinical_case["investigations"]],
+    }
+
+
+@app.post("/api/attempts/{attempt_id}/investigations/orders", status_code=201)
+def order_investigation(attempt_id: str, payload: InvestigationOrderRequest, request: Request):
+    with _INVESTIGATION_LOCK:
+        attempt = _get_attempt(request, attempt_id)
+        existing_id = attempt["orderByInvestigation"].get(payload.investigationId)
+        if existing_id:
+            return _public_order(attempt["orders"][existing_id], include_result=False)
+        clinical_case = _INVESTIGATION_CASES.get(attempt["caseId"])
+        if not clinical_case or clinical_case["caseVersion"] != attempt["caseVersion"]:
+            raise HTTPException(status_code=409, detail="assigned case version is no longer available")
+        investigation = next((item for item in clinical_case["investigations"] if item["testId"] == payload.investigationId), None)
+        if not investigation:
+            raise HTTPException(status_code=404, detail="investigation is not available for this case")
+        now = time.time()
+        order_id = secrets.token_urlsafe(24)
+        orderable = investigation["availability"] in {"available-if-ordered", "result-available"} or (
+            investigation["availability"] == "conditional" and bool(payload.indication.strip()) and investigation.get("structuredResult") is not None
+        )
+        status = "pending" if orderable else "unavailable"
+        result_snapshot = {
+            "investigationId": investigation["testId"], "name": investigation["name"],
+            "category": investigation["category"], "structuredResult": investigation.get("structuredResult"),
+            "resultText": investigation.get("result", ""), "abnormal": investigation.get("abnormal"),
+            "verificationStatus": investigation.get("verificationStatus"), "scoreable": investigation.get("scoreable", False),
+        } if orderable else None
+        order = {
+            "orderId": order_id, "investigationId": payload.investigationId, "indication": payload.indication[:500],
+            "orderedAt": now, "availableAt": now + min(2.0, max(0.05, float(investigation.get("turnaroundSec", 30)) / 100.0)) if orderable else now, "status": status,
+            "resultSnapshot": copy.deepcopy(result_snapshot),
+            "statusDetail": None if orderable else (
+                "A documented indication is required before this conditional investigation can return a result."
+                if investigation["availability"] == "conditional"
+                else "This investigation is not indicated or is not modeled for this case version; no result was generated."
+            ),
+        }
+        attempt["orders"][order_id] = order
+        attempt["orderByInvestigation"][payload.investigationId] = order_id
+        return _public_order(order, include_result=False)
+
+
+@app.get("/api/attempts/{attempt_id}/investigations")
+def list_investigation_orders(attempt_id: str, request: Request):
+    with _INVESTIGATION_LOCK:
+        attempt = _get_attempt(request, attempt_id)
+        return [_public_order(order, include_result=False) for order in attempt["orders"].values()]
+
+
+@app.get("/api/attempts/{attempt_id}/investigations/{order_id}")
+def get_investigation_result(attempt_id: str, order_id: str, request: Request):
+    with _INVESTIGATION_LOCK:
+        attempt = _get_attempt(request, attempt_id)
+        order = attempt["orders"].get(order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="investigation order not found")
+        return _public_order(order, include_result=True)
 
 
 def _development_cases_enabled() -> bool:
