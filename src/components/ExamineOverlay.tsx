@@ -660,7 +660,7 @@ function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
         const report = done ? getTestReport(tid, caseResult?.result, !!caseResult?.abnormal) : null;
         const tone = report?.abnormal ? 'var(--rose)' : 'var(--mint)';
         const isImaging = test.category === 'imaging' || tid === 'ecg';
-        const images = done && isImaging
+        const images = done && isImaging && caseResult
           ? getImagingExamples(tid, !!caseResult?.abnormal, c.correctDiagnosisId)
           : [];
         return (
@@ -691,7 +691,7 @@ function ResultsTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
               />
               <span>{test.name}</span>
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--ink-2)' }}>
-                {report?.abnormal ? 'abnormal' : 'normal'}
+                {!caseResult && done ? 'not modeled' : report?.abnormal ? 'abnormal' : 'normal'}
               </span>
             </summary>
 

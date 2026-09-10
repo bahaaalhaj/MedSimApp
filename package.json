@@ -8,7 +8,10 @@
     "build": "node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build",
     "preview": "node node_modules/vite/bin/vite.js preview",
     "verify": "node scripts/verify/run-all.ts",
-    "test": "node scripts/test/run-all.ts"
+    "test": "node scripts/test/run-all.ts",
+    "clinical:validate": "node scripts/clinical/validate.ts",
+    "clinical:references": "node scripts/clinical/references.ts",
+    "clinical:audit": "node scripts/clinical/audit.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

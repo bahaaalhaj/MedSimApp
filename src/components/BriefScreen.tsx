@@ -78,12 +78,12 @@ export function BriefScreen() {
             }}
           >
             <span className="chip butter">DOORWAY BRIEF</span>
-            <span className="chip">Case #07</span>
+            <span className="chip">Case {c.id} · v{c.caseVersion}</span>
           </div>
 
           <h1 style={{ fontSize: 32, lineHeight: 1.1, marginBottom: 4 }}>{c.name}</h1>
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-2)', marginBottom: 16 }}>
-            {c.age} y · {c.sex === 'F' ? 'Female' : 'Male'} · {c.cond}
+            {c.age} y · {c.sex === 'F' ? 'Female' : 'Male'} · {c.reviewStatus === 'legacy-unreviewed' ? 'Legacy unreviewed case' : c.reviewStatus === 'approved-formative' ? 'Approved for formative training' : 'Pending clinical review'}
           </div>
 
           <div

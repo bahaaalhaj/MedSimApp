@@ -1,5 +1,6 @@
 import type { PaletteName } from '../styles/palettes';
 import type { ClinicId } from './clinic';
+import type { CaseReviewStatus, TrainingMode } from '../clinical/types';
 
 // ── MedSim cozy-cartoon UI state ──────────────────────────
 
@@ -175,6 +176,11 @@ export interface ActivePatient {
   submittedDiagnosisId: string | null;
   arrivedAt: number;
   deadlineMs: number;
+  /** Immutable provenance captured when the encounter starts. */
+  caseVersion: string;
+  rubricVersion: string;
+  variantSeed: string;
+  encounterChecks?: EndConfirmChecks;
   prescriptions?: Array<{
     medicationId: string;
     dose: string;
@@ -195,6 +201,8 @@ export interface GameState {
   onboardingStep: number;
   endConfirm: EndConfirmChecks;
   selectedCaseId: string;
+  /** Curated is the safe default. Development explicitly exposes pending and legacy cases. */
+  trainingMode: TrainingMode;
   hasOnboarded: boolean;
   /** Polyclinic 3D scene needs this slice. Shape consumed by `Polyclinic`
    *  and `FloatingVoicePanel`. */
@@ -208,4 +216,10 @@ export interface GameState {
    *  `evalHistory` storage instead of running the agent against a live
    *  encounter. Cleared when the user navigates away. */
   viewedEvalHistoryId: string | null;
+}
+
+export interface CaseGovernanceSummary {
+  reviewStatus: CaseReviewStatus;
+  caseVersion: string;
+  rubricVersion: string;
 }

@@ -29,6 +29,7 @@ import {
   type DebriefRequest,
   debriefRequestToUserMessage,
 } from './debriefRequest';
+import { normalizeEvaluation } from './deterministicEvaluation';
 
 export type DebriefStatus =
   | 'idle'
@@ -88,7 +89,7 @@ export function useAttendingDebrief(
         const streamPromise = consumeStream(
           sessionId,
           ctrl.signal,
-          (e) => !cancelled && setEvaluation(e),
+          (e) => !cancelled && setEvaluation(normalizeEvaluation(e, request)),
           (delta) => !cancelled && setPartial((p) => p + delta),
         );
 

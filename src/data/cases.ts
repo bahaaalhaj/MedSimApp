@@ -2,7 +2,9 @@ import type { FaceAccessory, FaceMood } from '../components/primitives';
 import type { PatientCase } from '../game/types';
 import type { ClinicId } from '../game/clinic';
 import { CLINIC_LABELS } from '../game/clinic';
-import { POLYCLINIC_CASES, POLYCLINIC_DIAGNOSIS_LABELS } from './polyclinicPatients';
+import { POLYCLINIC_CASES } from './polyclinicPatients';
+import { caseVersionFor, isAssignableCase, reviewStatusForCase } from '../clinical/cases';
+import type { CaseReviewStatus, LearnerLevel, TrainingMode } from '../clinical/types';
 
 /** Cute-cartoon face descriptor for the case library. Derived deterministically
  *  from the underlying `PatientCase` so the same patient always renders the
@@ -25,6 +27,10 @@ export interface Case {
   /** The clinic / specialty this patient belongs to, so the library can filter
    *  by specialty as well as by condition. */
   clinic: ClinicId;
+  reviewStatus: CaseReviewStatus;
+  caseVersion: string;
+  difficulty: 'introductory' | 'intermediate' | 'advanced';
+  learnerLevel: LearnerLevel;
 }
 
 // ── deterministic palette pickers ─────────────────────────────────────
@@ -80,10 +86,6 @@ function pickMood(p: PatientCase): FaceMood {
   return 'neutral';
 }
 
-function diagLabel(id: string): string {
-  return POLYCLINIC_DIAGNOSIS_LABELS[id] ?? id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function tagsFor(p: PatientCase, clinic: ClinicId): string[] {
   const out: string[] = [];
   if (p.severity === 'critical') out.push('red flag');
@@ -100,12 +102,17 @@ function toCase(p: PatientCase, clinic: ClinicId): Case {
     sex: p.gender,
     complaint: p.chiefComplaint,
     tags: tagsFor(p, clinic),
-    guideline: 'Polyclinic',
+    guideline: reviewStatusForCase(p.id) === 'approved-formative' ? 'Approved for formative training' : 'Pending clinical review',
     skin: pickSkin(p),
     hair: pickHair(p),
     mood: pickMood(p),
-    cond: diagLabel(p.correctDiagnosisId),
+    // Pre-submission catalogue data must not reveal the ground-truth diagnosis.
+    cond: 'Clinical reasoning case',
     clinic,
+    reviewStatus: reviewStatusForCase(p.id),
+    caseVersion: caseVersionFor(p.id),
+    difficulty: 'intermediate',
+    learnerLevel: 'undergraduate-clinical-years',
   };
 }
 
@@ -124,6 +131,10 @@ for (const [clinic, list] of Object.entries(POLYCLINIC_CASES) as Array<[ClinicId
 }
 
 export const CASES: Case[] = ALL_CASES_RAW;
+
+export function getAssignableCases(mode: TrainingMode): Case[] {
+  return CASES.filter((c) => isAssignableCase(c.id, mode));
+}
 
 /** All distinct condition labels in the catalogue, plus a couple of fixed
  *  filter chips ('All', 'Red-flag only'). */
@@ -144,7 +155,7 @@ export const CONDITION_COLORS: Record<string, string> = Object.fromEntries(
 export function getCase(id: string): Case {
   const found = CASES.find((c) => c.id === id);
   if (found) return found;
-  return CASES[0];
+  throw new Error(`Unknown case id: ${id}`);
 }
 
 /** Look up the underlying medical PatientCase (anamnesis, vitals,

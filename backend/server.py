@@ -120,6 +120,36 @@ app.add_middleware(
 auth_api = AuthApi(AuthSettings.from_env())
 app.include_router(build_auth_router(auth_api, limiter))
 
+# Browser-safe case catalogue. Ground-truth diagnosis, rubric, expected
+# medicines, and unrequested results are deliberately absent. The current SPA
+# still has legacy in-bundle case data for compatibility; moving all encounter
+# truth behind server-owned attempt APIs is tracked in the governance docs.
+_SAFE_PILOT_CASES = [
+    {"caseId": "im-003", "caseVersion": "1.0.0", "specialtyId": "internal-medicine", "displayName": "Michael Williams", "age": 52, "gender": "M", "publicComplaint": "My pharmacist said my blood pressure is too high. I feel fine.", "difficulty": "intermediate", "learnerLevel": "undergraduate-clinical-years", "reviewStatus": "clinical-review"},
+    {"caseId": "im-004", "caseVersion": "1.0.0", "specialtyId": "internal-medicine", "displayName": "Patricia Brown", "age": 58, "gender": "F", "publicComplaint": "I'm thirsty all the time and urinating constantly.", "difficulty": "intermediate", "learnerLevel": "undergraduate-clinical-years", "reviewStatus": "clinical-review"},
+    {"caseId": "im-005", "caseVersion": "1.0.0", "specialtyId": "internal-medicine", "displayName": "David Jones", "age": 47, "gender": "M", "publicComplaint": "I've had a cough with yellow phlegm and fever for 5 days.", "difficulty": "intermediate", "learnerLevel": "undergraduate-clinical-years", "reviewStatus": "clinical-review"},
+]
+
+
+def _development_cases_enabled() -> bool:
+    return os.environ.get("MEDSIM_ENABLE_DEVELOPMENT_CASES", "").lower() in {"1", "true", "yes"}
+
+
+@app.get("/api/clinical/cases")
+def list_safe_cases(mode: str = "curated"):
+    if mode == "development" and _development_cases_enabled():
+        return _SAFE_PILOT_CASES
+    return [case for case in _SAFE_PILOT_CASES if case["reviewStatus"] == "approved-formative"]
+
+
+@app.get("/api/clinical/cases/{case_id}")
+def get_safe_case(case_id: str, mode: str = "curated"):
+    eligible = list_safe_cases(mode)
+    case = next((item for item in eligible if item["caseId"] == case_id), None)
+    if not case:
+        raise HTTPException(status_code=404, detail="case not available in this training mode")
+    return case
+
 
 @app.get("/health")
 def health():
@@ -296,6 +326,8 @@ MEDSIM_ATTENDING_SYSTEM_PROMPT = (
     "`evidence` string telling you exactly what counts as 'met'.\n"
     "  • registry_slice — the subset of guidelines/recommendations cited "
     "by the rubric. Use ONLY recIds that appear here. Do not invent.\n"
+    "  • prescription_validation — deterministic case-specific medication "
+    "matching; do not upgrade not-reviewed details to correct.\n"
     "  • encounter_log — chronological list of: history questions asked "
     "(with answers shown to the trainee), tests ordered with timestamps, "
     "treatments/prescriptions given, the submitted diagnosis, and any "
@@ -309,12 +341,13 @@ MEDSIM_ATTENDING_SYSTEM_PROMPT = (
     "as your match key. Quote the trainee directly or name the action "
     "in the `evidence` field of your output (not the rubric's evidence "
     "string — your own observation).\n"
-    "  2. Compute domain_scores: raw = sum of weights for met (1.0×) + "
-    "partially-met (0.5×); max = sum of all weights in that domain. "
-    "Verdict bands: ≥0.85 excellent, ≥0.70 good, ≥0.55 satisfactory, "
-    "≥0.40 borderline, otherwise clear-fail.\n"
-    "  3. Set global_rating with the same bands applied to the total "
-    "across all three domains.\n"
+    "  2. Return criterion verdicts and provisional domain scores required "
+    "by the tool schema. The application discards those arithmetic values "
+    "and deterministically recomputes raw, max, verdict bands, and the global "
+    "rating from immutable rubric weights. Never rewrite weights or add "
+    "criteria.\n"
+    "  3. Treat absent recorded evidence as insufficient evidence; never "
+    "invent an action or infer that it happened.\n"
     "  4. If the trainee did anything dangerous — contraindicated drug, "
     "missed a red-flag escalation that the rubric flagged, no safety-"
     "netting on a high-risk diagnosis — set safety_breach with `what` "

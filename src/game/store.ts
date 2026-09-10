@@ -13,8 +13,11 @@ import type { ClinicId } from './clinic';
 import { DEFAULT_CLINIC } from './clinic';
 import type { PaletteName } from '../styles/palettes';
 import type { Case as MedSimCase } from '../data/cases';
-import { CASES, getCase, getCaseClinic, getPatientCase } from '../data/cases';
+import { getAssignableCases, getCase, getCaseClinic, getPatientCase } from '../data/cases';
 import { clearAllConversationStorage, ensureAudioContext } from '../voice/conversationStore';
+import { caseVersionFor, CLINICAL_CASE_BY_ID } from '../clinical/cases';
+import { generateControlledVariant } from '../clinical/variants';
+import type { TrainingMode } from '../clinical/types';
 
 const ONBOARDED_KEY = 'medsim:onboarded';
 
@@ -51,9 +54,12 @@ const DEFAULT_TWEAKS: Tweaks = {
  *  catalogue (shouldn't happen — the cartoon library is derived FROM the
  *  catalogue), fall back to a minimal stub built from the cartoon shape so
  *  the voice agent + 3D scene still get something to render. */
-function toPatientCase(c: MedSimCase): PatientCase {
+function toPatientCase(c: MedSimCase, variantSeed: string): PatientCase {
   const real = getPatientCase(c.id);
-  if (real) return real;
+  if (real) {
+    const variant = generateControlledVariant(c.id, variantSeed);
+    return variant ? { ...real, name: variant.displayName, age: variant.age, chiefComplaint: variant.complaint } : real;
+  }
   const isRedFlag = c.tags.some((t) => t.toLowerCase().includes('red flag'));
   return {
     id: c.id,
@@ -87,10 +93,11 @@ function hasEncounterActivity(p: ActivePatient): boolean {
   );
 }
 
-function toActivePatient(c: MedSimCase): ActivePatient {
+function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): ActivePatient {
   const now = Date.now();
+  const canonical = CLINICAL_CASE_BY_ID.get(c.id);
   return {
-    case: toPatientCase(c),
+    case: toPatientCase(c, variantSeed),
     bedIndex: POLYCLINIC_BED_INDEX,
     status: 'in-bed',
     askedQuestionIds: [],
@@ -101,6 +108,9 @@ function toActivePatient(c: MedSimCase): ActivePatient {
     submittedDiagnosisId: null,
     arrivedAt: now,
     deadlineMs: now + 8 * 60 * 1000,
+    caseVersion: caseVersionFor(c.id),
+    rubricVersion: canonical?.rubricVersion ?? 'legacy-auto',
+    variantSeed,
   };
 }
 
@@ -111,6 +121,7 @@ class Store {
     onboardingStep: 0,
     endConfirm: { sum: false, safe: false, ice: false },
     selectedCaseId: 'im-001',
+    trainingMode: 'curated',
     hasOnboarded: readOnboarded(),
     polyclinic: { clinic: DEFAULT_CLINIC, patient: null },
     lastEncounter: null,
@@ -180,6 +191,11 @@ class Store {
   setPolyclinicClinic = (clinic: ClinicId) =>
     this.set({ polyclinic: { ...this.state.polyclinic, clinic } });
 
+  setTrainingMode = (trainingMode: TrainingMode) => {
+    this.attemptedCaseIds.clear();
+    this.set({ trainingMode, polyclinic: { ...this.state.polyclinic, patient: null } });
+  };
+
   /** Track which patients have been finished this session so the
    *  "next patient" picker doesn't loop on the same chart. Cleared on
    *  page reload — that's intentional, this is a training session, not
@@ -192,15 +208,16 @@ class Store {
    *  is somehow empty. */
   pickNextCaseId = (): string | null => {
     const clinic = this.state.polyclinic.clinic;
+    const assignable = getAssignableCases(this.state.trainingMode);
     const inClinic = (
       clinic === 'all-specialties'
-        ? CASES
-        : CASES.filter((c) => c.clinic === clinic)
+        ? assignable
+        : assignable.filter((c) => c.clinic === clinic)
     );
-    const fresh = inClinic.find((c) => !this.attemptedCaseIds.has(c.id));
-    if (fresh) return fresh.id;
-    if (inClinic.length > 0) return inClinic[0].id;
-    return CASES[0]?.id ?? null;
+    const fresh = inClinic.filter((c) => !this.attemptedCaseIds.has(c.id));
+    const pool = fresh.length > 0 ? fresh : inClinic;
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)].id;
   };
 
   /** Mark a case as attempted so the next-patient picker skips it. */
@@ -212,6 +229,9 @@ class Store {
    *  chair, and the voice agent boots once `voiceActive` flips on. */
   loadPolyclinicPatient = (id: string) => {
     const c = getCase(id);
+    if (!getAssignableCases(this.state.trainingMode).some((x) => x.id === id)) {
+      throw new Error(`Case ${id} is not assignable in ${this.state.trainingMode} mode`);
+    }
     this.set({
       selectedCaseId: id,
       polyclinic: { ...this.state.polyclinic, patient: toActivePatient(c) },
@@ -225,7 +245,8 @@ class Store {
    *  Only overwrites `lastEncounter` if the snapshot has actual encounter
    *  activity. Otherwise the previous snapshot is preserved. */
   finishPolyclinicCase = () => {
-    const snapshot = this.state.polyclinic.patient;
+    const current = this.state.polyclinic.patient;
+    const snapshot = current ? { ...current, encounterChecks: { ...this.state.endConfirm } } : null;
     const keepSnapshot = snapshot && hasEncounterActivity(snapshot);
     this.set({
       polyclinic: { ...this.state.polyclinic, patient: null },
@@ -242,6 +263,7 @@ class Store {
   /** Library card click: pin the polyclinic to the case's specialty so the
    *  next-patient flow walks the same roster, then jump to the brief. */
   selectCase = (id: string) => {
+    if (!getAssignableCases(this.state.trainingMode).some((c) => c.id === id)) return;
     const clinic = getCaseClinic(id);
     this.set({
       selectedCaseId: id,
@@ -265,7 +287,8 @@ class Store {
    *  this, the AudioContext stays suspended and the mic / remote audio
    *  silently fail until the user clicks something else. */
   acceptNextPatient = (id?: string) => {
-    const targetId = id ?? this.pickNextCaseId() ?? this.state.selectedCaseId;
+    const targetId = id ?? this.pickNextCaseId();
+    if (!targetId || !getAssignableCases(this.state.trainingMode).some((c) => c.id === targetId)) return;
     const c = getCase(targetId);
     const clinic = getCaseClinic(targetId);
     try {

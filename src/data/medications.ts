@@ -58,6 +58,17 @@ export interface Medication {
 /* ------------------------------------------------------------------ */
 
 export const MEDICATIONS: Medication[] = [
+  {
+    id: 'amoxicillin-500',
+    name: 'Amoxicillin 500mg',
+    form: 'capsule',
+    category: 'antibiotic',
+    class: 'Penicillin antibiotic',
+    defaultDose: '500 mg, three times daily, PO',
+    defaultDuration: '5 days',
+    indications: ['community-acquired-pna'],
+    contraindications: ['drug-allergy-penicillin'],
+  },
   // ─────────── Antibiotics ───────────
   {
     id: 'amoxicillin-clavulanate-1g',

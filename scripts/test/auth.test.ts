@@ -45,7 +45,8 @@ test('patient selection uses only the outpatient catalogue', () => {
   const library = read('src/components/CaseLibraryScreen.tsx');
   assert.match(cases, /POLYCLINIC_CASES/);
   assert.doesNotMatch(cases, /PATIENT_CASES|data\/patients/);
-  assert.match(store, /CASES\.filter\(\(c\) => c\.clinic === clinic\)/);
+  assert.match(store, /getAssignableCases\(this\.state\.trainingMode\)/);
+  assert.match(store, /assignable\.filter\(\(c\) => c\.clinic === clinic\)/);
   assert.match(library, /Math\.random\(\)/);
   assert.match(library, /setFilter\(chip\.id\)/);
 });

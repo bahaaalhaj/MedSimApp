@@ -38,9 +38,9 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const path = window.location.pathname.replace(/\/+$/, '');
-    if (path === '/agentic-rounds') {
+    if (import.meta.env.DEV && path === '/agentic-rounds') {
       store.setScreen('agenticRounds');
-    } else if (path === '/agent-topology') {
+    } else if (import.meta.env.DEV && path === '/agent-topology') {
       store.setScreen('agentTopology');
     }
   }, []);

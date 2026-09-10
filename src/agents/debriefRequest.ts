@@ -19,9 +19,16 @@ import {
 } from '../data/guidelines.ts';
 import { TESTS } from '../data/tests.ts';
 import { TREATMENTS } from '../data/treatments.ts';
+import { getTestReport } from '../data/defaultTestResults.ts';
+import { getExistingConversation } from '../voice/conversationStore.ts';
+import { validateCaseSpecificPrescription, type CaseSpecificPrescriptionResult } from '../clinical/prescriptionValidation.ts';
 
 export interface DebriefRequest {
   case_id: string;
+  case_version: string;
+  rubric_version: string;
+  variant_seed: string;
+  prescription_validation: CaseSpecificPrescriptionResult;
   case_summary: {
     chief_complaint: string;
     correct_diagnosis_id: string;
@@ -73,6 +80,16 @@ export interface DebriefRequest {
     }>;
     submitted_diagnosis_id: string | null;
     diagnosis_was_correct: boolean | null;
+    transcript: Array<{
+      role: 'trainee' | 'patient';
+      content: string;
+      timestamp_iso: string | null;
+    }>;
+    safety_netting_checks: {
+      summary_completed: boolean;
+      safety_netting_completed: boolean;
+      ideas_concerns_expectations_completed: boolean;
+    } | null;
   };
 }
 
@@ -108,7 +125,7 @@ export function buildDebriefRequest(
         typeof orderedAt === 'number'
           ? Math.round((orderedAt - patient.arrivedAt) / 1000)
           : null,
-      result_shown_to_trainee: result?.result ?? null,
+      result_shown_to_trainee: getTestReport(tid, result?.result, !!result?.abnormal).text,
       abnormal: result?.abnormal ?? null,
     };
   });
@@ -126,9 +143,20 @@ export function buildDebriefRequest(
     dose: p.dose,
     duration: p.duration,
   }));
+  const transcript = (getExistingConversation(patient.bedIndex)?.getMessages() ?? []).map((message) => ({
+    role: message.role === 'user' ? 'trainee' as const : 'patient' as const,
+    content: message.content,
+    // The current conversation transport does not capture per-message time.
+    // Keep this explicitly null rather than inventing timestamps.
+    timestamp_iso: null,
+  }));
 
   return {
     case_id: c.id,
+    case_version: patient.caseVersion,
+    rubric_version: patient.rubricVersion,
+    variant_seed: patient.variantSeed,
+    prescription_validation: validateCaseSpecificPrescription(c.id, prescriptions),
     case_summary: {
       chief_complaint: c.chiefComplaint,
       correct_diagnosis_id: c.correctDiagnosisId,
@@ -152,6 +180,12 @@ export function buildDebriefRequest(
         patient.submittedDiagnosisId === null
           ? null
           : patient.submittedDiagnosisId === c.correctDiagnosisId,
+      transcript,
+      safety_netting_checks: patient.encounterChecks ? {
+        summary_completed: patient.encounterChecks.sum,
+        safety_netting_completed: patient.encounterChecks.safe,
+        ideas_concerns_expectations_completed: patient.encounterChecks.ice,
+      } : null,
     },
   };
 }

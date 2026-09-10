@@ -17,6 +17,10 @@ export interface EvalHistoryEntry {
   verdict: CaseEvaluationInput['global_rating'];
   evaluation: CaseEvaluationInput;
   patientSnapshot: ActivePatient;
+  /** Immutable encounter provenance retained for historical review. */
+  caseVersion?: string;
+  rubricVersion?: string;
+  variantSeed?: string;
 }
 
 type NewEvalHistoryEntry = Omit<EvalHistoryEntry, 'id' | 'savedAt'>;

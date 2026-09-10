@@ -16,6 +16,7 @@ import type {
   VerdictBand,
 } from '../agents/customTools';
 import type { ActivePatient, PatientCase } from '../game/types';
+import { CLINICAL_CASE_BY_ID, toPostSubmissionReview } from '../clinical/cases';
 
 // ── verdict / colour mapping ───────────────────────────────────────
 
@@ -550,6 +551,9 @@ export function DebriefScreen() {
       verdict: evaluation.global_rating,
       evaluation,
       patientSnapshot: patient,
+      caseVersion: patient.caseVersion,
+      rubricVersion: patient.rubricVersion,
+      variantSeed: patient.variantSeed,
     }).catch(() => {
       // The debrief remains usable if persistence is temporarily unavailable.
     });
@@ -656,6 +660,8 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
   }
   const elapsedSec = patient.arrivedAt ? Math.round((Date.now() - patient.arrivedAt) / 1000) : 0;
   const elapsedLabel = `${Math.floor(elapsedSec / 60)} min ${elapsedSec % 60} sec`;
+  const canonical = CLINICAL_CASE_BY_ID.get(c.id);
+  const postSubmission = canonical ? toPostSubmissionReview(canonical) : null;
 
   return (
     <>
@@ -805,6 +811,26 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
         <SectionLabel>ACTIONS YOU TOOK</SectionLabel>
         <ActionChips patient={patient} c={c} />
       </div>
+
+      {postSubmission && (
+        <div className="plush" style={{ padding: 16, marginBottom: 22 }}>
+          <SectionLabel>CASE VERSION &amp; SOURCES</SectionLabel>
+          <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
+            Case {postSubmission.caseId} v{postSubmission.caseVersion} · rubric v{postSubmission.rubricVersion} · {canonical?.reviewStatus === 'approved-formative' ? 'Approved for formative training' : 'Pending clinical review'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {postSubmission.references.map((reference) => (
+              <a key={reference.referenceId} href={reference.url} target="_blank" rel="noreferrer" className="plush" style={{ padding: 10, color: 'var(--ink)', textDecoration: 'none', fontSize: 12 }}>
+                <strong>{reference.organization}: {reference.title}</strong>
+                <div style={{ color: 'var(--ink-2)', marginTop: 3 }}>{reference.version ?? reference.publicationYear} · {reference.verificationStatus} · accessed {reference.accessedAt}</div>
+              </a>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-2)', marginTop: 10 }}>
+            Source verification confirms metadata and link provenance; it does not constitute clinical approval of this case.
+          </div>
+        </div>
+      )}
 
       <div
         className="plush"

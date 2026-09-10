@@ -77,7 +77,7 @@ export const GUIDELINES: Guideline[] = [
     pdfUrl:
       'https://www.nice.org.uk/guidance/ng136/resources/hypertension-in-adults-diagnosis-and-management-pdf-66141722710213',
     verificationStatus: 'auto-fetched',
-    lastVerified: '2026-04-25',
+    lastVerified: '2026-09-10',
     notes:
       'Originally published 28 August 2019; surveillance updates through February 2026 (postural hypotension Nov 2023, BP targets in CVD Mar 2022). Recommendation numbering taken from the live recommendations chapter on nice.org.uk.',
     recommendations: [
@@ -128,16 +128,16 @@ export const GUIDELINES: Guideline[] = [
   {
     id: 'nice-ng28-t2dm-2022',
     body: 'NICE',
-    year: 2022,
+    year: 2026,
     region: 'UK',
     title: 'Type 2 diabetes in adults: management (NG28)',
     url: 'https://www.nice.org.uk/guidance/ng28',
     pdfUrl:
       'https://www.nice.org.uk/guidance/ng28/resources/type-2-diabetes-in-adults-management-pdf-1837338615493',
     verificationStatus: 'auto-fetched',
-    lastVerified: '2026-04-25',
+    lastVerified: '2026-09-10',
     notes:
-      'Originally published December 2015; major drug-treatment update February 2022 introducing the metformin + SGLT-2 inhibitor first-line pairing. Live recommendations chapter last touched 18 February 2026. Year retained as 2022 to reflect the substantive recommendation revision; consider bumping when NICE finalises the 2025/2026 draft.',
+      'Originally published December 2015; current medicines recommendations were updated 18 February 2026. The stable registry ID is retained for saved rubric compatibility even though the metadata year is now 2026.',
     recommendations: [
       {
         recId: 'ng28-1.2.1-structured-education',
@@ -191,7 +191,7 @@ export const GUIDELINES: Guideline[] = [
     title: 'Pneumonia: diagnosis and management (NG250)',
     url: 'https://www.nice.org.uk/guidance/ng250',
     verificationStatus: 'auto-fetched',
-    lastVerified: '2026-04-25',
+    lastVerified: '2026-09-10',
     notes:
       'Published 02 September 2025. Replaces the antimicrobial-prescribing guideline NG138 (2019) and incorporates portions of the older CG191 pathway. BTS 2009 CAP guideline remains the underlying evidence base but is not used here because the public BTS PDF was not machine-readable; once a clinician has reviewed BTS sections, add a `bts-cap-2009` entry alongside this one. Topics not covered here: hospital-acquired pneumonia (see NG139), and detailed empirical antibiotic agent/dose tables (recommendation 1.6.2 in NG250 references those tables rather than reproducing them inline).',
     recommendations: [

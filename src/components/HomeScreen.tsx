@@ -327,6 +327,7 @@ export function HomeScreen() {
               }
               store.setScreen('agenticRounds');
             }}
+            hidden={!import.meta.env.DEV}
             title="See how the simulator grades you — agents, citations, hard rules"
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -355,6 +356,7 @@ export function HomeScreen() {
               }
               store.setScreen('agentTopology');
             }}
+            hidden={!import.meta.env.DEV}
             title="Live map of Opus 4.7 and the sub-rules + sessions it controls"
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

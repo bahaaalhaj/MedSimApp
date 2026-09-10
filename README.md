@@ -12,6 +12,12 @@ reset instructions, and security assumptions.
 
 Browser-based outpatient clinical training simulator. Select a specialty and synthetic patient, take a history, order investigations, diagnose, prescribe, and receive an AI-supported debrief.
 
+> MedSim is designed for formative clinical-reasoning practice. It is not a diagnostic tool and must not be used to guide care for real patients.
+
+## Clinical case governance
+
+The legacy synthetic catalogue is preserved for compatibility but is labeled `legacy-unreviewed` and excluded from the default curated mode. Three versioned pilot cases are currently `clinical-review`; zero cases have documented human approval, so curated mode honestly shows a pending-review state. Development mode may inspect pending and legacy content with explicit labels. See [clinical case governance](docs/clinical-case-governance.md), [dependency map](docs/clinical-case-dependency-map.md), [authoring guide](docs/case-authoring-guide.md), and [review checklist](docs/clinical-review-checklist.md).
+
 > Hackathon submission. Cases are plausible but synthetic — no clinical claims.
 
 ---
@@ -152,6 +158,9 @@ npm run build      # tsc + vite build
 npm run preview    # preview production build
 npm run verify     # deterministic invariants over src/data/* — run after editing cases/tests/treatments
 npm run test       # custom-tools + loop-commands tests
+npm run clinical:validate   # canonical schema, lifecycle, references, migration, variants
+npm run clinical:references # regenerate thesis-friendly reference exports
+npm run clinical:audit      # review-status and migration counts
 ```
 
 ---

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { DoodleScatter, PatientFace, TopBar } from './primitives';
-import { CASES, CONDITION_COLORS, type Case } from '../data/cases';
+import { getAssignableCases, CONDITION_COLORS, type Case } from '../data/cases';
 import { CLINIC_IDS, CLINIC_LABELS, type ClinicId } from '../game/clinic';
-import { store, useTweaks } from '../game/store';
+import { store, useGameState, useTweaks } from '../game/store';
 
 interface CaseCardProps {
   c: Case;
@@ -33,7 +33,11 @@ function CaseCard({ c, delay = 0, avatarStyle }: CaseCardProps) {
           boxShadow: '0 -2px 0 var(--line)',
         }}
       >
-        {c.cond}
+        {c.reviewStatus === 'approved-formative'
+          ? 'Clinically reviewed'
+          : c.reviewStatus === 'legacy-unreviewed'
+            ? 'Legacy unreviewed case'
+            : 'Pending clinical review'}
       </div>
 
       <div
@@ -151,6 +155,8 @@ const CLINIC_ICON: Record<ClinicId, string> = {
 
 export function CaseLibraryScreen() {
   const tweaks = useTweaks();
+  const game = useGameState();
+  const cases = useMemo(() => getAssignableCases(game.trainingMode), [game.trainingMode]);
   const [filter, setFilter] = useState<ClinicFilter>('all');
 
   // Group every case by its clinic once. The grouping respects
@@ -161,12 +167,12 @@ export function CaseLibraryScreen() {
       if (id === 'all-specialties') continue;
       map.set(id, []);
     }
-    for (const c of CASES) {
+    for (const c of cases) {
       const list = map.get(c.clinic);
       if (list) list.push(c);
     }
     return map;
-  }, []);
+  }, [cases]);
 
   // Apply the active filter to the grouped data so we can render it as
   // sections without having to re-group inside the JSX.
@@ -190,7 +196,8 @@ export function CaseLibraryScreen() {
 
   const shuffle = () => {
     const pool = visibleGroups.flatMap(([, list]) => list);
-    const fallback = pool.length > 0 ? pool : CASES;
+    const fallback = pool.length > 0 ? pool : cases;
+    if (fallback.length === 0) return;
     const pick = fallback[Math.floor(Math.random() * fallback.length)];
     store.selectCase(pick.id);
   };
@@ -198,7 +205,7 @@ export function CaseLibraryScreen() {
   const clinicChips: Array<{ id: ClinicFilter; label: string; icon?: string }> = [
     { id: 'all', label: 'All clinics', icon: '🌈' },
     { id: 'red-flag', label: 'Red-flag only', icon: '🚩' },
-    ...CLINIC_IDS.filter((id) => id !== 'all-specialties' && (grouped.get(id)?.length ?? 0) > 0).map(
+    ...CLINIC_IDS.filter((id) => id !== 'all-specialties').map(
       (id) => ({ id: id as ClinicFilter, label: CLINIC_LABELS[id], icon: CLINIC_ICON[id] }),
     ),
   ];
@@ -242,6 +249,14 @@ export function CaseLibraryScreen() {
         >
           🔀 Shuffle ({totalVisible})
         </button>
+        {import.meta.env.DEV && <button
+          type="button"
+          className="btn-plush ghost"
+          style={{ fontSize: 12, padding: '10px 14px', whiteSpace: 'nowrap' }}
+          onClick={() => store.setTrainingMode(game.trainingMode === 'curated' ? 'development' : 'curated')}
+        >
+          {game.trainingMode === 'curated' ? 'Development cases (unreviewed)' : 'Return to curated mode'}
+        </button>}
       </div>
 
       {/* Clinic filter chip row */}
@@ -308,7 +323,9 @@ export function CaseLibraryScreen() {
             className="plush"
             style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)', fontWeight: 700 }}
           >
-            No cases match this filter — try another chip.
+            {game.trainingMode === 'curated'
+              ? 'Cases pending clinical review. Curated training unlocks only after documented qualified-clinician approval.'
+              : 'No cases match this specialty. These cases remain pending or legacy content for development inspection.'}
           </div>
         )}
       </div>

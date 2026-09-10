@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Doodle, DoodleScatter, PatientFace, TopBar } from './primitives';
-import { CASES, getCase } from '../data/cases';
+import { getAssignableCases, getCase } from '../data/cases';
 import { CLINIC_IDS, CLINIC_LABELS, type ClinicId } from '../game/clinic';
 import { store, useGameState, useTweaks } from '../game/store';
 
@@ -37,25 +37,24 @@ export function GPRoomScreen() {
   const state = useGameState();
   const activeClinic = state.polyclinic.clinic;
   const [pickerOpen, setPickerOpen] = useState(false);
+  const cases = useMemo(() => getAssignableCases(state.trainingMode), [state.trainingMode]);
 
   // Cases from the active clinic — that's what "Accept the next patient"
   // will walk through. 'all-specialties' pulls from every roster.
   const clinicCases = useMemo(() => {
-    if (activeClinic === 'all-specialties') return CASES;
-    return CASES.filter((c) => c.clinic === activeClinic);
-  }, [activeClinic]);
+    if (activeClinic === 'all-specialties') return cases;
+    return cases.filter((c) => c.clinic === activeClinic);
+  }, [activeClinic, cases]);
 
-  const totalAll = CASES.length;
+  const totalAll = cases.length;
   const queueAhead = clinicCases.length;
-  const nextId = store.pickNextCaseId() ?? clinicCases[0]?.id ?? CASES[0]?.id;
+  const nextId = store.pickNextCaseId() ?? clinicCases[0]?.id;
   const next = nextId ? getCase(nextId) : null;
 
   // Only show clinics that actually have at least one case in the
   // catalogue, plus the synthetic "all" option at the top.
   const availableClinics = useMemo(() => {
-    return CLINIC_IDS.filter(
-      (id) => id === 'all-specialties' || CASES.some((c) => c.clinic === id),
-    );
+    return CLINIC_IDS;
   }, []);
 
   return (
@@ -92,6 +91,18 @@ export function GPRoomScreen() {
 
       {/* Clinic picker — collapsible */}
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: '12px 36px 4px' }}>
+        <div className="plush" style={{ marginBottom: 10, padding: 12, background: state.trainingMode === 'curated' ? 'var(--mint)' : 'var(--butter)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 800 }}>
+            {state.trainingMode === 'curated'
+              ? 'Curated formative training · approved cases only'
+              : 'Development inspection · pending and legacy cases are not clinically approved'}
+          </div>
+          {import.meta.env.DEV && (
+            <button type="button" className="btn-plush ghost" style={{ fontSize: 11, padding: '8px 12px' }} onClick={() => store.setTrainingMode(state.trainingMode === 'curated' ? 'development' : 'curated')}>
+              {state.trainingMode === 'curated' ? 'Inspect development cases' : 'Use curated mode'}
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setPickerOpen((v) => !v)}
@@ -245,7 +256,9 @@ export function GPRoomScreen() {
                 <span className="chip" style={{ background: 'white' }}>
                   {next.name.split(' ')[0]} · {next.age}
                 </span>
-                <span className="chip rose">{next.cond}</span>
+                <span className="chip rose">
+                  {next.reviewStatus === 'legacy-unreviewed' ? 'Legacy unreviewed case' : next.reviewStatus === 'approved-formative' ? 'Clinically reviewed' : 'Pending clinical review'}
+                </span>
               </>
             )}
             <span className="chip butter">
@@ -317,6 +330,9 @@ export function GPRoomScreen() {
         >
           ← Back to corridor
         </button>
+      </div>
+      <div style={{ maxWidth: 900, margin: '0 auto 28px', padding: '0 24px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--ink-2)' }}>
+        MedSim is designed for formative clinical-reasoning practice. It is not a diagnostic tool and must not be used to guide care for real patients.
       </div>
     </div>
   );
