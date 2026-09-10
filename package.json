@@ -11,7 +11,8 @@
     "test": "node scripts/test/run-all.ts",
     "clinical:validate": "node scripts/clinical/validate.ts",
     "clinical:references": "node scripts/clinical/references.ts",
-    "clinical:audit": "node scripts/clinical/audit.ts"
+    "clinical:audit": "node scripts/clinical/audit.ts",
+    "clinical:export-review": "node --max-old-space-size=8192 scripts/clinical/export-review.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
