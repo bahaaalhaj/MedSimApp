@@ -7,7 +7,7 @@ import { interactionBus } from './interactions';
 import type { WallCollider } from './Player';
 import { useGameState, POLYCLINIC_BED_INDEX } from '../../game/store';
 import { CLINIC_LABELS } from '../../game/clinic';
-import { FloatingVoicePanel } from './FloatingVoicePanel';
+import { FloatingPatientAudioPanel } from './FloatingPatientAudioPanel';
 import { StylizedCharacter } from './StylizedCharacter';
 import { parentGenderForId } from '../../voice/patientPersona';
 
@@ -2732,11 +2732,9 @@ function WalkingPatient({
 // ───────── Main scene ─────────
 
 export function Polyclinic({
-  voiceActive = false,
-  onCloseVoice,
+  patientAudioVisible = false,
 }: {
-  voiceActive?: boolean;
-  onCloseVoice?: () => void;
+  patientAudioVisible?: boolean;
 } = {}) {
   const state = useGameState();
   const clinicId = state.polyclinic.clinic;
@@ -2997,17 +2995,16 @@ export function Polyclinic({
         complaint={patient?.case.chiefComplaint}
       />
 
-      {/* Floating voice panel — anchored well ABOVE the seated patient's
+      {/* Patient subtitle/audio panel — anchored above the seated patient's
           head so the bubble doesn't cover their face. The speech-tail on
           the bubble still points down toward the patient, giving the
           classic comic-book look without clipping the head. */}
-      {voiceActive && patient && (
-        <FloatingVoicePanel
+      {patientAudioVisible && patient && (
+        <FloatingPatientAudioPanel
           bedPosition={PATIENT_CHAIR_POS}
           bedRotationY={Math.PI}
           headOffset={[0, 1.85, 0]}
           patient={patient}
-          onClose={() => onCloseVoice?.()}
         />
       )}
 

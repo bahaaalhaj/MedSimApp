@@ -13,7 +13,7 @@
 | `src/voice/` | LiveKit conversation, persona prompt, typed-chat stream, cache |
 | `src/agents/` | Managed Agent transport, debrief request, schemas, hook |
 | `backend/server.py` | FastAPI entry and all HTTP endpoints |
-| `backend/voice_agent.py` | LiveKit Agents worker entry |
+| `backend/tts/` | Lazy local patient-speech providers |
 | `scripts/verify/` | Deterministic dataset and scene invariants |
 | `scripts/test/` | Node test runner tests for custom tools and loop commands |
 | `backend/tests/` | Python tests for authentication, progress ownership, and vault endpoints |

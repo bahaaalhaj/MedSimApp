@@ -100,13 +100,13 @@ const NODES: NodeDef[] = [
     w: 160,
     h: 180,
     title: 'Trainee',
-    subtitle: 'Sees the 3D polyclinic, speaks to the patient out loud.',
+    subtitle: 'Sees the 3D polyclinic and asks typed or prepared questions.',
     doodle: 'star',
     details: {
-      what: 'A medical student or new-grad doctor running a single GP-style consultation. Free-text voice input via the browser mic; receives the patient\'s reply through the LiveKit audio track. The trainee never sees the agent\'s system prompt or the rubric.',
+      what: 'A medical student or new-grad doctor running a single GP-style consultation. Questions are typed or selected; patient replies arrive as durable text and optional local speech. The trainee never sees the agent\'s system prompt or rubric.',
       files: [
-        { path: 'src/components/EncounterScreen.tsx', label: '3D scene + voice dock' },
-        { path: 'src/voice/conversation.ts', label: 'mic + audio out + transcript' },
+        { path: 'src/components/EncounterScreen.tsx', label: '3D scene + patient audio dock' },
+        { path: 'src/voice/conversation.ts', label: 'text turns + local audio playback' },
       ],
     },
   },
@@ -117,21 +117,20 @@ const NODES: NodeDef[] = [
     y: 170,
     w: 210,
     h: 180,
-    title: 'Voice stack',
-    subtitle: 'LiveKit + Deepgram STT · Cartesia TTS · Haiku 4.5 patient persona.',
-    badge: 'real-time',
+    title: 'Patient dialogue',
+    subtitle: 'Typed questions · Haiku patient text · local Kokoro speech.',
+    badge: 'text-first',
     doodle: 'spark',
     details: {
-      what: 'Real-time pipeline that turns the trainee\'s spoken words into a patient reply spoken back out loud. Sub-1s perceived latency. The patient persona is a Haiku 4.5 system prompt assembled from the case\'s hidden facts + planted cues.',
+      what: 'Text-first pipeline that sends typed or prepared questions to a Haiku patient persona. The reply is stored before local speech is attempted, so audio failure never removes assessment evidence.',
       files: [
-        { path: 'backend/voice_agent.py', label: 'LiveKit Agents worker' },
+        { path: 'backend/tts/providers.py', label: 'local speech providers' },
         { path: 'src/voice/patientPersona.ts', label: 'persona prompt builder' },
-        { path: 'backend/server.py', line: 0, label: '/voice/token mint' },
+        { path: 'backend/server.py', line: 0, label: '/tts/synthesize' },
       ],
       external: [
-        { url: 'https://livekit.io', label: 'LiveKit Cloud (WebRTC transport)' },
-        { url: 'https://deepgram.com', label: 'Deepgram Nova-3 (STT)' },
-        { url: 'https://cartesia.ai', label: 'Cartesia Sonic-2 (TTS)' },
+        { url: 'https://github.com/hexgrad/kokoro', label: 'Kokoro local TTS' },
+        { url: 'https://github.com/resemble-ai/chatterbox', label: 'Optional Chatterbox TTS' },
       ],
     },
   },
@@ -352,8 +351,8 @@ const NODES: NodeDef[] = [
 
 const EDGES: EdgeDef[] = [
   // RUN-TIME flow (left to right, single row)
-  { from: 'trainee', to: 'voice', label: 'speaks' },
-  { from: 'voice', to: 'store', label: 'transcribes' },
+  { from: 'trainee', to: 'voice', label: 'types/selects' },
+  { from: 'voice', to: 'store', label: 'records text' },
   { from: 'store', to: 'packager', label: 'on disposition' },
   { from: 'packager', to: 'attending', label: 'user.message' },
   { from: 'attending', to: 'evaluation', label: 'renders eval' },

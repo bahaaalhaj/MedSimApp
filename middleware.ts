@@ -1,11 +1,11 @@
-// Vercel Edge Middleware: proxies /agent/* and /voice/* to the Render
+// Vercel Edge Middleware: proxies /agent/* and /tts/* to the backend
 // backend with a shared-secret header. The secret stays server-side
 // (Vercel env var BACKEND_SHARED_SECRET) so direct curl traffic to the
 // Render URL gets 401'd, but browser traffic via medsim.vercel.app
 // works transparently.
 
 export const config = {
-  matcher: ['/agent/:path*', '/voice/:path*', '/api/:path*'],
+  matcher: ['/agent/:path*', '/tts/:path*', '/api/:path*'],
 };
 
 // NOTE: keeping `grand-rounds-backend.onrender.com` until/unless we rename

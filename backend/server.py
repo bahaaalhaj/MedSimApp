@@ -1,15 +1,12 @@
 """
 FastAPI backend for the MedSim simulator.
 
-Hosts the Claude Managed Agents proxy (medsim-attending grading) and the
-real-time voice token mint endpoint (`/voice/token`). Real-time voice
-itself runs in `voice_agent.py` as a separate LiveKit Agents worker —
-this server only issues access tokens and pre-creates rooms with
-patient persona metadata.
+Hosts the Claude Managed Agents proxy (medsim-attending grading), the
+text-only AI patient endpoint, and local patient text-to-speech.
 
 GET  /health         → backend + agent status report
 POST /agent/...      → Managed Agents proxy (medsim-attending)
-POST /voice/token    → mint LiveKit JWT for a patient room
+POST /tts/synthesize → synthesize patient speech locally
 """
 
 from __future__ import annotations
@@ -52,17 +49,21 @@ _load_env_local()
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from auth_system import AuthApi, AuthSettings, build_auth_router
+from tts import TTSConfigurationError, TTSProviderError, TTSRequest, get_tts_manager, load_tts_settings
 
-# Shared secret protects /agent/*, /voice/*, and /api/* against direct curl abuse.
+# Validate cheap configuration at import/startup without loading model weights.
+TTS_SETTINGS = load_tts_settings()
+
+# Shared secret protects /agent/*, /tts/*, and /api/* against direct curl abuse.
 # Vercel Edge Middleware injects this header for browser traffic; a
-# missing/wrong value returns 401 before we burn any Anthropic / LiveKit
+# missing/wrong value returns 401 before we burn any model resources
 # credits. Localhost origins bypass for `npm run dev`.
 SHARED_SECRET = os.environ.get("BACKEND_SHARED_SECRET", "")
 ALLOWED_ORIGINS = [
@@ -314,19 +315,20 @@ def health():
     agent_id = os.environ.get("MEDSIM_AGENT_ID") or None
     env_id = os.environ.get("MEDSIM_ENV_ID") or None
     bootstrapped = bool(agent_id and env_id)
-    livekit_ok = bool(
-        os.environ.get("LIVEKIT_URL")
-        and os.environ.get("LIVEKIT_API_KEY")
-        and os.environ.get("LIVEKIT_API_SECRET")
-    )
+    try:
+        tts_settings = TTS_SETTINGS
+        tts_status = {
+            "configured": True,
+            "provider": tts_settings.provider,
+            "device": tts_settings.device,
+            "fallback": tts_settings.fallback,
+            "chatterbox_enabled": tts_settings.enable_chatterbox,
+        }
+    except TTSConfigurationError as exc:
+        tts_status = {"configured": False, "error": str(exc)}
     return {
         "ok": True,
-        "voice": {
-            "transport": "livekit",
-            "livekit_configured": livekit_ok,
-            "deepgram_configured": bool(os.environ.get("DEEPGRAM_API_KEY")),
-            "cartesia_configured": bool(os.environ.get("CARTESIA_API_KEY")),
-        },
+        "patient_tts": tts_status,
         "agent": {
             "anthropic_sdk_installed": _HAS_ANTHROPIC,
             "api_key_configured": has_key,
@@ -1326,108 +1328,45 @@ async def patient_stream(req: PatientStreamRequest):
 
 
 # ───────────────────────────────────────────────────────────────────────────
-# Real-time voice — LiveKit access tokens
+# Local patient text-to-speech
 # ───────────────────────────────────────────────────────────────────────────
 #
-# The frontend posts the persona payload here. We create the LiveKit room
-# with that payload as room metadata (so the voice agent worker can read it
-# at room-join time) and return a JWT the browser uses to connect.
-#
-# Persona prompt and initial line are produced by `src/voice/patientPersona.ts`
-# in TS — Python doesn't duplicate the logic, it just relays.
-
-import json as _json
-import secrets as _secrets
-import asyncio as _asyncio
-
-from livekit import api as _lkapi
-
-
-class VoiceTokenRequest(BaseModel):
+class PatientTTSRequestBody(BaseModel):
+    text: str
     caseId: str
-    systemPrompt: str
-    initialLine: str
-    gender: str  # 'M' | 'F' — speaker gender (parent for pediatric)
-    voiceId: Optional[str] = None  # explicit override
-    identity: Optional[str] = None  # browser-side participant identity
+    gender: str = "M"
+    isPediatric: bool = False
+    speed: Optional[float] = None
+    language: str = "en"
 
 
-class VoiceTokenResponse(BaseModel):
-    token: str
-    url: str
-    roomName: str
-
-
-@app.post("/voice/token", response_model=VoiceTokenResponse)
-async def voice_token(req: VoiceTokenRequest):
-    lk_url = os.environ.get("LIVEKIT_URL")
-    lk_key = os.environ.get("LIVEKIT_API_KEY")
-    lk_secret = os.environ.get("LIVEKIT_API_SECRET")
-    if not (lk_url and lk_key and lk_secret):
-        raise HTTPException(
-            status_code=500,
-            detail="LIVEKIT_URL/LIVEKIT_API_KEY/LIVEKIT_API_SECRET not configured",
-        )
-
-    nonce = _secrets.token_urlsafe(8)
-    safe_case = "".join(c for c in req.caseId if c.isalnum() or c in "-_")[:32] or "case"
-    room_name = f"gr-{safe_case}-{nonce}"
-    identity = req.identity or f"doctor-{_secrets.token_hex(4)}"
-
-    metadata = _json.dumps(
-        {
-            "caseId": req.caseId,
-            "systemPrompt": req.systemPrompt,
-            "initialLine": req.initialLine,
-            "voiceGender": req.gender,
-            "voiceId": req.voiceId,
-        }
-    )
-
-    # Pre-create the room so metadata is set before the agent dispatches in.
-    # `agents=[RoomAgentDispatch(agent_name="medsim-voice")]` makes dispatch
-    # explicit by name instead of relying on LiveKit's automatic region/cluster
-    # matching, which fails when the room-creator (Render Oregon) and the
-    # worker (registered in EU/Germany 2) are in different clouds.
-    lkapi = _lkapi.LiveKitAPI(lk_url, lk_key, lk_secret)
+@app.post("/tts/synthesize")
+async def synthesize_patient_speech(req: PatientTTSRequestBody):
+    if not req.text.strip() or len(req.text) > 2000:
+        raise HTTPException(status_code=422, detail="Patient text must contain 1 to 2000 characters")
+    if req.gender not in {"M", "F"}:
+        raise HTTPException(status_code=422, detail="gender must be M or F")
+    if req.speed is not None and not 0.7 <= req.speed <= 1.3:
+        raise HTTPException(status_code=422, detail="speed must be between 0.7 and 1.3")
+    if req.language != TTS_SETTINGS.language:
+        raise HTTPException(status_code=422, detail="language must match server PATIENT_TTS_LANGUAGE")
     try:
-        await lkapi.room.create_room(
-            _lkapi.CreateRoomRequest(
-                name=room_name,
-                metadata=metadata,
-                empty_timeout=120,
-                agents=[_lkapi.RoomAgentDispatch(agent_name="medsim-voice")],
-            )
-        )
-    except Exception as e:
-        # If the room already exists (rare race), let it through.
-        msg = str(e).lower()
-        if "already" not in msg and "exists" not in msg:
-            await lkapi.aclose()
-            raise HTTPException(status_code=502, detail=f"livekit room create failed: {e}")
-    finally:
-        try:
-            await lkapi.aclose()
-        except Exception:
-            pass
-
-    token = (
-        _lkapi.AccessToken(lk_key, lk_secret)
-        .with_identity(identity)
-        .with_name(identity)
-        .with_grants(
-            _lkapi.VideoGrants(
-                room_join=True,
-                room=room_name,
-                can_publish=True,
-                can_subscribe=True,
-                can_publish_data=True,
-            )
-        )
-        .to_jwt()
+        result = await get_tts_manager().synthesize(TTSRequest(
+            text=req.text, case_id=req.caseId, gender=req.gender,
+            is_pediatric=req.isPediatric, speed=req.speed, language=req.language,
+        ))
+    except (TTSConfigurationError, TTSProviderError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return Response(
+        content=result.audio,
+        media_type=result.media_type,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Patient-TTS-Provider": result.provider,
+            "X-Patient-TTS-Voice": result.voice,
+            "X-Patient-TTS-Normalized": result.synthesized_text.encode("ascii", "ignore").decode("ascii")[:500],
+        },
     )
-
-    return VoiceTokenResponse(token=token, url=lk_url, roomName=room_name)
 
 
 if __name__ == "__main__":

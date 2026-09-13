@@ -24,7 +24,7 @@ Session opens
   ↓
 case_id chosen (or generated on-demand by case-generator)
   ↓
-LiveKit room joined; voice loop starts
+Patient text conversation initialized; local speech is optional
   ↓
 patient-roleplay handles every student utterance
   ↓

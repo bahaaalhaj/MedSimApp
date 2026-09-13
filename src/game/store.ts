@@ -15,6 +15,7 @@ import type { PaletteName } from '../styles/palettes';
 import type { Case as MedSimCase } from '../data/cases';
 import { getAssignableCases, getCase, getCaseClinic, getPatientCase } from '../data/cases';
 import { clearAllConversationStorage, ensureAudioContext } from '../voice/conversationStore';
+import type { EncounterTranscriptEntry } from './types';
 import { caseVersionFor, CLINICAL_CASE_BY_ID } from '../clinical/cases';
 import { generateControlledVariant } from '../clinical/variants';
 import type { TrainingMode } from '../clinical/types';
@@ -87,6 +88,7 @@ function toPatientCase(c: MedSimCase, variantSeed: string): PatientCase {
 function hasEncounterActivity(p: ActivePatient): boolean {
   return (
     p.askedQuestionIds.length > 0 ||
+    p.transcript.some((entry) => entry.role === 'trainee') ||
     p.orderedTestIds.length > 0 ||
     p.givenTreatmentIds.length > 0 ||
     (p.prescriptions?.length ?? 0) > 0 ||
@@ -102,6 +104,8 @@ function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): 
     bedIndex: POLYCLINIC_BED_INDEX,
     status: 'in-bed',
     askedQuestionIds: [],
+    transcript: [],
+    encounterAttemptId: `${c.id}-${now}-${Math.random().toString(36).slice(2, 10)}`,
     orderedTestIds: [],
     testOrderedAt: {},
     completedTestIds: [],
@@ -230,8 +234,7 @@ class Store {
     this.attemptedCaseIds.add(id);
   }
 
-  /** Drop the patient into the polyclinic 3D scene — they walk in, sit on the
-   *  chair, and the voice agent boots once `voiceActive` flips on. */
+  /** Drop the patient into the polyclinic 3D scene and initialize the encounter. */
   loadPolyclinicPatient = (id: string) => {
     const c = getCase(id);
     if (!getAssignableCases(this.state.trainingMode).some((x) => x.id === id)) {
@@ -287,21 +290,13 @@ class Store {
    *  from the active polyclinic so the doctor can hammer through e.g.
    *  pediatrics one at a time without going back to the library.
    *
-   *  Pre-warms the AudioContext inside this click handler so that browser
-   *  autoplay policies treat the subsequent `Conversation.init()` (kicked
-   *  off when `FloatingVoicePanel` mounts) as gesture-authorised. Without
-   *  this, the AudioContext stays suspended and the mic / remote audio
-   *  silently fail until the user clicks something else. */
+   *  Patient speech is unlocked by the same explicit acceptance gesture. */
   acceptNextPatient = (id?: string) => {
     const targetId = id ?? this.pickNextCaseId();
     if (!targetId || !getAssignableCases(this.state.trainingMode).some((c) => c.id === targetId)) return;
     const c = getCase(targetId);
     const clinic = getCaseClinic(targetId);
-    try {
-      ensureAudioContext();
-    } catch {
-      /* SSR / no Web Audio support — let the panel surface the error */
-    }
+    try { ensureAudioContext(); } catch { /* text conversation remains available */ }
     this.markAttempted(targetId);
     this.set({
       selectedCaseId: targetId,
@@ -330,6 +325,12 @@ class Store {
     this.updatePolyclinicPatient((p) => {
       if (p.askedQuestionIds.includes(qid)) return p;
       return { ...p, askedQuestionIds: [...p.askedQuestionIds, qid] };
+    });
+
+  appendTranscriptEntry = (entry: EncounterTranscriptEntry) =>
+    this.updatePolyclinicPatient((p) => {
+      if (p.case.id !== entry.caseId || p.transcript.some((item) => item.id === entry.id)) return p;
+      return { ...p, transcript: [...p.transcript, entry] };
     });
 
   initializeInvestigationAttempt = async () => {

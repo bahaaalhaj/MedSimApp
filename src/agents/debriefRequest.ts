@@ -19,7 +19,6 @@ import {
 } from '../data/guidelines.ts';
 import { TESTS } from '../data/tests.ts';
 import { TREATMENTS } from '../data/treatments.ts';
-import { getExistingConversation } from '../voice/conversationStore.ts';
 import { validateCaseSpecificPrescription, type CaseSpecificPrescriptionResult } from '../clinical/prescriptionValidation.ts';
 import { CLINICAL_CASE_BY_ID } from '../clinical/cases.ts';
 import { investigationResultText } from '../clinical/investigations.ts';
@@ -85,7 +84,11 @@ export interface DebriefRequest {
     transcript: Array<{
       role: 'trainee' | 'patient';
       content: string;
-      timestamp_iso: string | null;
+      timestamp_iso: string;
+      question_source: 'typed' | 'predefined' | null;
+      case_id: string;
+      case_version: string;
+      attempt_id: string;
     }>;
     safety_netting_checks: {
       summary_completed: boolean;
@@ -146,12 +149,14 @@ export function buildDebriefRequest(
     dose: p.dose,
     duration: p.duration,
   }));
-  const transcript = (getExistingConversation(patient.bedIndex)?.getMessages() ?? []).map((message) => ({
-    role: message.role === 'user' ? 'trainee' as const : 'patient' as const,
-    content: message.content,
-    // The current conversation transport does not capture per-message time.
-    // Keep this explicitly null rather than inventing timestamps.
-    timestamp_iso: null,
+  const transcript = patient.transcript.map((entry) => ({
+    role: entry.role,
+    content: entry.content,
+    timestamp_iso: entry.timestampIso,
+    question_source: entry.questionSource,
+    case_id: entry.caseId,
+    case_version: entry.caseVersion,
+    attempt_id: entry.attemptId,
   }));
 
   return {

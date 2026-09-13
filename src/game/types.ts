@@ -38,7 +38,7 @@ export interface EndConfirmChecks {
 
 // ── medsim types — load-bearing for the 3D scene + voice agent ──
 //
-// These are the shapes the imported `Polyclinic.tsx`, `FloatingVoicePanel.tsx`,
+// These are the shapes the 3D scene and patient-audio panel
 // and `voice/*` modules expect.
 
 export type Severity = 'critical' | 'urgent' | 'stable';
@@ -165,11 +165,24 @@ export type PatientStatus =
   | 'discharged'
   | 'deceased';
 
+export interface EncounterTranscriptEntry {
+  id: string;
+  role: 'trainee' | 'patient';
+  content: string;
+  timestampIso: string;
+  questionSource: 'typed' | 'predefined' | null;
+  caseId: string;
+  caseVersion: string;
+  attemptId: string;
+}
+
 export interface ActivePatient {
   case: PatientCase;
   bedIndex: number;
   status: PatientStatus;
   askedQuestionIds: string[];
+  transcript: EncounterTranscriptEntry[];
+  encounterAttemptId: string;
   orderedTestIds: string[];
   testOrderedAt: Record<string, number>;
   completedTestIds: string[];
@@ -222,7 +235,7 @@ export interface GameState {
   trainingMode: TrainingMode;
   hasOnboarded: boolean;
   /** Polyclinic 3D scene needs this slice. Shape consumed by `Polyclinic`
-   *  and `FloatingVoicePanel`. */
+   *  and `FloatingPatientAudioPanel`. */
   polyclinic: PolyclinicSlice;
   /** Snapshot of the most recently completed encounter, taken at the moment
    *  the patient walks out (see `Store.finishPolyclinicCase`). DebriefScreen

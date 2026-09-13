@@ -1,110 +1,43 @@
 # MedSim backend
 
-## Authentication and progress
+One FastAPI process provides account authentication, account-owned progress, AI patient text streaming, the attending debrief proxy, and local patient text-to-speech.
 
-The FastAPI process owns account authentication and authenticated training
-history. It uses SQLite locally through `auth_system.py`; SQL is isolated in
-`migrations/001_auth.sql`, so a later PostgreSQL repository can replace the
-SQLite repository without changing the HTTP or frontend contracts.
-
-Tables are initialized reproducibly when the server starts:
-
-- `users`: profile identity and Argon2id password hash.
-- `auth_sessions`: hashed opaque session tokens, expiry, last use, and revocation.
-- `clinical_encounters`: completed evaluation snapshots owned by `user_id`.
-
-Install and start on Windows:
+## Windows installation
 
 ```powershell
 python -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-tts.txt
+Copy-Item backend/.env.example backend/.env.local
 backend/.venv/Scripts/python.exe backend/server.py
 ```
 
-The migration runner applies every unapplied `backend/migrations/*.sql` file
-and records it in `schema_migrations`; no manual table creation is required.
-For local HTTPS-free development use `MEDSIM_ENVIRONMENT=development` and
-`MEDSIM_COOKIE_SECURE=0`. Production/Render defaults cookies to secure, and
-should explicitly use `MEDSIM_ENVIRONMENT=production` and
-`MEDSIM_COOKIE_SECURE=1`; keep `MEDSIM_COOKIE_SAMESITE=lax` unless the
-frontend and API truly live on different sites, in which case `none` also
-requires HTTPS. Set `MEDSIM_DATABASE_PATH` to persistent storage in production.
+Kokoro also uses `espeak-ng` for English out-of-dictionary fallback. Install its Windows x64 package and make sure it is available on `PATH`. The first synthesis downloads model assets into `PATIENT_TTS_MODEL_CACHE_DIR`; weights and generated audio are ignored by Git.
 
-Authentication uses an HttpOnly session cookie and a separate double-submit
-CSRF cookie/header. Login and registration are rate-limited. Passwords and raw
-session tokens are never stored or logged. The existing shared backend secret
-protects proxy access but is not treated as user identity.
+The optional Chatterbox provider is not part of the default requirements and is never imported while disabled. Install `chatterbox-tts==0.1.7`, set `PATIENT_TTS_ENABLE_CHATTERBOX=true`, and select it explicitly. Voice cloning is not exposed.
 
-Authenticated evaluations are stored in `clinical_encounters` and all queries
-derive ownership from the verified cookie session. Guests never receive a
-database user: their history is stored under
-`medsim:guest:<anonymous-id>:eval-history` in that browser. Legacy
-`gr_eval_history` data is left untouched and is not merged automatically.
+See [the full patient audio architecture](../docs/audio-architecture.md) for providers, devices, licensing, benchmark instructions, and troubleshooting.
 
-To reset only local development account/progress data, stop the backend and
-remove the exact file configured by `MEDSIM_DATABASE_PATH` (the default is
-`backend/data/medsim.db`), then restart to reapply migrations. Do not remove the
-whole `backend/data` directory if it contains other files.
+## Authentication and progress
 
-Current limitations: password reset and email verification are not yet
-implemented; SQLite is intended for a single local/server instance; guest data
-does not sync between devices and is not migrated into an account.
+SQLite tables are initialized from `migrations/*.sql`. Authentication uses an HttpOnly session cookie and double-submit CSRF protection. Passwords are Argon2id hashes; raw sessions are not stored. Authenticated evaluations are owned by the user in `clinical_encounters`. Guests remain browser-local and are not silently merged.
 
-API surface:
+Local development uses `MEDSIM_ENVIRONMENT=development` and `MEDSIM_COOKIE_SECURE=0`. Production should set `MEDSIM_ENVIRONMENT=production`, `MEDSIM_COOKIE_SECURE=1`, a persistent `MEDSIM_DATABASE_PATH`, and a strong `BACKEND_SHARED_SECRET` shared only with the frontend proxy.
 
-- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`
-- `GET /api/auth/me`, `GET /api/auth/session`
-- `GET/POST /api/progress/encounters`
-- `GET/DELETE /api/progress/encounters/{encounter_id}`
+## API surface
 
-Two Python processes power the simulator:
+- `GET /health` — backend, attending-agent, and local-TTS configuration status; does not load a model.
+- `POST /agent/patient/stream` — text-only AI patient response stream.
+- `POST /tts/synthesize` — authenticated/proxied local patient WAV synthesis.
+- `POST /agent/*` — attending Managed Agent lifecycle.
+- `POST /api/auth/*` — account lifecycle.
+- `GET/POST /api/progress/encounters` — account-owned evaluation history.
 
-1. **FastAPI server** (`server.py`) — Managed Agents proxy (`/agent/*`), patient-text-chat SSE (`/agent/patient/stream`), and the LiveKit token mint (`/voice/token`). Lives at `127.0.0.1:8787`.
-2. **LiveKit voice worker** (`voice_agent.py`) — joins every room created by `/voice/token`, runs Deepgram Nova-3 STT → Claude Haiku 4.5 → Cartesia Sonic-2 TTS over WebRTC.
+## Checks
 
-Both must be running for real-time voice to work.
-
-## Install
-
-The two processes use **separate venvs** so the worker's deps don't tangle with the FastAPI server's.
-
-```bash
-cd backend
-
-# Server venv — small, just FastAPI + Anthropic + livekit-api.
-python -m venv .venv
-.venv/Scripts/python.exe -m pip install -r requirements.txt
-
-# Voice worker venv — pulls in livekit-agents + Deepgram/Cartesia/Silero plugins.
-python -m venv .venv-voice
-.venv-voice/Scripts/python.exe -m pip install -r voice_agent_requirements.txt
+```powershell
+backend/.venv/Scripts/python.exe -m unittest discover -s backend/tests -v
+backend/.venv/Scripts/python.exe backend/tts_benchmark.py
 ```
 
-## Configure
-
-Copy `.env.example` to `.env.local` and fill in:
-
-- `ANTHROPIC_API_KEY` — Managed Agent + patient persona LLM.
-- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` — from LiveKit Cloud.
-- `DEEPGRAM_API_KEY` — streaming STT.
-- `CARTESIA_API_KEY` — streaming TTS.
-- `MEDSIM_AGENT_ID`, `MEDSIM_ENV_ID` — leave blank on first run, paste back from `/agent/bootstrap`.
-
-## Run
-
-```bash
-# Terminal 1 — FastAPI
-.venv/Scripts/python.exe server.py
-
-# Terminal 2 — voice worker
-.venv-voice/Scripts/python.exe voice_agent.py dev
-```
-
-The worker logs `registered worker` once it's connected to LiveKit Cloud. From then on, any room created via `POST /voice/token` will dispatch a worker into it; the worker reads the persona payload from room metadata and starts the patient.
-
-## Endpoints
-
-- `GET  /health` — backend + agent + voice config status.
-- `POST /voice/token` — body `{caseId, systemPrompt, initialLine, gender}`. Pre-creates a LiveKit room with the persona payload as metadata, returns `{token, url, roomName}`.
-- `POST /agent/*` — Managed Agents proxy for the medsim-attending. See inline docs in `server.py`.
-- `POST /agent/patient/stream` — text-only patient persona SSE; used by the right-sidebar text chat.
+The benchmark does not write an audio file. It reports the selected provider/device, load-plus-synthesis time, buffered time to first audio, output duration, real-time factor, and process memory where measurable.

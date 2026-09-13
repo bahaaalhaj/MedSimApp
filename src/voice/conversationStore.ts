@@ -1,6 +1,7 @@
 import { Conversation, type ConversationListeners } from './conversation';
 import { buildPersona, buildInitialLine, isPediatric, parentGenderFor } from './patientPersona';
 import type { PatientCase } from '../game/types';
+import { store as gameStore } from '../game/store';
 
 let sharedCtx: AudioContext | null = null;
 
@@ -51,19 +52,27 @@ export function getOrCreatePatientConversation(
     store.delete(bedIndex);
   }
   const ctx = ensureAudioContext();
-  // Speaker gender mirrors the rule in voiceForPatient (now retired):
-  // pediatric → parent's gender, adult → patient's gender.
+  // Pediatric encounters use the accompanying parent's adult voice.
   const speakerGender: 'M' | 'F' = isPediatric(patientCase)
     ? parentGenderFor(patientCase)
     : patientCase.gender;
   const conv = new Conversation(ctx, listeners, {
     systemPrompt: buildPersona(patientCase),
     initialMessage: buildInitialLine(patientCase),
-    voiceGender: speakerGender,
+    speakerGender,
+    isPediatric: isPediatric(patientCase),
     caseId: patientCase.id,
-    // Persist per-patient history so refreshing the page or walking away
-    // and back doesn't wipe the conversation — the patient remembers you.
-    storageKey: `conv_history_${patientCase.id}`,
+    onTranscript: (record) => {
+      const active = gameStore.getState().polyclinic.patient;
+      if (!active || active.case.id !== patientCase.id) return;
+      gameStore.appendTranscriptEntry({
+        id: `${active.encounterAttemptId}-${active.transcript.length}-${Date.now()}`,
+        ...record,
+        caseId: active.case.id,
+        caseVersion: active.caseVersion,
+        attemptId: active.encounterAttemptId,
+      });
+    },
   });
   store.set(bedIndex, { conv, caseId: patientCase.id });
   return conv;
@@ -86,10 +95,7 @@ export function clearAllPatientConversations() {
   }
 }
 
-/** Wipe ALL persisted patient chat history from localStorage so that on the
- *  next shift, every patient starts a fresh conversation (no "the doctor
- *  asked me this last shift" memory). Pairs with `clearAllPatientConversations`
- *  to fully reset the voice layer between shifts. */
+/** Remove legacy pre-text-first conversation cache entries. */
 export function clearAllConversationStorage() {
   if (typeof window === 'undefined') return;
   try {

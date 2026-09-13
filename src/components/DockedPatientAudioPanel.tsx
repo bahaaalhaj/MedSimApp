@@ -8,7 +8,7 @@ import type { ConversationStatus, SubtitleEvent } from '../voice/conversation';
  *  saying without the in-scene speech bubble bleeding through the modal.
  *
  *  This does NOT own the conversation — it subscribes to whatever the
- *  encounter screen has already booted via FloatingVoicePanel /
+ *  encounter screen has already booted via FloatingPatientAudioPanel /
  *  conversationStore. When the dock unmounts, the voice keeps running. */
 
 interface Props {
@@ -16,9 +16,12 @@ interface Props {
   patientLabel: string; // e.g. "34F"
 }
 
-export function DockedVoicePanel({ patientName, patientLabel }: Props) {
+export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
   const [status, setStatus] = useState<ConversationStatus>('uninitialized');
   const [subtitle, setSubtitle] = useState<SubtitleEvent>({ who: 'patient', text: '…' });
+  const [volume, setVolume] = useState(0.85);
+  const [muted, setMuted] = useState(false);
+  const [audioError, setAudioError] = useState('');
 
   // Hook into the live conversation. We resync on mount AND poll for the
   // first 2s in case the conversation hasn't been created yet (e.g. the
@@ -42,6 +45,8 @@ export function DockedVoicePanel({ patientName, patientLabel }: Props) {
       // status via a tick. The Conversation exposes subscribeMessages —
       // use that for transcript text, and poll getStatus() each rAF.
       setStatus(conv.getStatus());
+      setVolume(conv.getVolume());
+      setMuted(conv.isMuted());
       const msgs = conv.getMessages();
       const last = [...msgs].reverse().find((m) => m.role === 'assistant' || m.role === 'user');
       if (last) {
@@ -60,7 +65,10 @@ export function DockedVoicePanel({ patientName, patientLabel }: Props) {
     const tick = window.setInterval(() => {
       if (disposed) return;
       const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-      if (conv) setStatus(conv.getStatus());
+      if (conv) {
+        setStatus(conv.getStatus());
+        setAudioError(conv.getLastAudioError());
+      }
     }, 500);
 
     return () => {
@@ -72,17 +80,15 @@ export function DockedVoicePanel({ patientName, patientLabel }: Props) {
 
   const firstName = patientName.split(' ')[0];
   const statusLabel =
-    status === 'listening' ? 'LISTENING…' :
     status === 'thinking' ? 'THINKING…' :
     status === 'speaking' ? `${firstName.toUpperCase()} SPEAKING` :
     status === 'loading' ? 'CONNECTING…' :
     status === 'ready' ? 'LIVE' :
     'OFFLINE';
 
-  const live = status === 'listening' || status === 'speaking' || status === 'thinking' || status === 'ready';
+  const live = status === 'speaking' || status === 'thinking' || status === 'ready';
   const statusColor =
     status === 'speaking' ? 'var(--peach-deep)' :
-    status === 'listening' ? 'var(--mint-deep)' :
     status === 'thinking' ? 'var(--butter-deep)' :
     live ? 'var(--mint-deep)' : 'var(--ink-soft)';
 
@@ -158,6 +164,22 @@ export function DockedVoicePanel({ patientName, patientLabel }: Props) {
           {statusLabel}
         </div>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+        <button type="button" aria-label={muted ? 'Unmute patient audio' : 'Mute patient audio'} onClick={() => {
+          const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
+          if (!conversation) return;
+          const next = !muted;
+          setMuted(next);
+          conversation.setMuted(next);
+        }}>{muted ? '🔇' : '🔊'}</button>
+        <input aria-label="Patient audio volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => {
+          const next = Number(event.target.value);
+          setVolume(next);
+          getExistingConversation(POLYCLINIC_BED_INDEX)?.setVolume(next);
+        }} style={{ flex: 1 }} />
+        <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.replayLastResponse()}>↻</button>
+      </div>
+      {audioError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{audioError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retrySpeech()}>Retry audio</button></div>}
 
       <div
         ref={scrollRef}

@@ -1,0 +1,6 @@
+# Local patient speech. Model weights are downloaded to PATIENT_TTS_MODEL_CACHE_DIR.
+kokoro>=0.9.4,<0.10
+soundfile>=0.13,<0.14
+
+# Optional and intentionally not installed by default:
+# chatterbox-tts==0.1.7

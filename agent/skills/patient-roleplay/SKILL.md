@@ -4,7 +4,7 @@ description: Voices the patient in real time during a MedSim OSCE encounter. Rea
 model: claude-opus-4-7
 inputs:
   - case_json               # full case (matches cases/case.schema.json)
-  - student_utterance       # what the student just said (transcribed by Deepgram)
+  - student_utterance       # typed or selected learner question
   - encounter_state         # turn count, current pathophysiology tick, cues already emitted
 outputs:
   - patient_utterance       # natural speech; first-person; consistent with persona

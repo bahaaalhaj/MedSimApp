@@ -2,7 +2,7 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://grand-rounds-backend.onrender.com/api/:path*" },
     { "source": "/agent/:path*", "destination": "https://grand-rounds-backend.onrender.com/agent/:path*" },
-    { "source": "/voice/:path*", "destination": "https://grand-rounds-backend.onrender.com/voice/:path*" },
+    { "source": "/tts/:path*", "destination": "https://grand-rounds-backend.onrender.com/tts/:path*" },
     { "source": "/:path*", "destination": "/" }
   ]
 }

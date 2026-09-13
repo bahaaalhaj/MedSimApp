@@ -20,7 +20,6 @@ interface PlayerProps {
   spawn?: [number, number, number];
   colliders: WallCollider[];
   onInteract: (kind: 'desk' | 'bed', bedIndex?: number) => void;
-  onTalk?: (bedIndex: number | null) => void;
   /** Camera eye height. 1.7m for standing, 1.45m for a seated doctor. */
   height?: number;
   /** When true, WASD is disabled — the player stays put. Used in Polyclinic
@@ -39,7 +38,6 @@ export function Player({
   spawn = [0, DEFAULT_HEIGHT, 8],
   colliders,
   onInteract,
-  onTalk,
   height = DEFAULT_HEIGHT,
   locked = false,
   lookAt,
@@ -81,19 +79,6 @@ export function Player({
         const active = interactionBus.getActive();
         if (active) onInteract(active.kind, active.bedIndex);
       }
-      if ((e.key === 't' || e.key === 'T') && onTalk) {
-        const active = interactionBus.getActive();
-        if (
-          active &&
-          active.kind === 'bed' &&
-          active.bedIndex !== undefined
-        ) {
-          onTalk(active.bedIndex);
-        } else {
-          // T with no bed in range closes any open voice panel.
-          onTalk(null);
-        }
-      }
     };
     const onUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') { keys.current.run = false; return; }
@@ -106,7 +91,7 @@ export function Player({
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup', onUp);
     };
-  }, [onInteract, onTalk]);
+  }, [onInteract]);
 
   useFrame((_, dt) => {
     if (!document.pointerLockElement) return;

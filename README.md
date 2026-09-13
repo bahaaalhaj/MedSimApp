@@ -1,208 +1,105 @@
 # MedSim
 
-## Accounts and guest sessions
+MedSim is a desktop-first outpatient clinical-training simulator. Learners select one of 24 specialties, interview a synthetic patient by typing or choosing prepared questions, order investigations, diagnose, prescribe, and receive an AI-supported debrief.
 
-After the welcome/onboarding flow, MedSim checks the FastAPI session and shows
-Login/Create Account when needed. Successful authentication and deliberate
-guest entry continue directly to specialty selection. Account sessions use an
-HttpOnly cookie; guest identity and progress use namespaced, device-local
-storage and are never silently merged with an account. See
-`backend/README.md` for database migrations, cookie configuration, development
-reset instructions, and security assumptions.
+> Formative training only. Synthetic cases and simplified doses are not authoritative clinical guidance.
 
-Browser-based outpatient clinical training simulator. Select a specialty and synthetic patient, take a history, order investigations, diagnose, prescribe, and receive an AI-supported debrief.
+## Architecture
 
-> MedSim is designed for formative clinical-reasoning practice. It is not a diagnostic tool and must not be used to guide care for real patients.
-
-## Clinical case governance
-
-The learner-facing bank contains exactly 72 versioned cases (three per specialty) at `1.1.0`. The other 168 legacy records remain archived and cannot be assigned or resolved through learner routes. Curated cases use `source-verified-formative` with `approvalBasis: source-only`: this records source provenance, not medical approval or clinical accreditation. See [clinical case governance](docs/clinical-case-governance.md), [dependency map](docs/clinical-case-dependency-map.md), [authoring guide](docs/case-authoring-guide.md), and [review checklist](docs/clinical-review-checklist.md).
-
-> Hackathon submission. Cases are plausible but synthetic — no clinical claims.
-
----
-
-## About
-
-MedSim is a voice-first AI patient simulator for medical students and newly graduated doctors. You take the history, order labs, read imaging, diagnose, and prescribe — talking to AI patients in real time. After each session, an attending grader powered by Claude Opus 4.7 marks your communication, history-taking, and clinical reasoning, citing published guidelines (NICE, ESC, AHA, GINA, GOLD) from a curated registry so the grading can't fabricate sources.
-
-The format is modelled on OSCE training with standardised patients, which works well but is expensive, scheduled rarely, requires physical attendance, and isn't available in many countries — leaving most trainees globally with little or no access. MedSim makes the same kind of practice available on demand in the browser.
-
-Built in three days for the Opus 4.7 hackathon by a medical-doctor-turned-software-engineer ([@bedriyan](https://github.com/bedriyan)), using Claude Code with Opus 4.7.
-
----
-
-## What's inside
-
-| Layer | Tech |
+| Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite, Three.js (`@react-three/fiber`, `@react-three/drei`) |
-| Voice transport | LiveKit Cloud (WebRTC) via `livekit-client` |
-| Voice worker | Python `livekit-agents` — Deepgram Nova-3 STT → Claude Haiku 4.5 → Cartesia Sonic-2 TTS |
-| HTTP backend | FastAPI on `127.0.0.1:8787` — Managed Agents proxy + LiveKit JWT mint |
-| Attending grader | Claude **Opus 4.7** as a Managed Agent (`medsim-attending`) |
-| State | Single `Store` class with `useSyncExternalStore` (no Redux/Zustand) |
+| Frontend | React 18, TypeScript, Vite, Three.js |
+| Patient dialogue | Server-side Anthropic text streaming |
+| Patient speech | Local Kokoro by default; optional Chatterbox; HTTP WAV delivery |
+| Backend | FastAPI on `127.0.0.1:8787` |
+| Assessment | Claude Managed Agent with encounter transcript and action evidence |
+| State | One `Store` using `useSyncExternalStore` |
 
-The implemented flow is outpatient-only: one patient at a time, with instant simulated investigation results and clinically important escalation guidance retained for red-flag cases.
-
----
+The learner never sends audio and MedSim never requests microphone permission. Patient subtitles are authoritative; speech is an optional rendering layer, so a synthesis or playback failure cannot remove dialogue or assessment evidence. See [Audio architecture](docs/audio-architecture.md).
 
 ## Prerequisites
 
-- **Node.js 22+** (TS files are run natively via type-stripping)
-- **Python 3.11+**
-- A modern browser with mic permission (Chrome/Edge recommended for WebRTC)
+- Node.js 22+
+- Python 3.11 or 3.12
+- Windows: `espeak-ng` installed and available on `PATH` for Kokoro's English fallback
+- An Anthropic API key for AI patient text and the attending debrief
 
----
+## Windows setup
 
-## API keys you'll need
-
-All keys are server-side only — the browser never sees them. Get one of each:
-
-| Service | What it does | Where to get it | Free tier? |
-|---|---|---|---|
-| **Anthropic** | Powers the attending grader (Opus 4.7) and patient voice persona (Haiku 4.5) | https://console.anthropic.com → API Keys | Pay-as-you-go, no free tier |
-| **LiveKit Cloud** | Real-time WebRTC transport between browser ↔ voice worker | https://cloud.livekit.io → create project → Settings → Keys (gives `URL`, `API Key`, `API Secret`) | Yes — generous free tier |
-| **Deepgram** | Streaming speech-to-text inside the voice worker | https://console.deepgram.com → API Keys | Yes — $200 free credit |
-| **Cartesia** | Streaming text-to-speech inside the voice worker | https://play.cartesia.ai → API Keys | Yes — free credit on signup |
-
----
-
-## Setup
-
-### 1. Frontend
-
-```bash
+```powershell
 npm install
+python -m venv backend/.venv
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-tts.txt
+Copy-Item backend/.env.example backend/.env.local
 ```
 
-### 2. Backend (two separate venvs)
-
-The FastAPI server and the LiveKit voice worker have very different dependency trees, so they each get their own venv.
-
-```bash
-cd backend
-
-# FastAPI server — small (FastAPI + Anthropic + livekit-api)
-python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt
-
-# Voice worker — larger (livekit-agents + Deepgram/Cartesia/Silero plugins)
-python -m venv .venv-voice
-.venv-voice/Scripts/python -m pip install -r voice_agent_requirements.txt
-```
-
-> On macOS/Linux replace `.venv/Scripts/python` with `.venv/bin/python`.
-
-### 3. Configure secrets
-
-```bash
-cp backend/.env.example backend/.env.local
-```
-
-Fill in `backend/.env.local`:
+Configure `ANTHROPIC_API_KEY`, then keep the local defaults:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-...
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=APIxxxx
-LIVEKIT_API_SECRET=...
-DEEPGRAM_API_KEY=...
-CARTESIA_API_KEY=...
-
-# Leave these blank on first run — see "Bootstrap the Managed Agent" below
-MEDSIM_AGENT_ID=
-MEDSIM_ENV_ID=
+PATIENT_TTS_PROVIDER=kokoro
+PATIENT_TTS_DEVICE=auto
+PATIENT_TTS_FALLBACK=disabled
+PATIENT_TTS_MODEL_CACHE_DIR=backend/data/tts-models
+PATIENT_TTS_ENABLE_CHATTERBOX=false
+PATIENT_TTS_SPEED=1.0
+PATIENT_TTS_LANGUAGE=en
 ```
 
-### 4. Bootstrap the Managed Agent (one-time)
+`auto` uses CUDA when the installed PyTorch build reports a compatible GPU, otherwise CPU. Explicit `cuda` also degrades safely to CPU when CUDA is unavailable. Model weights download on first synthesis and are cached outside Git.
 
-Start the FastAPI server, then create the persistent attending agent:
+## Run
 
-```bash
-backend/.venv/Scripts/python backend/server.py
-# In another terminal:
-curl -X POST http://127.0.0.1:8787/agent/bootstrap
-```
+```powershell
+# Terminal 1
+backend/.venv/Scripts/python.exe backend/server.py
 
-The response contains an `agent_id` and `environment_id`. Paste them back into `backend/.env.local` as `MEDSIM_AGENT_ID` / `MEDSIM_ENV_ID` and **restart the server**. Subsequent runs are no-ops.
-
----
-
-## Run (three terminals)
-
-```bash
-# Terminal 1 — frontend
+# Terminal 2
 npm run dev
-# Vite serves http://localhost:5173
-
-# Terminal 2 — FastAPI backend
-backend/.venv/Scripts/python backend/server.py
-# Listens on http://127.0.0.1:8787 (proxied by Vite at /agent/* and /voice/*)
-
-# Terminal 3 — LiveKit voice worker
-backend/.venv-voice/Scripts/python backend/voice_agent.py dev
-# Logs "registered worker" once connected to LiveKit Cloud
 ```
 
-All three must be up for voice. The frontend works without the worker — you'll just lose real-time voice (text chat still works).
+Open `http://localhost:5173`. Only these two processes are required.
 
-Open http://localhost:5173 and grant microphone permission when prompted.
+## Optional Chatterbox
 
----
+Chatterbox is isolated and never imported or loaded unless enabled. Install it in the same backend environment, then select it explicitly:
 
-## Useful scripts
-
-```bash
-npm run build      # tsc + vite build
-npm run preview    # preview production build
-npm run verify     # deterministic invariants over src/data/* — run after editing cases/tests/treatments
-npm run test       # custom-tools + loop-commands tests
-npm run clinical:validate   # canonical schema, lifecycle, references, migration, variants
-npm run clinical:references # regenerate thesis-friendly reference exports
-npm run clinical:audit      # review-status and migration counts
-npm run clinical:verify-curation # enforce 72/168 counts, 3 per specialty, schemas and archive boundary
-npm run clinical:export-curation # regenerate the server-safe curation manifest
+```powershell
+backend/.venv/Scripts/python.exe -m pip install chatterbox-tts==0.1.7
 ```
 
----
-
-## Project layout
-
-```
-src/
-  game/               # Store, types, single source of truth
-  data/               # Patients, tests, treatments, medications, guidelines (pure data)
-  components/         # React UI
-  components/three/   # Three.js outpatient polyclinic scene
-  voice/              # LiveKit conversation + persona builders
-  agents/             # Managed Agent client + custom-tool UI renderer
-backend/
-  server.py           # FastAPI: Managed Agents proxy + /voice/token
-  voice_agent.py      # LiveKit Agents worker (Deepgram → Haiku → Cartesia)
-.claude/skills/       # Authoring skills (patient generator, rubric author, guideline curator, ...)
-scripts/verify/       # Deterministic data-integrity checks
+```env
+PATIENT_TTS_PROVIDER=chatterbox
+PATIENT_TTS_ENABLE_CHATTERBOX=true
+PATIENT_TTS_DEVICE=auto
+PATIENT_TTS_LANGUAGE=en
 ```
 
----
+Arabic is available only through the official multilingual model with `PATIENT_TTS_LANGUAGE=ar`. Voice cloning is not exposed. Chatterbox tags supplied through ordinary dialogue are stripped; the provider accepts only the internal allowlisted `cough` expression from trusted server-authored metadata, which the public endpoint cannot set.
 
-## Model routing
+## Verification and benchmark
 
-| Call | Model | Why |
-|---|---|---|
-| Patient voice persona | Haiku 4.5 | Fast, cheap, good enough for in-character reply |
-| `medsim-attending` grading | **Opus 4.7** | Clinical reasoning, precision matters |
+```powershell
+npm run verify
+npm test
+npm run build
+backend/.venv/Scripts/python.exe -m unittest discover -s backend/tests -v
+backend/.venv/Scripts/python.exe backend/tts_benchmark.py
+```
 
----
+The benchmark reports model-load-plus-synthesis time, buffered time to first audio, total time, audio duration, real-time factor, selected provider/device, and peak process-memory measurement where the platform exposes it.
 
-## Notes
+## Clinical governance
 
-- **Group policy on Windows:** scripts call `node node_modules/<pkg>/bin/<entry>.js` instead of the `.bin` shims because some corporate machines block `.exe` wrappers under `node_modules/`. Keep this pattern when adding new scripts.
-- **Prompt caching is on** in the patient-persona path — set `cache_control: { type: 'ephemeral' }` on system prompts when you add new Claude calls.
-- **Out of scope:** multi-agent handoffs, persistent user accounts, anything claiming clinical accuracy.
+The learner-facing bank contains 72 versioned cases, three per specialty. The remaining legacy records are archived. `source-verified-formative` records source provenance, not physician approval. See [clinical case governance](docs/clinical-case-governance.md) and [review checklist](docs/clinical-review-checklist.md).
 
----
+## Accounts
 
-## License
+FastAPI owns authenticated sessions and evaluation history. Guest history remains namespaced to the browser. See [backend documentation](backend/README.md).
 
-Private — hackathon submission. Not licensed for redistribution.
+## Licensing
+
+- MedSim repository: private; no redistribution license is granted here.
+- Kokoro inference code and Kokoro-82M weights: Apache-2.0; confirm the current upstream model card before redistribution.
+- Chatterbox code/models: MIT according to the upstream repository; generated audio contains the upstream PerTh watermark.
+- No model weights or generated patient audio are committed to this repository.

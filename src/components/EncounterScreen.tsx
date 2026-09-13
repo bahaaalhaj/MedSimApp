@@ -21,7 +21,7 @@ import {
 } from '../voice/conversationStore';
 import { TopBar } from './primitives';
 import { ExamineOverlay } from './ExamineOverlay';
-import { DockedVoicePanel } from './DockedVoicePanel';
+import { DockedPatientAudioPanel } from './DockedPatientAudioPanel';
 
 /** Adaptive FOV: keeps the horizontal FOV near 82° regardless of viewport
  *  aspect, plus a hold-Z (or scroll wheel) "lean in" zoom. */
@@ -172,10 +172,6 @@ export function EncounterScreen() {
   const state = useGameState();
   const patient = state.polyclinic.patient;
 
-  // Voice is on the moment the encounter mounts — the FloatingVoicePanel
-  // calls `getOrCreatePatientConversation()` which kicks off LiveKit
-  // connection + mic. We never gate behind a "Begin consultation" button.
-  const [voiceActive, setVoiceActive] = useState(true);
   const [pointerLocked, setPointerLocked] = useState(false);
   const [examineOpen, setExamineOpen] = useState(false);
 
@@ -221,28 +217,6 @@ export function EncounterScreen() {
     interactionBus.setActive(null);
   }, [examineOpen]);
 
-  // Global T — toggle voice off / on. Works whether or not pointer-lock
-  // is engaged; mirrors the in-scene Player handler that requires lock.
-  // T while voice is on disposes the conversation (mic + TTS go quiet).
-  // T while voice is off re-enables it — the patient picks back up where
-  // they left off because the conversationStore caches by bedIndex.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 't' && e.key !== 'T') return;
-      const tgt = e.target as HTMLElement | null;
-      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
-      if (examineOpen) return;
-      e.preventDefault();
-      setVoiceActive((prev) => {
-        const next = !prev;
-        if (prev && !next) disposePatientConversation(POLYCLINIC_BED_INDEX);
-        return next;
-      });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [examineOpen]);
-
   // Global E-to-examine — works whether or not pointer-lock is engaged.
   // The Player.tsx handler requires lock; this one fills the gap so the
   // keyboard shortcut works the same as the on-screen Examine button.
@@ -271,13 +245,6 @@ export function EncounterScreen() {
     };
   }, [currentPatientCaseId]);
 
-  // Re-arm the voice panel automatically whenever a fresh patient is
-  // loaded (e.g. after End consultation → Next patient flow).
-  useEffect(() => {
-    if (patient) setVoiceActive(true);
-    else setVoiceActive(false);
-  }, [currentPatientCaseId, patient]);
-
   // Look-around is automatic while Examine is closed — PointerLockControls
   // mounts inside Player and engages on canvas click. When Examine opens
   // we tear it down so modal clicks can't bleed into the 3D scene.
@@ -291,25 +258,9 @@ export function EncounterScreen() {
   const handleInteract = (kind: 'desk' | 'bed', bedIndex?: number) => {
     // E (examine) on the patient — open the cozy examine overlay so the
     // doctor can take a history, order tests, read results, and submit a
-    // diagnosis. The voice agent keeps running underneath so the patient
-    // can still answer questions verbally.
+    // diagnosis. Patient audio keeps running underneath the overlay.
     if (kind === 'bed' && bedIndex === POLYCLINIC_BED_INDEX) {
       openExamine();
-    }
-  };
-
-  const handleTalk = (bedIndex: number | null) => {
-    if (bedIndex === POLYCLINIC_BED_INDEX) {
-      setVoiceActive((prev) => {
-        const next = !prev;
-        if (prev && !next) disposePatientConversation(POLYCLINIC_BED_INDEX);
-        return next;
-      });
-    } else if (bedIndex === null) {
-      setVoiceActive((prev) => {
-        if (prev) disposePatientConversation(POLYCLINIC_BED_INDEX);
-        return false;
-      });
     }
   };
 
@@ -319,7 +270,7 @@ export function EncounterScreen() {
       try {
         await conv.sayFarewell();
       } catch {
-        /* network/voice failure — proceed anyway */
+        /* patient audio failure — proceed anyway */
       }
     }
     if (document.pointerLockElement) document.exitPointerLock();
@@ -359,15 +310,11 @@ export function EncounterScreen() {
         >
           <AdaptiveCameraFov />
           <Suspense fallback={<Loader />}>
-            <Polyclinic
-              voiceActive={voiceActive && !examineOpen}
-              onCloseVoice={() => setVoiceActive(false)}
-            />
+            <Polyclinic patientAudioVisible={!examineOpen} />
             <Player
               spawn={playerSpawn}
               colliders={POLYCLINIC_COLLIDERS}
               onInteract={handleInteract}
-              onTalk={handleTalk}
               height={SEATED_HEIGHT}
               locked
               lookAt={doctorLookAt}
@@ -425,15 +372,12 @@ export function EncounterScreen() {
         >
           {pointerLocked ? (
             <>
-              Just talk — voice is live · <Kbd>E</Kbd> examine · <Kbd>T</Kbd> mute · <Kbd>Esc</Kbd> release
+              Type or choose a question in Examine · <Kbd>E</Kbd> examine · <Kbd>Esc</Kbd> release
             </>
           ) : (
             <>
-              <span
-                className={voiceActive ? 'dot breathe' : 'dot'}
-                style={{ background: voiceActive ? 'var(--peach-deep)' : 'var(--ink-soft)' }}
-              />
-              {voiceActive ? 'Voice live' : 'Voice muted'} · click the room to look around · <Kbd>E</Kbd> examine · <Kbd>T</Kbd> mute
+              <span className="dot" style={{ background: 'var(--mint-deep)' }} />
+              Patient text chat ready · click the room to look around · <Kbd>E</Kbd> examine
             </>
           )}
         </div>
@@ -441,7 +385,7 @@ export function EncounterScreen() {
 
       {examineOpen && patient && (
         <>
-          <DockedVoicePanel
+          <DockedPatientAudioPanel
             patientName={patient.case.name}
             patientLabel={`${patient.case.age}${patient.case.gender}`}
           />

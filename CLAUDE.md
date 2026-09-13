@@ -12,9 +12,9 @@ submit a diagnosis and prescription, and receive an AI-supported debrief.
 - Outpatient cases live in `src/data/polyclinicPatients.ts` and are catalogued
   by `src/data/cases.ts`.
 - FastAPI provides authentication, account-owned progress, Managed Agent
-  proxying, patient text streaming, and LiveKit room tokens.
-- The separate LiveKit worker connects Deepgram STT, Claude Haiku, and Cartesia
-  TTS. The attending debrief uses Claude Opus.
+  proxying, patient text streaming, and local patient TTS.
+- Kokoro is the default patient speech provider; Chatterbox is optional. The
+  attending debrief uses Claude Opus.
 
 ## Main paths
 
@@ -23,7 +23,7 @@ submit a diagnosis and prescription, and receive an AI-supported debrief.
 - `src/components/EncounterScreen.tsx`, `src/components/ExamineOverlay.tsx`:
   encounter and clinical actions.
 - `src/agents/`, `src/components/DebriefScreen.tsx`: evaluation.
-- `backend/auth_system.py`, `backend/server.py`, `backend/voice_agent.py`:
+- `backend/auth_system.py`, `backend/server.py`, `backend/tts/`:
   server-side runtime.
 
 ## Commands
@@ -35,7 +35,7 @@ npm test
 npm run build
 backend/.venv/Scripts/python.exe backend/server.py
 backend/.venv/Scripts/python.exe -m unittest discover -s backend/tests -v
-backend/.venv-voice/Scripts/python.exe backend/voice_agent.py dev
+backend/.venv/Scripts/python.exe backend/tts_benchmark.py
 ```
 
 The application has no mode-selection screen. Authentication and guest entry

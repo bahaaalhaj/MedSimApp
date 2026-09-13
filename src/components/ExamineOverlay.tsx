@@ -210,7 +210,7 @@ export function ExamineOverlay({ onClose, onFinish }: Props) {
           </div>
 
           {tab === 'history' && <HistoryTab patient={patient} />}
-          {tab === 'chat' && <ChatTab patientName={c.name} />}
+          {tab === 'chat' && <ChatTab patient={patient} />}
           {tab === 'tests' && <TestsTab patient={patient} />}
           {tab === 'results' && <ResultsTab patient={patient} />}
           {tab === 'diagnose' && (
@@ -286,6 +286,8 @@ function Vital({
 
 function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
   const c = patient.case;
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [questionError, setQuestionError] = useState('');
   const asked = new Set(patient.askedQuestionIds);
   const answered = c.anamnesis.filter((q) => asked.has(q.id));
   const unanswered = c.anamnesis.filter((q) => !asked.has(q.id));
@@ -345,11 +347,28 @@ function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
                 textAlign: 'left',
                 fontWeight: 700,
               }}
-              onClick={() => store.askPolyclinicQuestion(q.id)}
+              disabled={submittingId !== null}
+              onClick={async () => {
+                const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
+                if (!conversation) {
+                  setQuestionError('Patient conversation is not ready. Close and reopen Examine, then retry.');
+                  return;
+                }
+                setQuestionError('');
+                setSubmittingId(q.id);
+                await conversation.sendTextMessage(q.question, 'predefined');
+                if (conversation.getStatus() === 'error') {
+                  setQuestionError('The patient could not respond. Please retry the question.');
+                } else {
+                  store.askPolyclinicQuestion(q.id);
+                }
+                setSubmittingId(null);
+              }}
             >
-              {q.question}
+              {submittingId === q.id ? 'Patient is responding…' : q.question}
             </button>
           ))}
+          {questionError && <div role="alert" style={{ color: 'var(--rose-deep)', fontWeight: 700 }}>{questionError}</div>}
         </div>
       )}
     </div>
@@ -985,7 +1004,11 @@ function DiagnoseTab({
 
 // ── Chat tab — live voice transcript ─────────────────────────────
 
-function ChatTab({ patientName }: { patientName: string }) {
+function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
+  const patientName = patient.case.name;
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [messages, setMessages] = useState<ReadonlyArray<ChatMessage>>(() => {
     const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
     return conv ? conv.getMessages() : [];
@@ -1021,7 +1044,28 @@ function ChatTab({ patientName }: { patientName: string }) {
     );
   }
 
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = draft.trim();
+    if (!text || sending) return;
+    const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
+    if (!conversation) {
+      setSendError('Patient conversation is not ready. Close and reopen Examine, then retry.');
+      return;
+    }
+    setSending(true);
+    setSendError('');
+    setDraft('');
+    await conversation.sendTextMessage(text, 'typed');
+    if (conversation.getStatus() === 'error') {
+      setDraft(text);
+      setSendError('The patient could not respond. Your question was restored so you can retry.');
+    }
+    setSending(false);
+  };
+
   return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
     <div
       ref={scrollRef}
       style={{
@@ -1068,6 +1112,13 @@ function ChatTab({ patientName }: { patientName: string }) {
           </div>
         );
       })}
+    </div>
+    <form onSubmit={submit} style={{ display: 'flex', gap: 8 }}>
+      <label htmlFor="patient-question" style={{ position: 'absolute', left: -10000 }}>Type a question for the patient</label>
+      <input id="patient-question" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={sending} placeholder={`Ask ${patientName.split(' ')[0]} a question…`} style={{ flex: 1, border: '3px solid var(--line)', borderRadius: 12, padding: '10px 12px', font: 'inherit' }} />
+      <button type="submit" className="btn-plush primary" disabled={sending || !draft.trim()}>{sending ? 'Sending…' : 'Ask'}</button>
+    </form>
+    {sendError && <div role="alert" style={{ color: 'var(--rose-deep)', fontWeight: 700 }}>{sendError}</div>}
     </div>
   );
 }
