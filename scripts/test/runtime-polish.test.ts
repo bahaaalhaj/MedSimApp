@@ -31,6 +31,15 @@ test('deterministic and safe-unknown audio are cacheable while model text is not
   assert.match(conversation, /X-Patient-TTS-Cache/);
 });
 
+test('background music is a single long-lived controller that ducks for patient speech', () => {
+  const music = read('src/components/BackgroundMusic.tsx');
+  assert.match(music, /const music = new MusicController\(\)/);
+  assert.match(music, /new Audio\('\/medsim\.mp3'\)/);
+  assert.match(music, /medsim:patient-audio/);
+  assert.match(music, /DUCKED_VOLUME/);
+  assert.doesNotMatch(music, /screen === 'encounter'/);
+});
+
 test('actual Finish consultation controls call immediate idempotent finalization', () => {
   const encounter = read('src/components/EncounterScreen.tsx');
   const overlay = read('src/components/ExamineOverlay.tsx');

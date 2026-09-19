@@ -15,6 +15,7 @@ import { AgenticRoundsScreen } from './components/AgenticRoundsScreen';
 import { AgentTopologyScreen } from './components/AgentTopologyScreen';
 import { BackgroundMusic } from './components/BackgroundMusic';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { RuntimeDiagnostics } from './components/RuntimeDiagnostics';
 import { useAuth } from './auth/AuthProvider';
 
 export default function App() {
@@ -71,6 +72,7 @@ export default function App() {
       {visibleScreen === 'agenticRounds' && <AgenticRoundsScreen />}
       {visibleScreen === 'agentTopology' && <AgentTopologyScreen />}
       <BackgroundMusic />
+      <RuntimeDiagnostics />
     </div>
   );
 }

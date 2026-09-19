@@ -141,6 +141,7 @@ class Store {
 
   private listeners = new Set<() => void>();
   private investigationInitPromise: Promise<string | null> | null = null;
+  private investigationInitCaseId: string | null = null;
 
   getState = (): GameState => this.state;
 
@@ -350,8 +351,10 @@ class Store {
     const patient = this.state.polyclinic.patient;
     if (!patient) return null;
     if (patient.investigationAttemptId) return patient.investigationAttemptId;
-    if (this.investigationInitPromise) return this.investigationInitPromise;
-    this.investigationInitPromise = (async () => {
+    if (this.investigationInitPromise && this.investigationInitCaseId === patient.case.id) return this.investigationInitPromise;
+    const targetCaseId = patient.case.id;
+    let task: Promise<string | null> | null = null;
+    task = (async () => {
       try {
         const attempt = await createInvestigationAttempt(
           patient.case.id,
@@ -374,10 +377,17 @@ class Store {
         this.updatePolyclinicPatient((current) => ({ ...current, investigationAttemptStatus: 'error' }));
         return null;
       } finally {
-        this.investigationInitPromise = null;
+        // Do not clear a newer patient's in-flight initialization when a
+        // previous request resolves after the patient changed.
+        if (this.investigationInitPromise === task) {
+          this.investigationInitPromise = null;
+          this.investigationInitCaseId = null;
+        }
       }
     })();
-    return this.investigationInitPromise;
+    this.investigationInitPromise = task;
+    this.investigationInitCaseId = targetCaseId;
+    return task;
   };
 
   /** Order an individual case-available investigation through the server.

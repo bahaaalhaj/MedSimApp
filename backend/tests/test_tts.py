@@ -18,6 +18,7 @@ from tts.providers import (
     load_tts_settings,
     normalize_for_speech,
     select_device,
+    select_kokoro_voice,
 )
 from tts.kokoro_cache import inspect_kokoro_cache
 import asyncio
@@ -25,6 +26,15 @@ from tts.audio_cache import PersistentAudioCache
 
 
 class TTSConfigurationTests(unittest.TestCase):
+    def test_all_curated_cases_map_to_authoritative_gender_voice_family(self):
+        from local_ai import LOCAL_AI_CASES
+        self.assertEqual(len(LOCAL_AI_CASES), 72)
+        for case_id, case in LOCAL_AI_CASES.items():
+            patient = case["patient"]
+            voice = select_kokoro_voice(case_id, patient["gender"], int(patient["age"]) < 14)
+            if int(patient["age"]) >= 14:
+                self.assertTrue(voice.startswith("am_") if patient["gender"] == "M" else voice.startswith("af_"), case_id)
+        self.assertEqual(select_kokoro_voice("im-003", "M"), "am_adam")
     def test_persistent_cache_round_trip_is_atomic_and_content_addressed(self):
         with tempfile.TemporaryDirectory() as temporary:
             cache = PersistentAudioCache(temporary, 64 * 1024 * 1024)
@@ -131,12 +141,12 @@ class TTSConfigurationTests(unittest.TestCase):
         provider = KokoroTTSProvider(manager.settings)
         manager._provider = provider
         base = TTSRequest("It usually happens in spring.", "case-1", "F", case_version="1", cacheable=True)
-        with patch("tts.providers.inspect_kokoro_cache", return_value=types.SimpleNamespace(revision="rev-a")):
+        with patch("tts.providers.kokoro_cache_revision", return_value="rev-a"):
             key = manager._cache_key(base, provider)
             self.assertNotEqual(key, manager._cache_key(TTSRequest(**{**base.__dict__, "case_version": "2"}), provider))
             self.assertNotEqual(key, manager._cache_key(TTSRequest(**{**base.__dict__, "gender": "M"}), provider))
             self.assertNotEqual(key, manager._cache_key(TTSRequest(**{**base.__dict__, "speed": 1.1}), provider))
-        with patch("tts.providers.inspect_kokoro_cache", return_value=types.SimpleNamespace(revision="rev-b")):
+        with patch("tts.providers.kokoro_cache_revision", return_value="rev-b"):
             self.assertNotEqual(key, manager._cache_key(base, provider))
 
 

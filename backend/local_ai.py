@@ -92,7 +92,8 @@ class PatientAnswerMatch:
     matched_source: str | None = None
 
 
-SAFE_UNKNOWN_RESPONSE = "I'm not sure about that, doctor. I can only tell you what I've noticed."
+SAFE_UNKNOWN_RESPONSE = "I don't know, doctor."
+SAFE_PROTECTED_RESPONSE = "I'm not sure what the diagnosis is."
 _BLOCKED_PATIENT_TERMS = {
     "diagnosis", "differential", "rubric", "answer key", "system prompt",
     "hidden test", "hidden treatment", "treatment expectation", "ignore instructions",
@@ -156,11 +157,11 @@ def deterministic_patient_match(
     profile: dict[str, Any] | None = None,
 ) -> PatientAnswerMatch:
     """Return matching detail while keeping low-confidence questions model-eligible."""
-    normalized = " ".join(question.lower().split())
+    normalized = " ".join(question.lower().replace("’", "'").replace("‘", "'").split())
     if any(term in normalized for term in _BLOCKED_PATIENT_TERMS):
-        return PatientAnswerMatch(SAFE_UNKNOWN_RESPONSE, "safe-unknown", 1.0, intent_id="protected", matched_source="safety-policy")
+        return PatientAnswerMatch(SAFE_PROTECTED_RESPONSE, "safe-unknown", 1.0, intent_id="protected", matched_source="safety-policy")
     public = profile or case["patient"]
-    if re.search(r"\b(what(?:'s| is) your name|who are you|tell me your name)\b", normalized):
+    if re.search(r"\b(what(?:'s| is) your name|can i have your name|who are you|tell me your name)\b", normalized):
         relation = "My child's name is" if is_parent else "My name is"
         return PatientAnswerMatch(f"{relation} {public['displayName']}.", "deterministic-authored", 1.0,
                                   authored_value=str(public["displayName"]), intent_id="profile-name", matched_source="patient-profile")
@@ -168,6 +169,11 @@ def deterministic_patient_match(
         response = f"My child is {public['age']} years old." if is_parent else f"I'm {public['age']} years old."
         return PatientAnswerMatch(response, "deterministic-authored", 1.0,
                                   authored_value=str(public["age"]), intent_id="profile-age", matched_source="patient-profile")
+    if re.search(r"\b(are you male or female|what(?:'s| is) your (?:gender|sex)|are you a (?:man|woman))\b", normalized):
+        value = "male" if public["gender"] == "M" else "female"
+        response = f"My child is {value}." if is_parent else f"I'm {value}."
+        return PatientAnswerMatch(response, "deterministic-authored", 1.0,
+                                  authored_value=value, intent_id="profile-gender", matched_source="patient-profile.gender")
     if re.search(r"\b(what brought you|why are you here|what brings you|main problem|chief complaint)\b", normalized):
         complaint = str(public["chiefComplaint"]).strip().rstrip(".")
         response = f"I brought my child in because {complaint[0].lower() + complaint[1:]}" if is_parent else f"I came in because {complaint[0].lower() + complaint[1:]}"
@@ -200,10 +206,10 @@ def deterministic_patient_match(
     # A factual domain absent from this case is authoritatively unavailable;
     # do not spend a hosted-model deadline asking it to infer missing truth.
     if query_domains and query_domains.isdisjoint(authored_domains):
-        return PatientAnswerMatch(SAFE_UNKNOWN_RESPONSE, "safe-unknown", 1.0)
+        return PatientAnswerMatch("I don't remember exactly." if "onset" in query_domains else SAFE_UNKNOWN_RESPONSE, "safe-unknown", 1.0, intent_id="unavailable-domain", matched_source="safe-unknown")
     unavailable_markers = {"address", "birthday", "colour", "color", "employer", "school"}
     if query_terms & unavailable_markers and not query_terms & authored_terms:
-        return PatientAnswerMatch(SAFE_UNKNOWN_RESPONSE, "safe-unknown", 1.0)
+        return PatientAnswerMatch("I don't remember exactly." if "birthday" in query_terms else SAFE_UNKNOWN_RESPONSE, "safe-unknown", 1.0, intent_id="unavailable-profile", matched_source="safe-unknown")
     if ranked:
         best_score, best = ranked[0]
         second_score = ranked[1][0] if len(ranked) > 1 else 0.0

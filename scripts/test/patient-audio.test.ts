@@ -35,7 +35,7 @@ test('local patient contract is attempt-bound and greeting is deterministic', ()
   assert.doesNotMatch(client, /systemPrompt|baseUrl|model:/);
   assert.match(persona, /Hello, doctor\. I came in because/);
   assert.match(conversation, /if \(this\.status !== 'uninitialized'\) return/);
-  assert.match(read('src/game/store.ts'), /if \(this\.investigationInitPromise\) return this\.investigationInitPromise/);
+  assert.match(read('src/game/store.ts'), /this\.investigationInitPromise && this\.investigationInitCaseId === patient\.case\.id/);
 });
 
 test('adult and pediatric Kokoro speaker policies remain deterministic', () => {
@@ -118,8 +118,23 @@ test('Examine has click and guarded E access and records attempt-bound actions',
 
 test('patient audio is ordered and every accepted turn has replayable state', () => {
   const conversation = read('src/voice/conversation.ts');
-  assert.match(conversation, /PatientAudioState = 'queued' \| 'preparing' \| 'playing' \| 'played' \| 'error'/);
+  assert.match(conversation, /PatientAudioState = 'queued' \| 'preparing' \| 'playing' \| 'played' \| 'skipped' \| 'error'/);
   assert.match(conversation, /this\.audioQueue\.push\(job\)/);
   assert.match(conversation, /Replay to try again/);
   assert.doesNotMatch(conversation, /sendTextMessage[\s\S]{0,500}cancelSpeech\(\)/);
+});
+
+test('failed dialogue turns do not become transcript evidence and skipped preparation is recoverable', () => {
+  const conversation = read('src/voice/conversation.ts');
+  assert.match(conversation, /Only a successfully answered question becomes grading evidence/);
+  assert.match(conversation, /this\.messages\.pop\(\); this\.emitMessages\(\)/);
+  assert.match(conversation, /this\.setAudioTurnState\(job\.turnId, 'skipped'\)/);
+  assert.match(conversation, /private activeAudioTurnId/);
+});
+
+test('an in-flight attempt initialization is never reused for a different patient', () => {
+  const store = read('src/game/store.ts');
+  assert.match(store, /private investigationInitCaseId/);
+  assert.match(store, /this\.investigationInitCaseId === patient\.case\.id/);
+  assert.match(store, /this\.investigationInitPromise === task/);
 });

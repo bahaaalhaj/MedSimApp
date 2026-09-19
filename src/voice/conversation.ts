@@ -1,9 +1,10 @@
 /** Text-first AI patient conversation with ordered local TTS playback. */
 import { streamLocalPatient, type ChatMessage, LocalPatientError, type PatientResponseProvenance } from './localPatient';
+import { recordRuntimeDiagnostic } from '../runtimeDiagnostics.ts';
 
 export type ConversationStatus = 'uninitialized' | 'loading' | 'ready' | 'preparing' | 'streaming' | 'audio-preparing' | 'speaking' | 'error';
 export type QuestionSource = 'typed' | 'predefined';
-export type PatientAudioState = 'queued' | 'preparing' | 'playing' | 'played' | 'error';
+export type PatientAudioState = 'queued' | 'preparing' | 'playing' | 'played' | 'skipped' | 'error';
 export type ConversationMessage = ChatMessage & { audioTurnId?: string };
 export interface SubtitleEvent { who: 'patient' | 'you'; text: string; }
 export type PatientEmotion = 'neutral' | 'pain' | 'fear' | 'relief' | 'confused';
@@ -57,6 +58,7 @@ export class Conversation {
   private readonly analyser: AnalyserNode;
   private ampBuf: Uint8Array;
   private source: AudioBufferSourceNode | null = null;
+  private activeAudioTurnId: string | null = null;
   private requestController: AbortController | null = null;
   private ttsController: AbortController | null = null;
   private currentPlaybackResolve: (() => void) | null = null;
@@ -94,6 +96,7 @@ export class Conversation {
   getLastAudioError() { return this.lastAudioError; }
   getLastResponseError() { return this.lastResponseError; }
   getAudioTurnState(turnId: string) { return this.audioStates.get(turnId); }
+  getAudioQueuePosition(turnId: string) { const index = this.audioQueue.findIndex((job) => job.turnId === turnId); return index < 0 ? null : index + 1; }
   subscribeMessages(fn: (messages: ReadonlyArray<ConversationMessage>) => void) { this.messageSubscribers.add(fn); return () => { this.messageSubscribers.delete(fn); }; }
   subscribeAudioStates(fn: () => void) { this.audioStateSubscribers.add(fn); return () => { this.audioStateSubscribers.delete(fn); }; }
   private emitMessages() { const snapshot = [...this.messages]; this.messageSubscribers.forEach((fn) => fn(snapshot)); }
@@ -122,13 +125,17 @@ export class Conversation {
     this.enqueueSpeech({ turnId, text: this.lastPatientText, isOpeningGreeting: true, cacheable: true });
   }
 
-  async sendTextMessage(text: string, source: QuestionSource = 'typed', questionId?: string): Promise<void> {
+  async sendTextMessage(text: string, source: QuestionSource = 'typed', questionId?: string): Promise<boolean> {
     const clean = text.trim();
-    if (!clean || ['preparing', 'streaming'].includes(this.status)) return;
+    if (!clean || ['preparing', 'streaming'].includes(this.status)) return false;
+    if (this.source || this.ttsController || this.audioQueue.length) {
+      this.lastResponseError = 'Finish the current patient speech or use Skip before asking another question.';
+      this.listeners.onError?.(this.lastResponseError);
+      return false;
+    }
     this.lastResponseError = ''; this.lastQuestion = { text: clean, source, questionId };
     this.listeners.onSubtitle?.({ who: 'you', text: clean });
     this.messages.push({ role: 'user', content: clean });
-    this.options.onTranscript({ role: 'trainee', content: clean, timestampIso: new Date().toISOString(), questionSource: source });
     this.emitMessages(); this.setStatus('preparing', 'Patient is preparing a response…');
     const controller = new AbortController(); this.requestController = controller;
     let response = ''; let patientProvenance: PatientResponseProvenance = 'safe-unknown';
@@ -145,29 +152,44 @@ export class Conversation {
         if (chunk.matchedSource !== undefined) patientMatchedSource = chunk.matchedSource;
       }
     } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        this.messages.pop(); this.emitMessages();
+        if (!this.disposed) this.setStatus('ready');
+        return false;
+      }
       const message = error instanceof Error ? error.message : String(error);
-      this.lastResponseError = message; this.setStatus('error', message); this.listeners.onError?.(message); return;
+      this.messages.pop(); this.emitMessages();
+      this.lastResponseError = message; this.setStatus('error', message); this.listeners.onError?.(message); return false;
     } finally { if (this.requestController === controller) this.requestController = null; }
     const cleanResponse = response.trim();
-    if (!cleanResponse) { this.lastResponseError = 'The configured model returned an empty response. Retry the question.'; this.setStatus('error', this.lastResponseError); this.listeners.onError?.(this.lastResponseError); return; }
+    if (!cleanResponse) {
+      this.messages.pop(); this.emitMessages();
+      this.lastResponseError = 'The configured model returned an empty response. Retry the question.';
+      this.setStatus('error', this.lastResponseError); this.listeners.onError?.(this.lastResponseError); return false;
+    }
     this.lastPatientText = cleanResponse; this.lastPatientProvenance = patientProvenance;
     const audioTurnId = `patient-${crypto.randomUUID()}`;
+    // Only a successfully answered question becomes grading evidence. This
+    // prevents a retryable transport failure from leaving phantom history.
+    this.options.onTranscript({ role: 'trainee', content: clean, timestampIso: new Date().toISOString(), questionSource: source });
     this.messages.push({ role: 'assistant', content: cleanResponse, audioTurnId });
     this.options.onTranscript({ role: 'patient', content: cleanResponse, timestampIso: new Date().toISOString(), questionSource: null, patientProvenance, actualModel, audioTurnId, patientIntentId, patientMatchedSource });
     this.currentEmotion = detectEmotion(cleanResponse); this.listeners.onEmotion?.(this.currentEmotion);
     this.listeners.onSubtitle?.({ who: 'patient', text: cleanResponse }); this.emitMessages(); this.setStatus('ready');
     this.enqueueSpeech({ turnId: audioTurnId, text: cleanResponse, isOpeningGreeting: false, cacheable: patientProvenance !== 'openrouter' });
+    return true;
   }
 
   async retrySpeech() { if (this.lastPatientText) this.enqueueSpeech({ turnId: `replay-${crypto.randomUUID()}`, text: this.lastPatientText, isOpeningGreeting: false, cacheable: this.lastPatientProvenance !== 'openrouter' }); }
   async retryLastResponse() { if (this.lastQuestion) await this.sendTextMessage(this.lastQuestion.text, this.lastQuestion.source, this.lastQuestion.questionId); }
   async replayLastResponse() { await this.retrySpeech(); }
   replayTurn(turnId: string) { const message = this.messages.find((item) => item.audioTurnId === turnId); if (message?.role === 'assistant') this.enqueueSpeech({ turnId, text: message.content, isOpeningGreeting: turnId.startsWith('opening-'), cacheable: true }); }
+  skipCurrentSpeech() { if (!this.source && !this.ttsController) return; this.ttsController?.abort(); this.stopAudio(); }
 
   private enqueueSpeech(job: AudioJob) {
-    if (this.audioQueue.length >= 12) { this.setAudioTurnState(job.turnId, 'error'); this.listeners.onError?.('Speech queue is full. Use Replay on this response when ready.'); return; }
+    if (this.audioQueue.length >= 6) { this.setAudioTurnState(job.turnId, 'error'); this.listeners.onError?.('Speech queue is full. Use Replay on this response when ready.'); return; }
     this.audioQueue.push(job); this.setAudioTurnState(job.turnId, 'queued'); void this.runAudioQueue();
+    recordRuntimeDiagnostic('audio-queued', job.turnId, { queueLength: this.audioQueue.length, opening: job.isOpeningGreeting });
   }
   private async runAudioQueue() {
     if (this.audioWorkerRunning || this.disposed) return;
@@ -178,29 +200,41 @@ export class Conversation {
 
   private async synthesizeAndPlay(job: AudioJob) {
     const controller = new AbortController(); this.ttsController = controller;
+    this.activeAudioTurnId = job.turnId;
     const startedAt = performance.now(); this.lastAudioError = ''; this.setAudioTurnState(job.turnId, 'preparing');
+    recordRuntimeDiagnostic('audio-request-start', job.turnId, { queueLength: this.audioQueue.length });
     if (!['preparing', 'streaming'].includes(this.status)) this.setStatus('audio-preparing', 'Patient audio is being prepared…');
     this.listeners.onProgress?.('Generating local patient speech…');
     try {
-      const response = await fetch('/tts/synthesize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ text: job.text, caseId: this.options.caseId, caseVersion: this.options.caseVersion, gender: this.options.speakerGender, isPediatric: this.options.isPediatric, isOpeningGreeting: job.isOpeningGreeting, cacheable: job.cacheable, requestId: crypto.randomUUID() }) });
+      const attemptId = await this.options.ensureAttempt();
+      if (!attemptId) throw new Error('Patient audio is not ready because the encounter service is unavailable.');
+      const response = await fetch('/tts/synthesize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ text: job.text, attemptId, caseId: this.options.caseId, caseVersion: this.options.caseVersion, gender: this.options.speakerGender, isPediatric: this.options.isPediatric, isOpeningGreeting: job.isOpeningGreeting, cacheable: job.cacheable, requestId: crypto.randomUUID() }) });
       if (!response.ok) { const payload = await response.json().catch(() => null) as { detail?: string } | null; throw new Error(payload?.detail || `Local speech request failed (${response.status})`); }
       const buffer = await response.arrayBuffer(); if (this.disposed) return; const receivedAt = performance.now();
       const decoded = await this.audioCtx.decodeAudioData(buffer.slice(0)); if (this.disposed) return; const decodedAt = performance.now();
+      recordRuntimeDiagnostic('audio-response-decoded', job.turnId, { httpMs: Math.round(receivedAt - startedAt), decodeMs: Math.round(decodedAt - receivedAt), cache: response.headers.get('X-Patient-TTS-Cache') ?? 'unknown', voice: response.headers.get('X-Patient-TTS-Voice') ?? 'unknown' });
       if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
       const source = this.audioCtx.createBufferSource(); source.buffer = decoded; source.connect(this.gain);
       const playbackDone = new Promise<void>((resolve) => { this.currentPlaybackResolve = resolve; });
-      source.onended = () => { if (this.source === source) { source.disconnect(); this.source = null; this.setAudioTurnState(job.turnId, 'played'); if (!this.requestController) this.setStatus('ready'); } this.currentPlaybackResolve?.(); this.currentPlaybackResolve = null; };
-      this.source = source; this.setAudioTurnState(job.turnId, 'playing'); if (!this.requestController) this.setStatus('speaking'); source.start();
-      if (import.meta.env.DEV) console.debug('[MedSim runtime]', { event: 'patient-audio-start', turnId: job.turnId, httpMs: Math.round(receivedAt - startedAt), decodeMs: Math.round(decodedAt - receivedAt), totalMs: Math.round(performance.now() - startedAt), cache: response.headers.get('X-Patient-TTS-Cache') ?? 'unknown' });
+      source.onended = () => { if (this.source === source) { source.disconnect(); this.source = null; this.setAudioTurnState(job.turnId, 'played'); window.dispatchEvent(new CustomEvent('medsim:patient-audio', { detail: { speaking: false, turnId: job.turnId } })); if (!this.requestController) this.setStatus('ready'); } this.currentPlaybackResolve?.(); this.currentPlaybackResolve = null; };
+      this.source = source; this.setAudioTurnState(job.turnId, 'playing'); recordRuntimeDiagnostic('audio-playback-start', job.turnId, { totalMs: Math.round(performance.now() - startedAt) }); window.dispatchEvent(new CustomEvent('medsim:patient-audio', { detail: { speaking: true, turnId: job.turnId } })); if (!this.requestController) this.setStatus('speaking'); source.start();
+      if (import.meta.env.DEV) console.debug('[MedSim runtime]', { event: 'patient-audio-start', turnId: job.turnId, httpMs: Math.round(receivedAt - startedAt), decodeMs: Math.round(decodedAt - receivedAt), totalMs: Math.round(performance.now() - startedAt), cache: response.headers.get('X-Patient-TTS-Cache') ?? 'unknown', voice: response.headers.get('X-Patient-TTS-Voice'), source: response.headers.get('X-Patient-TTS-Source'), serverTiming: response.headers.get('Server-Timing') });
       await playbackDone;
     } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        this.setAudioTurnState(job.turnId, 'skipped');
+        if (!this.disposed && !this.requestController) this.setStatus('ready');
+        return;
+      }
       const message = error instanceof Error ? error.message : String(error); this.lastAudioError = message; this.setAudioTurnState(job.turnId, 'error');
       if (!this.disposed && !this.requestController) this.setStatus('ready'); this.listeners.onError?.(`Speech unavailable: ${message}. Use Replay to try again.`);
-    } finally { if (this.ttsController === controller) this.ttsController = null; }
+    } finally {
+      if (this.ttsController === controller) this.ttsController = null;
+      if (this.activeAudioTurnId === job.turnId && !this.source) this.activeAudioTurnId = null;
+    }
   }
 
-  private stopAudio() { const current = this.source; this.source = null; if (current) { current.onended = null; try { current.stop(); } catch { /* already stopped */ } current.disconnect(); } this.currentPlaybackResolve?.(); this.currentPlaybackResolve = null; }
+  private stopAudio() { const current = this.source; this.source = null; if (current) { current.onended = null; try { current.stop(); } catch { /* already stopped */ } current.disconnect(); if (this.activeAudioTurnId) this.setAudioTurnState(this.activeAudioTurnId, 'skipped'); this.activeAudioTurnId = null; window.dispatchEvent(new CustomEvent('medsim:patient-audio', { detail: { speaking: false } })); } this.currentPlaybackResolve?.(); this.currentPlaybackResolve = null; }
   private cancelSpeech() { this.ttsController?.abort(); this.ttsController = null; this.stopAudio(); for (const job of this.audioQueue.splice(0)) this.setAudioTurnState(job.turnId, 'error'); }
   dispose() { this.disposed = true; this.requestController?.abort(); this.requestController = null; this.cancelSpeech(); this.gain.disconnect(); this.analyser.disconnect(); this.messageSubscribers.clear(); this.audioStateSubscribers.clear(); this.setStatus('uninitialized'); }
 }

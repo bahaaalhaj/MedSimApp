@@ -1,4 +1,5 @@
 import type { AuthUser, LoginInput, RegisterInput } from './types';
+import { recordRuntimeDiagnostic } from '../runtimeDiagnostics.ts';
 
 export class AuthApiError extends Error {
   readonly status: number;
@@ -39,11 +40,13 @@ async function parse<T>(response: Response): Promise<T> {
 
 export function getSession(): Promise<SessionResponse> {
   if (!sessionRequest) {
-    sessionRequest = fetch('/api/auth/session', { credentials: 'include' })
+    const requestId = crypto.randomUUID(); const started = performance.now();
+    recordRuntimeDiagnostic('auth-session-start', requestId);
+    sessionRequest = fetch('/api/auth/session', { credentials: 'include', headers: { 'x-request-id': requestId } })
       .then((response) => parse<SessionResponse>(response))
       .then((session) => {
         csrfToken = session.csrfToken;
-        return session;
+        recordRuntimeDiagnostic('auth-session-end', requestId, { durationMs: Math.round(performance.now() - started) }); return session;
       })
       .finally(() => {
         sessionRequest = null;
@@ -54,15 +57,17 @@ export function getSession(): Promise<SessionResponse> {
 
 async function mutate<T>(path: string, body?: unknown): Promise<T> {
   if (!csrfToken) await getSession();
+  const requestId = crypto.randomUUID(); const started = performance.now(); recordRuntimeDiagnostic('auth-mutate-start', requestId, { path });
   return parse<T>(await fetch(path, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'content-type': 'application/json',
       'x-csrf-token': csrfToken,
+      'x-request-id': requestId,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
-  }));
+  })).finally(() => recordRuntimeDiagnostic('auth-mutate-end', requestId, { path, durationMs: Math.round(performance.now() - started) }));
 }
 
 export async function login(input: LoginInput): Promise<AuthUser> {

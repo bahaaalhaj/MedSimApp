@@ -1,128 +1,58 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useScreen } from '../game/store';
 
 const MUTED_KEY = 'medsim:music-muted';
 const VOLUME = 0.18;
+const DUCKED_VOLUME = 0.055;
+function readMuted(): boolean { try { return localStorage.getItem(MUTED_KEY) === '1'; } catch { return false; } }
+function writeMuted(value: boolean) { try { localStorage.setItem(MUTED_KEY, value ? '1' : '0'); } catch { /* non-fatal */ } }
 
-function readMuted(): boolean {
-  try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(MUTED_KEY) === '1';
-  } catch {
-    return false;
+class MusicController {
+  private audio: HTMLAudioElement | null = null;
+  private muted = readMuted();
+  private speaking = false;
+  private initialized = false;
+  private ensure() {
+    if (this.audio) return this.audio;
+    const audio = new Audio('/medsim.mp3');
+    audio.loop = true; audio.preload = 'auto'; audio.volume = 0;
+    if (import.meta.env.DEV) ['play', 'pause', 'ended', 'stalled', 'error'].forEach((event) => audio.addEventListener(event, () => console.debug('[MedSim music]', { event, time: audio.currentTime })));
+    this.audio = audio;
+    return audio;
+  }
+  init() {
+    if (this.initialized) return;
+    this.initialized = true;
+    const start = () => { void this.play(); };
+    window.addEventListener('pointerdown', start, { passive: true });
+    window.addEventListener('keydown', start);
+    this.ensure();
+  }
+  async play() {
+    const audio = this.ensure();
+    if (this.muted) return;
+    this.ramp(this.speaking ? DUCKED_VOLUME : VOLUME);
+    try { await audio.play(); } catch { /* retry on a later user gesture */ }
+  }
+  setMuted(value: boolean) { this.muted = value; writeMuted(value); if (value) this.ramp(0); else void this.play(); }
+  setSpeaking(value: boolean) { this.speaking = value; if (!this.muted) this.ramp(value ? DUCKED_VOLUME : VOLUME); }
+  private ramp(target: number) {
+    const audio = this.ensure(); const start = audio.volume; const started = performance.now();
+    const tick = () => { const ratio = Math.min(1, (performance.now() - started) / 180); audio.volume = start + (target - start) * ratio; if (ratio < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
   }
 }
-
-function writeMuted(v: boolean) {
-  try {
-    window.localStorage.setItem(MUTED_KEY, v ? '1' : '0');
-  } catch {
-    /* private mode — non-fatal */
-  }
-}
+const music = new MusicController();
 
 export function BackgroundMusic() {
   const screen = useScreen();
-  const [userMuted, setUserMuted] = useState<boolean>(readMuted);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Lobby = anywhere outside an active encounter. Splash plays too — by
-  // the time the audio context can decode anything the user has clicked
-  // through it, so autoplay is fine there in practice.
-  const inSession = screen === 'encounter';
-  const shouldPlay = !userMuted && !inSession;
-
+  const [userMuted, setUserMuted] = useState(readMuted);
   useEffect(() => {
-    const a = new Audio('/medsim.mp3');
-    a.loop = true;
-    a.volume = VOLUME;
-    a.preload = 'auto';
-    audioRef.current = a;
-
-    // First user gesture unblocks autoplay on browsers that gate it.
-    const tryPlay = () => {
-      if (!audioRef.current) return;
-      audioRef.current.play().catch(() => {
-        /* still gated — wait for the next gesture */
-      });
-    };
-
-    const onGesture = () => {
-      if (shouldPlayRef.current) tryPlay();
-    };
-    window.addEventListener('pointerdown', onGesture, { once: false });
-    window.addEventListener('keydown', onGesture, { once: false });
-
-    tryPlay();
-
-    return () => {
-      window.removeEventListener('pointerdown', onGesture);
-      window.removeEventListener('keydown', onGesture);
-      a.pause();
-      a.src = '';
-      audioRef.current = null;
-    };
+    music.init(); void music.play();
+    const onPatientAudio = (event: Event) => music.setSpeaking(Boolean((event as CustomEvent<{ speaking?: boolean }>).detail?.speaking));
+    window.addEventListener('medsim:patient-audio', onPatientAudio);
+    return () => window.removeEventListener('medsim:patient-audio', onPatientAudio);
   }, []);
-
-  // Mirror `shouldPlay` into a ref so the gesture handler installed once
-  // on mount sees the latest value without being torn down on every change.
-  const shouldPlayRef = useRef(shouldPlay);
-  useEffect(() => {
-    shouldPlayRef.current = shouldPlay;
-    const a = audioRef.current;
-    if (!a) return;
-    if (shouldPlay) {
-      a.play().catch(() => {
-        /* autoplay may be deferred until the first gesture */
-      });
-    } else {
-      a.pause();
-    }
-  }, [shouldPlay]);
-
-  const toggle = () => {
-    const next = !userMuted;
-    setUserMuted(next);
-    writeMuted(next);
-  };
-
-  // Hide the toggle on splash to keep the title hero clean.
   if (screen === 'splash') return null;
-
-  const off = userMuted || inSession;
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      title={
-        userMuted
-          ? 'Music muted — click to unmute'
-          : inSession
-            ? 'Music paused during session'
-            : 'Music on — click to mute'
-      }
-      aria-label={userMuted ? 'Unmute music' : 'Mute music'}
-      style={{
-        position: 'fixed',
-        top: 18,
-        right: 156,
-        zIndex: 1000,
-        width: 36,
-        height: 36,
-        borderRadius: '50%',
-        border: '3px solid var(--line)',
-        background: off ? 'var(--cream)' : 'var(--butter)',
-        boxShadow: '0 2px 0 var(--line)',
-        cursor: 'pointer',
-        fontSize: 16,
-        fontFamily: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 0,
-        opacity: inSession && !userMuted ? 0.8 : 1,
-      }}
-    >
-      <span aria-hidden style={{ lineHeight: 1 }}>{off ? '🔇' : '🎵'}</span>
-    </button>
-  );
+  return <button type="button" onClick={() => { const next = !userMuted; setUserMuted(next); music.setMuted(next); }} title={userMuted ? 'Music muted — click to unmute' : 'Music on — click to mute'} aria-label={userMuted ? 'Unmute music' : 'Mute music'} style={{ position: 'fixed', top: 18, right: 156, zIndex: 1000, width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--line)', background: userMuted ? 'var(--cream)' : 'var(--butter)', boxShadow: '0 2px 0 var(--line)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><span aria-hidden style={{ lineHeight: 1 }}>{userMuted ? '🔇' : '🎵'}</span></button>;
 }

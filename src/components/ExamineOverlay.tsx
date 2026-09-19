@@ -364,8 +364,8 @@ function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
                 }
                 setQuestionError('');
                 setSubmittingId(q.id);
-                await conversation.sendTextMessage(q.question, 'predefined', q.id);
-                if (conversation.getStatus() === 'error') {
+                const accepted = await conversation.sendTextMessage(q.question, 'predefined', q.id);
+                if (!accepted) {
                   setQuestionError(conversation.getLastResponseError() || 'The local patient response failed. Please retry the question.');
                 } else {
                   store.askPolyclinicQuestion(q.id);
@@ -1082,8 +1082,8 @@ function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameSt
     setSending(true);
     setSendError('');
     setDraft('');
-    await conversation.sendTextMessage(text, 'typed');
-    if (conversation.getStatus() === 'error') {
+    const accepted = await conversation.sendTextMessage(text, 'typed');
+    if (!accepted) {
       setDraft(text);
       setSendError(`${conversation.getLastResponseError() || 'The local patient response failed.'} Your question was restored so you can retry.`);
     }
@@ -1138,8 +1138,10 @@ function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameSt
             {!mine && m.audioTurnId && (() => {
               const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
               const audioState = conversation?.getAudioTurnState(m.audioTurnId);
+              const queuePosition = conversation?.getAudioQueuePosition(m.audioTurnId);
               return <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', fontSize: 10 }}>
-                <span>Audio: {audioState ?? 'not requested'}</span>
+                <span>Audio: {audioState ?? 'not requested'}{queuePosition ? ` · queue ${queuePosition}` : ''}</span>
+                {audioState === 'playing' && <button type="button" onClick={() => conversation?.skipCurrentSpeech()} style={{ font: 'inherit' }}>Skip</button>}
                 {(audioState === 'played' || audioState === 'error') && <button type="button" onClick={() => conversation?.replayTurn(m.audioTurnId!)} style={{ font: 'inherit' }}>Replay</button>}
               </div>;
             })()}

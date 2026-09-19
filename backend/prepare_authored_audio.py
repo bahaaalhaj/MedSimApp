@@ -9,11 +9,28 @@ import argparse
 import asyncio
 import time
 
-from local_ai import LOCAL_AI_CASES, SAFE_UNKNOWN_RESPONSE, compose_patient_answer, deterministic_patient_match, opening_greeting
+from local_ai import LOCAL_AI_CASES, SAFE_PROTECTED_RESPONSE, SAFE_UNKNOWN_RESPONSE, compose_patient_answer, deterministic_patient_match, opening_greeting
 from tts import TTSRequest, get_tts_manager, inspect_kokoro_cache
 
 
-async def prepare(case_ids: list[str]) -> int:
+def case_requests(case_id: str) -> list[TTSRequest]:
+    case = LOCAL_AI_CASES[case_id]
+    patient = case["patient"]
+    is_parent = int(patient["age"]) < 14
+    utterances = [opening_greeting(patient), SAFE_UNKNOWN_RESPONSE, SAFE_PROTECTED_RESPONSE]
+    utterances.extend(
+        deterministic_patient_match(case, question, is_parent=is_parent, profile=patient).response
+        for question in ("What's your name?", "How old are you?", "Are you male or female?", "What brought you here?")
+    )
+    utterances.extend(compose_patient_answer(str(row["answer"]), str(row["question"]), is_parent=is_parent) for row in patient["history"])
+    return [TTSRequest(
+        text=text, case_id=case_id, case_version=str(case["caseVersion"]),
+        gender=str(patient["gender"]), is_pediatric=is_parent,
+        is_opening_greeting=text == utterances[0], cacheable=True,
+    ) for text in dict.fromkeys(utterances)]
+
+
+async def prepare(case_ids: list[str], validate_only: bool = False) -> int:
     manager = get_tts_manager()
     cache = inspect_kokoro_cache(manager.settings.model_cache_dir)
     if not cache.ready:
@@ -23,22 +40,21 @@ async def prepare(case_ids: list[str]) -> int:
     started = time.perf_counter()
     hits = generated = failures = 0
     for case_id in case_ids:
-        case = LOCAL_AI_CASES[case_id]
-        patient = case["patient"]
-        is_parent = int(patient["age"]) < 14
-        utterances = [opening_greeting(patient), SAFE_UNKNOWN_RESPONSE]
-        utterances.extend(
-            deterministic_patient_match(case, question, is_parent=is_parent, profile=patient).response
-            for question in ("What is your name?", "How old are you?", "What brought you here?")
-        )
-        utterances.extend(compose_patient_answer(str(row["answer"]), str(row["question"]), is_parent=is_parent) for row in patient["history"])
-        for text in dict.fromkeys(utterances):
+        requests = case_requests(case_id)
+        for request in requests:
             try:
-                result = await manager.synthesize(TTSRequest(
-                    text=text, case_id=case_id, case_version=str(case["caseVersion"]),
-                    gender=str(patient["gender"]), is_pediatric=is_parent,
-                    is_opening_greeting=text == utterances[0], cacheable=True,
-                ))
+                if validate_only:
+                    provider = manager.provider()
+                    metadata = manager._persistent_metadata(request, provider)  # type: ignore[attr-defined]
+                    if manager._persistent_cache.get(metadata) is None:  # type: ignore[attr-defined]
+                        raise RuntimeError("persistent-cache-miss")
+                    result = None
+                else:
+                    result = await manager.synthesize(request)
+                if result is None:
+                    hits += 1
+                    print(f"case={case_id} voice={provider._voice(request)} cache=validated")  # type: ignore[attr-defined]
+                    continue
                 hits += int(result.cache_hit)
                 generated += int(not result.cache_hit)
                 print(f"case={case_id} voice={result.voice} cache={'hit' if result.cache_hit else 'generated'}")
@@ -64,9 +80,10 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--case-id", choices=sorted(LOCAL_AI_CASES))
     group.add_argument("--all", action="store_true", help="Prepare all 72 cases sequentially; this can take a long time.")
+    parser.add_argument("--validate", action="store_true", help="Validate expected audio in the persistent cache without synthesis.")
     args = parser.parse_args()
     ids = sorted(LOCAL_AI_CASES) if args.all else [args.case_id]
-    return asyncio.run(prepare(ids))
+    return asyncio.run(prepare(ids, args.validate))
 
 
 if __name__ == "__main__":

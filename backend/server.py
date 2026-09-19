@@ -109,6 +109,18 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+@app.middleware("http")
+async def development_timing(request: Request, call_next):
+    """Expose only aggregate local timing; never prompts, secrets, or case truth."""
+    started = time.perf_counter()
+    response = await call_next(request)
+    if request.headers.get("origin", "") in DEV_ORIGINS or os.environ.get("MEDSIM_DEBUG_TIMING", "").lower() in {"1", "true", "yes"}:
+        app_timing = f"app;dur={(time.perf_counter() - started) * 1000:.1f}"
+        response.headers["Server-Timing"] = ", ".join(filter(None, [response.headers.get("Server-Timing"), app_timing]))
+        response.headers["X-MedSim-Request-Id"] = request.headers.get("x-request-id", "")[:100]
+    return response
+
+
 # Middleware ORDER (inside-out â€” last added runs first on inbound):
 #   1. Auth          (innermost, added first)
 #   2. SlowAPI       (rate limit)
@@ -754,6 +766,7 @@ async def health():
 
 class PatientTTSRequestBody(BaseModel):
     text: str
+    attemptId: str = Field(min_length=20, max_length=100)
     caseId: str
     gender: str = "M"
     isPediatric: bool = False
@@ -766,19 +779,26 @@ class PatientTTSRequestBody(BaseModel):
 
 
 @app.post("/tts/synthesize")
-async def synthesize_patient_speech(req: PatientTTSRequestBody):
+async def synthesize_patient_speech(req: PatientTTSRequestBody, request: Request):
     if not req.text.strip() or len(req.text) > 2000:
         raise HTTPException(status_code=422, detail="Patient text must contain 1 to 2000 characters")
-    if req.gender not in {"M", "F"}:
-        raise HTTPException(status_code=422, detail="gender must be M or F")
     if req.speed is not None and not 0.7 <= req.speed <= 1.3:
         raise HTTPException(status_code=422, detail="speed must be between 0.7 and 1.3")
     if req.language != TTS_SETTINGS.language:
         raise HTTPException(status_code=422, detail="language must match server PATIENT_TTS_LANGUAGE")
+    with _INVESTIGATION_LOCK:
+        attempt = _get_attempt(request, req.attemptId)
+        if req.caseId != attempt["caseId"] or req.caseVersion != attempt["caseVersion"]:
+            raise HTTPException(status_code=409, detail="TTS attempt provenance mismatch")
+        profile = attempt["patientProfile"]
+        gender = str(profile["gender"])
+        is_pediatric = int(profile["age"]) < 14
+    started = time.perf_counter()
     try:
-        result = await get_tts_manager().synthesize(TTSRequest(
-            text=req.text, case_id=req.caseId, gender=req.gender,
-            is_pediatric=req.isPediatric, speed=req.speed, language=req.language,
+        manager = get_tts_manager()
+        result = await manager.synthesize(TTSRequest(
+            text=req.text, case_id=req.caseId, gender=gender,
+            is_pediatric=is_pediatric, speed=req.speed, language=req.language,
             case_version=req.caseVersion, is_opening_greeting=req.isOpeningGreeting,
             cacheable=req.cacheable, request_id=req.requestId,
         ))
@@ -792,6 +812,9 @@ async def synthesize_patient_speech(req: PatientTTSRequestBody):
             "X-Patient-TTS-Provider": result.provider,
             "X-Patient-TTS-Voice": result.voice,
             "X-Patient-TTS-Cache": "hit" if result.cache_hit else "miss",
+            "X-Patient-TTS-Source": result.provider,
+            "X-Patient-TTS-Initialization-Count": str(getattr(manager._provider, "load_count", 0)),
+            "Server-Timing": f"tts;dur={(time.perf_counter() - started) * 1000:.1f}",
             "X-Patient-TTS-Normalized": result.synthesized_text.encode("ascii", "ignore").decode("ascii")[:500],
         },
     )

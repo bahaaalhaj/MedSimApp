@@ -23,6 +23,22 @@ class TTSProviderError(RuntimeError):
     pass
 
 
+def select_kokoro_voice(case_id: str, gender: str, is_pediatric: bool = False) -> str:
+    """Server-owned stable Kokoro voice policy.
+
+    Adults use only the authored demographic field. Pediatric cases use a
+    deterministic adult parent/narrator policy keyed solely by case ID; no
+    browser supplied display name or random state participates.
+    """
+    if gender not in {"M", "F"}:
+        raise TTSConfigurationError("Patient gender must be M or F for Kokoro voice selection")
+    male = ("am_adam", "am_michael")
+    female = ("af_heart", "af_bella")
+    policy_gender = ("F" if _stable_hash(f"{case_id}:parent") % 2 == 0 else "M") if is_pediatric else gender
+    pool = female if policy_gender == "F" else male
+    return pool[_stable_hash(f"{case_id}:{policy_gender}") % len(pool)]
+
+
 @dataclass(frozen=True)
 class TTSSettings:
     provider: str = "kokoro"
@@ -206,9 +222,7 @@ class KokoroTTSProvider(PatientTTSProvider):
         return self._pipeline
 
     def _voice(self, request: TTSRequest) -> str:
-        # Pediatric encounters deliberately use an adult parent voice.
-        pool = self._female if request.gender.upper() == "F" else self._male
-        return pool[_stable_hash(request.case_id) % len(pool)]
+        return select_kokoro_voice(request.case_id, request.gender, request.is_pediatric)
 
     async def synthesize(self, request: TTSRequest) -> TTSResult:
         synthesized = normalize_for_speech(request.text)
@@ -381,9 +395,14 @@ class TTSManager:
         if not (request.is_opening_greeting or request.cacheable) or not request.case_version or not isinstance(provider, KokoroTTSProvider):
             return None
         speed = request.speed if request.speed is not None else self.settings.speed
-        revision = getattr(inspect_kokoro_cache(self.settings.model_cache_dir), "revision", None) or kokoro_cache_revision(self.settings.model_cache_dir) or "unknown"
+        revision = self._model_revision()
         normalized = normalize_for_speech(request.text).casefold()
         return (request.case_version, normalized, provider._voice(request), round(speed, 3), revision)
+
+    def _model_revision(self) -> str:
+        # Full cache integrity is verified before a live Kokoro load and by
+        # explicit setup. Per-turn cache keys must not hash 82M weights.
+        return kokoro_cache_revision(self.settings.model_cache_dir) or "unknown"
 
     def _remember(self, key: tuple[str, str, str, float, str], result: TTSResult) -> None:
         self._audio_cache[key] = replace(result, cache_hit=False)
@@ -397,7 +416,7 @@ class TTSManager:
             case_version=request.case_version,
             normalized_text=normalize_for_speech(request.text).casefold(),
             voice=provider._voice(request), speed=speed,
-            model_revision=kokoro_cache_revision(self.settings.model_cache_dir) or "unknown",
+            model_revision=self._model_revision(),
         )
 
     async def _synthesize_uncached(
