@@ -11,10 +11,10 @@ submit a diagnosis and prescription, and receive an AI-supported debrief.
 - One `Store` using `useSyncExternalStore`; do not add another state library.
 - Outpatient cases live in `src/data/polyclinicPatients.ts` and are catalogued
   by `src/data/cases.ts`.
-- FastAPI provides authentication, account-owned progress, Managed Agent
-  proxying, patient text streaming, and local patient TTS.
+- FastAPI provides authentication, account-owned progress, owner-bound
+  provider-neutral patient streaming, hybrid evaluation, and local patient TTS.
 - Kokoro is the default patient speech provider; Chatterbox is optional. The
-  attending debrief uses Claude Opus.
+  debrief uses deterministic authority plus optional configured-model narration.
 
 ## Main paths
 

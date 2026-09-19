@@ -5,7 +5,7 @@ import { getPatientCase } from '../data/cases';
 import { TESTS } from '../data/tests';
 import { TREATMENTS } from '../data/treatments';
 import { getRecommendation } from '../data/guidelines';
-import { useAttendingDebrief } from '../agents/useAttendingDebrief';
+import { useLocalDebrief } from '../agents/useLocalDebrief';
 import { buildDebriefRequest, summariseRequest } from '../agents/debriefRequest';
 import { saveEvalHistory, getEvalHistory, type EvalHistoryEntry } from '../data/evalHistory';
 import { POLYCLINIC_DIAGNOSIS_LABELS } from '../data/polyclinicPatients';
@@ -14,7 +14,7 @@ import type {
   CriterionResult,
   DomainScore,
   VerdictBand,
-} from '../agents/customTools';
+} from '../agents/evaluationSchema';
 import type { ActivePatient, PatientCase } from '../game/types';
 import { CLINICAL_CASE_BY_ID, toPostSubmissionReview } from '../clinical/cases';
 
@@ -528,7 +528,7 @@ export function DebriefScreen() {
     return buildDebriefRequest(c, patient);
   }, [reviewed, state.viewedEvalHistoryId, c, patient]);
 
-  const live = useAttendingDebrief(debriefRequest);
+  const live = useLocalDebrief(debriefRequest);
   const status = reviewed ? ('got-evaluation' as const) : live.status;
   const evaluation = reviewed?.evaluation ?? live.evaluation;
   const error = live.error;
@@ -583,7 +583,7 @@ export function DebriefScreen() {
         ) : status === 'starting' || status === 'idle' ? (
           <StatusBanner
             title={'Preparing your debrief\u2026'}
-            body={`Packaging the encounter and the rubric (${summarise(debriefRequest)}). The attending will start grading in a moment.`}
+            body={`Packaging encounter evidence (${summarise(debriefRequest)}). Deterministic grading and local feedback will start in a moment.`}
             bg="var(--sky)"
           />
         ) : status === 'streaming' && !evaluation ? (
@@ -599,7 +599,7 @@ export function DebriefScreen() {
         ) : (
           <StatusBanner
             title="No evaluation yet"
-            body={'The attending hasn\u2019t emitted a result. If this persists, restart the encounter.'}
+            body={'No evaluation was returned. Check the local backend health and retry the encounter.'}
             bg="var(--cream-2)"
           />
         )}
@@ -651,13 +651,11 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
   const dgItems = evaluation.criteria.filter((x) => x.domain === 'data_gathering');
   const cmItems = evaluation.criteria.filter((x) => x.domain === 'clinical_management');
   const ipItems = evaluation.criteria.filter((x) => x.domain === 'interpersonal');
-  const rubric = c.rubric;
+  const rubric = buildDebriefRequest(c, patient).rubric;
   const labelByCriterionId = new Map<string, string>();
-  if (rubric) {
-    for (const cr of rubric.data_gathering) labelByCriterionId.set(cr.criterion_id, cr.label);
-    for (const cr of rubric.clinical_management) labelByCriterionId.set(cr.criterion_id, cr.label);
-    for (const cr of rubric.interpersonal) labelByCriterionId.set(cr.criterion_id, cr.label);
-  }
+  for (const cr of rubric.data_gathering) labelByCriterionId.set(cr.criterion_id, cr.label);
+  for (const cr of rubric.clinical_management) labelByCriterionId.set(cr.criterion_id, cr.label);
+  for (const cr of rubric.interpersonal) labelByCriterionId.set(cr.criterion_id, cr.label);
   const elapsedSec = patient.arrivedAt ? Math.round((Date.now() - patient.arrivedAt) / 1000) : 0;
   const elapsedLabel = `${Math.floor(elapsedSec / 60)} min ${elapsedSec % 60} sec`;
   const canonical = CLINICAL_CASE_BY_ID.get(c.id);
@@ -761,10 +759,11 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
       <div className="plush" style={{ padding: 18, marginBottom: 22 }}>
         <SectionLabel>DOMAIN SCORES</SectionLabel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-          <DomainRing label="Data Gathering" score={evaluation.domain_scores.data_gathering} />
-          <DomainRing label="Clinical Management" score={evaluation.domain_scores.clinical_management} />
-          <DomainRing label="Interpersonal" score={evaluation.domain_scores.interpersonal} />
+          {evaluation.domain_scores.data_gathering.max > 0 && <DomainRing label="Data Gathering" score={evaluation.domain_scores.data_gathering} />}
+          {evaluation.domain_scores.clinical_management.max > 0 && <DomainRing label="Clinical Management" score={evaluation.domain_scores.clinical_management} />}
+          {evaluation.domain_scores.interpersonal.max > 0 && <DomainRing label="Interpersonal" score={evaluation.domain_scores.interpersonal} />}
         </div>
+        <div className="chip" style={{ marginTop: 12 }}>{evaluation.generation.mode === 'model-assisted' ? 'Model-assisted feedback' : 'Deterministic evidence grading'}</div>
       </div>
 
       {(dgItems.length + cmItems.length + ipItems.length) > 0 && (
@@ -895,16 +894,22 @@ function CriterionGroup({
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {items.map((cr) => {
-          const label = labelMap.get(cr.criterion_id) ?? cr.criterion_id;
+          const label = cr.title ?? labelMap.get(cr.criterion_id) ?? 'Assessment criterion';
           const cite = buildCite(cr.guideline_ref);
           return (
+            <div key={cr.criterion_id}>
             <Criterion
-              key={cr.criterion_id}
               status={cr.verdict}
               text={label}
               evidence={cr.evidence}
               cite={cite}
             />
+            <details style={{ marginLeft: 48, marginTop: -6, fontSize: 10, color: 'var(--ink-2)' }}>
+              <summary>Technical evidence</summary>
+              <div>ID: {cr.criterion_id}{cr.weight !== undefined ? ` · weight ${cr.weight}` : ''}</div>
+              {cr.evidence_ids?.length ? <div>{cr.evidence_ids.join(', ')}</div> : null}
+            </details>
+            </div>
           );
         })}
       </div>

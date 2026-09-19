@@ -8,10 +8,16 @@ async function parse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function createInvestigationAttempt(caseId: string, caseVersion: string): Promise<{ attemptId: string; investigations: Catalogue }> {
+export async function createInvestigationAttempt(
+  caseId: string,
+  caseVersion: string,
+  variantSeed: string,
+  clientAttemptId: string,
+  patientProfile: { displayName: string; age: number; chiefComplaint: string },
+): Promise<{ attemptId: string; investigations: Catalogue; openingGreeting: string }> {
   return parse(await fetch('/api/attempts', {
     method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ caseId, caseVersion }),
+    body: JSON.stringify({ caseId, caseVersion, variantSeed, clientAttemptId, patientProfile }),
   }));
 }
 

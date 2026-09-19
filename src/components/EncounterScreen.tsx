@@ -15,10 +15,7 @@ import {
   useGameState,
   POLYCLINIC_BED_INDEX,
 } from '../game/store';
-import {
-  getExistingConversation,
-  disposePatientConversation,
-} from '../voice/conversationStore';
+import { disposePatientConversation } from '../voice/conversationStore';
 import { TopBar } from './primitives';
 import { ExamineOverlay } from './ExamineOverlay';
 import { DockedPatientAudioPanel } from './DockedPatientAudioPanel';
@@ -174,6 +171,8 @@ export function EncounterScreen() {
 
   const [pointerLocked, setPointerLocked] = useState(false);
   const [examineOpen, setExamineOpen] = useState(false);
+  const [finishError, setFinishError] = useState('');
+  const finishingRef = useRef(false);
 
   // If the user navigated straight here without a patient set, drop the
   // current selectedCaseId in. Without this the scene shows an empty room.
@@ -264,18 +263,28 @@ export function EncounterScreen() {
     }
   };
 
-  const endConsultation = async () => {
-    const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-    if (conv) {
-      try {
-        await conv.sayFarewell();
-      } catch {
-        /* patient audio failure — proceed anyway */
-      }
+  const endConsultation = () => {
+    if (finishingRef.current) return;
+    const active = store.getState().polyclinic.patient;
+    if (!active?.submittedDiagnosisId) {
+      setFinishError('Submit a diagnosis before finishing the consultation. Open Examine, choose Diagnose, and submit your selection.');
+      setExamineOpen(true);
+      return;
     }
+    finishingRef.current = true;
+    setFinishError('');
+    const startedAt = performance.now();
     if (document.pointerLockElement) document.exitPointerLock();
     interactionBus.setActive(null);
-    store.setScreen('endConfirm');
+    if (!store.finishPolyclinicCase(true)) {
+      finishingRef.current = false;
+      setFinishError('The encounter could not be finalized. Your evidence remains on this screen; please try again.');
+      return;
+    }
+    disposePatientConversation(POLYCLINIC_BED_INDEX);
+    if (import.meta.env.DEV) console.debug('[MedSim runtime]', {
+      event: 'finish-to-debrief', durationMs: Math.round(performance.now() - startedAt),
+    });
   };
 
   const SEATED_HEIGHT = 1.45;
@@ -336,6 +345,20 @@ export function EncounterScreen() {
             gap: 10,
           }}
         >
+          {finishError && (
+            <div role="alert" style={{ maxWidth: 420, background: 'var(--rose)', border: '3px solid var(--line)', borderRadius: 12, padding: '8px 12px', fontWeight: 800 }}>
+              {finishError}
+            </div>
+          )}
+          <button
+            type="button"
+            className="btn-plush primary"
+            onClick={(e) => { e.stopPropagation(); openExamine(); }}
+            style={{ fontSize: 14, padding: '12px 18px' }}
+            aria-label="Examine patient"
+          >
+            Examine (E)
+          </button>
           <button
             type="button"
             className="btn-plush ghost"
@@ -392,6 +415,7 @@ export function EncounterScreen() {
           <ExamineOverlay
             onClose={() => setExamineOpen(false)}
             onFinish={endConsultation}
+            finishError={finishError}
           />
         </>
       )}

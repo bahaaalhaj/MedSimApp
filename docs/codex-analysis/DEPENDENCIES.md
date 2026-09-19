@@ -1,4 +1,6 @@
-# Dependencies and configuration
+# Dependencies and configuration (archived pre-local-AI audit)
+
+> Historical snapshot only. See `docs/local-ai-architecture.md` for the current runtime.
 
 The frontend uses React, Three.js, Zod, TypeScript, and Vite. It has no browser audio-transport dependency and never captures learner audio.
 

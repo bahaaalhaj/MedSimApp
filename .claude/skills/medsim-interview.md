@@ -11,9 +11,9 @@ When the developer's ask is vague, don't jump to code. Ask them 4–6 questions,
 
 1. Who is the player at this moment? Med student on their first shift, an attending reviewing a trainee, or the trainee themselves?
 2. Is this an ER (timed, critical) scenario or a polyclinic (outpatient, no deadline) scenario? They live on separate state branches in `src/game/store.ts`.
-3. Does the feature need a Claude call? If so, which bucket — fast patient-persona (Haiku 4.5) or careful clinical reasoning (Opus 4.7)?
+3. Does the feature need local-model assistance, or can deterministic code handle it more safely and cheaply?
 4. Is this feature visible in the submission demo video? If yes, we budget for polish; if no, keep it minimal.
-5. Should this show up as a custom-tool rendered card from the Managed Agent, or as inline UI driven by the game store?
+5. Should this appear as inline UI driven by the existing game store or as backend-evaluated evidence?
 6. What's the failure mode we care most about — wrong answer, slow response, or ugly UI?
 7. What's explicitly out of scope? (Write it down so the scope doesn't creep.)
 

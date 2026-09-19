@@ -1,4 +1,6 @@
-# Static Security Review
+# Static Security Review (archived pre-local-AI audit)
+
+> Historical findings below explain the removed cloud architecture; they are not current routes.
 
 This is a source-only review. No vulnerability exploitation or live dependency scan was performed.
 

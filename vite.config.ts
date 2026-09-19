@@ -2,12 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const PROXY = {
-  '/ollama': {
-    target: 'http://localhost:11434',
-    changeOrigin: true,
-    rewrite: (path: string) => path.replace(/^\/ollama/, ''),
-  },
-  // Claude Managed Agents proxy — keeps the API key server-side.
+  // Local patient SSE proxy; model configuration remains server-side.
   // The `/agent/sessions/:id/stream` endpoint is SSE; Vite's proxy
   // handles that correctly as long as we disable buffering on the
   // server side (see backend/server.py). Trailing slash is required
@@ -33,6 +28,7 @@ export default defineConfig({
     port: 5173,
     open: true,
     proxy: PROXY,
+    fs: { deny: ['**/backend/**', '**/docs/generated/*.server.json', '**/.env*'] },
   },
   preview: {
     port: 5173,

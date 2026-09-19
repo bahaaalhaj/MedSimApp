@@ -1,29 +1,32 @@
 """
 FastAPI backend for the MedSim simulator.
 
-Hosts the Claude Managed Agents proxy (medsim-attending grading), the
-text-only AI patient endpoint, and local patient text-to-speech.
+Hosts local-LLM patient dialogue and hybrid evaluation endpoints, account
+services, investigation attempts, and local patient text-to-speech.
 
-GET  /health         → backend + agent status report
-POST /agent/...      → Managed Agents proxy (medsim-attending)
-POST /tts/synthesize → synthesize patient speech locally
+GET  /health         â†’ backend + agent status report
+POST /agent/patient/stream â†’ local patient SSE
+POST /tts/synthesize â†’ synthesize patient speech locally
 """
 
 from __future__ import annotations
 
 import os
+import asyncio
+import logging
 import json
 import threading
 import copy
 import hashlib
 import secrets
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Annotated, Any, Literal, Optional
 
 
 def _load_env_local() -> None:
-    """Minimal .env.local loader — no python-dotenv dependency.
+    """Minimal .env.local loader â€” no python-dotenv dependency.
 
     Reads `backend/.env.local` (next to this file) and sets any KEY=VALUE
     pair into ``os.environ`` without overwriting values already set.
@@ -49,14 +52,24 @@ _load_env_local()
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from auth_system import AuthApi, AuthSettings, build_auth_router
 from tts import TTSConfigurationError, TTSProviderError, TTSRequest, get_tts_manager, load_tts_settings
+from local_ai import (
+    EVALUATION_SCHEMA, LOCAL_AI_CASES, SAFE_UNKNOWN_RESPONSE,
+    compose_patient_answer, deterministic_patient_match, evaluation_prompt, exact_patient_answer,
+    normalize_evaluation, opening_greeting, patient_system_prompt,
+    public_profile, sanitize_patient_response, validate_model_evaluation,
+)
+from local_llm import (
+    ChatRequest, LLMProviderError, StructuredRequest,
+    get_local_llm_provider, health_dict, settings as llm_settings,
+)
 
 # Validate cheap configuration at import/startup without loading model weights.
 TTS_SETTINGS = load_tts_settings()
@@ -84,12 +97,19 @@ DEV_ORIGINS = {
 # request, so 120/min leaves plenty of headroom for legitimate use.
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
 
-app = FastAPI(title="MedSim Backend", version="0.2.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Authentication and initial rendering must not compete with torch/Kokoro.
+    # Model loading is deferred until a patient attempt is selected.
+    yield
+
+
+app = FastAPI(title="MedSim Backend", version="0.2.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
-# Middleware ORDER (inside-out — last added runs first on inbound):
+# Middleware ORDER (inside-out â€” last added runs first on inbound):
 #   1. Auth          (innermost, added first)
 #   2. SlowAPI       (rate limit)
 #   3. CORS          (outermost, handles OPTIONS preflight before auth)
@@ -163,6 +183,7 @@ _INVESTIGATION_CASES = _load_investigation_cases()
 _INVESTIGATION_ATTEMPTS: dict[str, dict[str, Any]] = {}
 _INVESTIGATION_LOCK = threading.Lock()
 _ATTEMPT_TTL_SECONDS = 6 * 60 * 60
+_MAX_ACTIVE_ATTEMPTS_PER_OWNER = 32
 
 
 def _attempt_owner(request: Request) -> str:
@@ -183,9 +204,32 @@ def _get_attempt(request: Request, attempt_id: str) -> dict[str, Any]:
     return attempt
 
 
+def _clean_attempts(now: float, owner: str) -> None:
+    expired = [key for key, value in _INVESTIGATION_ATTEMPTS.items() if value["expiresAt"] <= now]
+    for key in expired:
+        _INVESTIGATION_ATTEMPTS.pop(key, None)
+    owned = sorted(
+        ((key, value) for key, value in _INVESTIGATION_ATTEMPTS.items() if value["owner"] == owner),
+        key=lambda pair: pair[1]["createdAt"],
+    )
+    for key, _ in owned[:-(_MAX_ACTIVE_ATTEMPTS_PER_OWNER - 1)]:
+        _INVESTIGATION_ATTEMPTS.pop(key, None)
+
+
+class PublicPatientProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    displayName: str = Field(min_length=1, max_length=120)
+    age: int = Field(ge=0, le=120)
+    chiefComplaint: str = Field(min_length=1, max_length=500)
+
+
 class CreateClinicalAttemptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     caseId: str
     caseVersion: str
+    variantSeed: str = Field(default="", max_length=200)
+    clientAttemptId: str | None = Field(default=None, min_length=12, max_length=200)
+    patientProfile: PublicPatientProfile | None = None
 
 
 class InvestigationOrderRequest(BaseModel):
@@ -211,22 +255,82 @@ def _public_order(order: dict[str, Any], include_result: bool) -> dict[str, Any]
     return result
 
 
+async def _prepare_case_audio(local_ai_case: dict[str, Any], profile: dict[str, Any]) -> None:
+    """Prepare only the selected case greeting and four likely authored turns."""
+    if TTS_SETTINGS.provider != "kokoro":
+        return
+    case_id = local_ai_case["caseId"]
+    case_version = local_ai_case["caseVersion"]
+    gender = str(profile.get("gender", "F"))
+    is_parent = int(profile.get("age", 18)) < 14
+    requests = [TTSRequest(
+        text=opening_greeting(profile), case_id=case_id, case_version=case_version,
+        gender=gender, is_pediatric=is_parent, is_opening_greeting=True, cacheable=True,
+    ), TTSRequest(
+        text=SAFE_UNKNOWN_RESPONSE, case_id=case_id, case_version=case_version,
+        gender=gender, is_pediatric=is_parent, cacheable=True,
+    )]
+    for item in local_ai_case["patient"].get("history", [])[:3]:
+        requests.append(TTSRequest(
+            text=compose_patient_answer(item["answer"], item["question"], is_parent=is_parent),
+            case_id=case_id, case_version=case_version, gender=gender,
+            is_pediatric=is_parent, cacheable=True,
+        ))
+    manager = get_tts_manager()
+    await manager.prepare(requests)
+
+
+_TTS_PREPARE_TASKS: set[asyncio.Task[None]] = set()
+
+
+def _schedule_case_audio(local_ai_case: dict[str, Any], profile: dict[str, Any]) -> None:
+    task = asyncio.create_task(_prepare_case_audio(local_ai_case, profile))
+    _TTS_PREPARE_TASKS.add(task)
+    task.add_done_callback(_TTS_PREPARE_TASKS.discard)
+
+
 @app.post("/api/attempts", status_code=201)
-def create_clinical_attempt(payload: CreateClinicalAttemptRequest, request: Request):
+async def create_clinical_attempt(payload: CreateClinicalAttemptRequest, request: Request):
     clinical_case = _INVESTIGATION_CASES.get(payload.caseId)
     if not clinical_case or clinical_case["caseVersion"] != payload.caseVersion:
         raise HTTPException(status_code=404, detail="assignable case/version not found")
-    attempt_id = secrets.token_urlsafe(32)
-    attempt = {
-        "attemptId": attempt_id, "owner": _attempt_owner(request), "caseId": payload.caseId,
-        "caseVersion": payload.caseVersion, "createdAt": time.time(),
-        "expiresAt": time.time() + _ATTEMPT_TTL_SECONDS, "orders": {}, "orderByInvestigation": {},
-    }
+    local_ai_case = LOCAL_AI_CASES.get(payload.caseId)
+    if not local_ai_case or local_ai_case["caseVersion"] != payload.caseVersion:
+        raise HTTPException(status_code=404, detail="local AI case/version not found")
+    try:
+        profile = public_profile(local_ai_case, payload.patientProfile.model_dump() if payload.patientProfile else None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    owner = _attempt_owner(request)
+    now = time.time()
     with _INVESTIGATION_LOCK:
+        _clean_attempts(now, owner)
+        existing = next((item for item in _INVESTIGATION_ATTEMPTS.values() if payload.clientAttemptId and
+            item["owner"] == owner and item["caseId"] == payload.caseId and
+            item["caseVersion"] == payload.caseVersion and item.get("clientAttemptId") == payload.clientAttemptId), None)
+        if existing:
+            return {
+                "attemptId": existing["attemptId"], "caseId": payload.caseId,
+                "caseVersion": payload.caseVersion,
+                "investigations": [_safe_investigation(item) for item in clinical_case["investigations"]],
+                "openingGreeting": opening_greeting(existing["patientProfile"]),
+            }
+        attempt_id = secrets.token_urlsafe(32)
+        attempt = {
+            "attemptId": attempt_id, "owner": owner, "caseId": payload.caseId,
+            "caseVersion": payload.caseVersion, "createdAt": now,
+            "expiresAt": now + _ATTEMPT_TTL_SECONDS, "orders": {}, "orderByInvestigation": {},
+            "localAiCase": local_ai_case, "patientProfile": profile,
+            "patientMessages": [], "askedQuestionIds": [], "variantSeed": payload.variantSeed,
+            "clientAttemptId": payload.clientAttemptId,
+            "patientRequestActive": False, "patientResponses": {},
+            "evaluationActive": False, "evaluationResult": None,
+        }
         _INVESTIGATION_ATTEMPTS[attempt_id] = attempt
     return {
         "attemptId": attempt_id, "caseId": payload.caseId, "caseVersion": payload.caseVersion,
         "investigations": [_safe_investigation(item) for item in clinical_case["investigations"]],
+        "openingGreeting": opening_greeting(profile),
     }
 
 
@@ -259,6 +363,7 @@ def order_investigation(attempt_id: str, payload: InvestigationOrderRequest, req
             "orderId": order_id, "investigationId": payload.investigationId, "indication": payload.indication[:500],
             "orderedAt": now, "availableAt": now + min(2.0, max(0.05, float(investigation.get("turnaroundSec", 30)) / 100.0)) if orderable else now, "status": status,
             "resultSnapshot": copy.deepcopy(result_snapshot),
+            "releasedAt": None,
             "statusDetail": None if orderable else (
                 "A documented indication is required before this conditional investigation can return a result."
                 if investigation["availability"] == "conditional"
@@ -284,7 +389,10 @@ def get_investigation_result(attempt_id: str, order_id: str, request: Request):
         order = attempt["orders"].get(order_id)
         if not order:
             raise HTTPException(status_code=404, detail="investigation order not found")
-        return _public_order(order, include_result=True)
+        result = _public_order(order, include_result=True)
+        if order["status"] == "available" and result.get("resultSnapshot") is not None and order.get("releasedAt") is None:
+            order["releasedAt"] = time.time()
+        return result
 
 
 def _development_cases_enabled() -> bool:
@@ -306,1031 +414,344 @@ def get_safe_case(case_id: str, mode: str = "curated"):
     return case
 
 
-@app.get("/health")
-def health():
-    """Frontend polls this before showing the attending dock so a missing
-    API key or unbootstrapped agent surfaces a clearer error than a blank
-    SSE failure."""
-    has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    agent_id = os.environ.get("MEDSIM_AGENT_ID") or None
-    env_id = os.environ.get("MEDSIM_ENV_ID") or None
-    bootstrapped = bool(agent_id and env_id)
-    try:
-        tts_settings = TTS_SETTINGS
-        tts_status = {
-            "configured": True,
-            "provider": tts_settings.provider,
-            "device": tts_settings.device,
-            "fallback": tts_settings.fallback,
-            "chatterbox_enabled": tts_settings.enable_chatterbox,
-        }
-    except TTSConfigurationError as exc:
-        tts_status = {"configured": False, "error": str(exc)}
-    return {
-        "ok": True,
-        "patient_tts": tts_status,
-        "agent": {
-            "anthropic_sdk_installed": _HAS_ANTHROPIC,
-            "api_key_configured": has_key,
-            "bootstrapped": bootstrapped,
-            "agent_id": agent_id,
-            "environment_id": env_id,
-            "model": AGENT_MODEL if _HAS_ANTHROPIC else None,
-        },
-    }
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# Claude Managed Agents proxy
-# ───────────────────────────────────────────────────────────────────────────
-#
-# The browser talks to this server instead of the Anthropic API directly so
-# that (a) the Managed Agents API key stays server-side and (b) the
-# one-time bootstrap (agents.create + environments.create) is done here
-# once and the resulting IDs are reused across sessions.
-#
-# Per-env vars:
-#   ANTHROPIC_API_KEY  — required. Server-side only; never exposed to the
-#                        browser. Separate from VITE_ANTHROPIC_API_KEY used
-#                        by the browser Haiku patient-persona path.
-#   MEDSIM_AGENT_ID    — persisted agent ID (bootstrap returns it the
-#                        first time; set it here afterwards to skip
-#                        re-creating).
-#   MEDSIM_ENV_ID      — persisted environment ID (same pattern).
-#
-# Endpoints:
-#   POST /agent/bootstrap                      — idempotent; creates
-#                                                env+agent if the env vars
-#                                                are unset, else returns
-#                                                the cached IDs.
-#   POST /agent/sessions                       — create a new session for
-#                                                the current bootstrapped
-#                                                agent.
-#   GET  /agent/sessions/{sid}/stream          — SSE proxy of the live
-#                                                event stream. Used by
-#                                                eventStreamRenderer.tsx.
-#   GET  /agent/sessions/{sid}/events          — paginated history (for
-#                                                the reconnect+dedupe
-#                                                pattern).
-#   POST /agent/sessions/{sid}/events          — forward user events
-#                                                (user.message,
-#                                                user.custom_tool_result,
-#                                                user.interrupt, etc.).
-#   POST /agent/vault/ehr/lookup               — credential-vault demo:
-#                                                attaches EHR_API_TOKEN
-#                                                server-side and returns
-#                                                a fake record. The token
-#                                                never leaves the process.
-#
-# TODO: verify wire names against
-# https://platform.claude.com/docs/en/managed-agents/ before submission —
-# the SDK is beta and field names can drift.
-
-import asyncio
-import json
-import logging
-
-from fastapi import Request
-from fastapi.responses import StreamingResponse
-
-try:
-    from anthropic import Anthropic, AsyncAnthropic  # type: ignore
-    _HAS_ANTHROPIC = True
-except ImportError:  # pragma: no cover
-    _HAS_ANTHROPIC = False
-
-# Structured logger for the Managed Agents proxy. Uvicorn captures stdlib
-# logging so these land in the same stream as its own access log.
-_agent_log = logging.getLogger("medsim.agent")
-_agent_log.setLevel(logging.INFO)
-if not _agent_log.handlers:
-    _h = logging.StreamHandler()
-    _h.setFormatter(logging.Formatter("[medsim.agent] %(levelname)s %(message)s"))
-    _agent_log.addHandler(_h)
-
-# Guards against two concurrent /agent/bootstrap calls creating two
-# agents + two environments. Threading.Lock because bootstrap runs in
-# FastAPI's threadpool (sync endpoint).
-_bootstrap_lock = threading.Lock()
-
-# SSE keepalive. EventSource will silently time out if the connection is
-# idle past the browser's threshold (~30s for Chrome, longer elsewhere).
-# We emit an SSE comment line every N seconds so the socket stays warm
-# and the browser's `onerror` reconnect logic doesn't fire.
-SSE_KEEPALIVE_SEC = 15.0
-
-
-AGENT_MODEL = "claude-opus-4-7"
-AGENT_NAME = "medsim-attending"
-ENV_NAME = "medsim-attending-env"
-
-MEDSIM_ATTENDING_SYSTEM_PROMPT = (
-    "You are the attending physician supervising a trainee in a clinical "
-    "training simulator. Your role is to OBSERVE their decisions and "
-    "GRADE the encounter. You are NOT an assistant, a guide, or a "
-    "coach. Silence is acceptable and often correct.\n\n"
-
-    "The simulator is an outpatient polyclinic with one patient at a "
-    "time and instant test results. Events include "
-    "[polyclinic arrival], [poly test], [poly diagnosis], [poly rx], "
-    "[disposition].\n\n"
-
-    "Custom-tool usage:\n"
-    "  • Available tools: render_vitals_chart, render_patient_timeline, "
-    "render_case_evaluation, flag_critical_finding, lookup_ehr_history.\n"
-
-    "Permission policy — custom tools:\n"
-    "  • All render_* tools are auto-allowed; the trainee's UI renders "
-    "them immediately and acks back to you. Use them freely.\n"
-    "  • flag_critical_finding is a confirm-gated write. The trainee "
-    "sees an approve/decline dialog before the banner fires; the "
-    "tool_result is delayed until they choose. Reserve it for peri-"
-    "arrest vitals, closing stroke window, airway compromise, or "
-    "anaphylaxis. Never flag stable patients, and emit at most one "
-    "flag per encounter.\n"
-    "  • lookup_ehr_history is auto-allowed; it routes through the "
-    "credential vault so the EHR auth token never enters your context. "
-    "Call it once per patient when prior history or medication list "
-    "would change your assessment (e.g., unclear cardiac history, "
-    "possible drug interaction). Do not call it for every consultation.\n\n"
-
-    "What you DO:\n"
-    "  • On [polyclinic arrival]: stay silent. Do not greet the patient "
-    "or ask the trainee what they want to do.\n"
-    "  • At debrief time (see DEBRIEF MODE below): emit exactly one "
-    "render_case_evaluation. Never emit it before the trainee has "
-    "submitted a diagnosis.\n"
-    "  • Any text you do emit: at most one sentence, observational tone, "
-    "no questions.\n\n"
-
-    "What you DO NOT do:\n"
-    "  • Do not ask the trainee questions ('what would you like to do "
-    "first?'). Never.\n"
-    "  • Do not narrate the scene ('Mr. Williams is roomed and ready.').\n"
-    "  • Do not suggest next steps before the trainee has acted.\n"
-    "  • Do not repeat what the trainee can already see in the UI.\n"
-    "  • Do not reveal the correct diagnosis before disposition.\n\n"
-
-    "DEBRIEF MODE — end-of-encounter grading.\n\n"
-
-    "When you receive a [debrief request] message, the trainee has ended "
-    "the encounter. The message body contains, as JSON:\n"
-    "  • case_id and the case's correctDiagnosisId (gold standard).\n"
-    "  • rubric — a CaseRubric with three domains "
-    "(data_gathering, clinical_management, interpersonal) plus optional "
-    "safety_netting. Each criterion has a label, weight, and an "
-    "`evidence` string telling you exactly what counts as 'met'.\n"
-    "  • registry_slice — the subset of guidelines/recommendations cited "
-    "by the rubric. Use ONLY recIds that appear here. Do not invent.\n"
-    "  • prescription_validation — deterministic case-specific medication "
-    "matching; do not upgrade not-reviewed details to correct.\n"
-    "  • encounter_log — chronological list of: history questions asked "
-    "(with answers shown to the trainee), tests ordered with timestamps, "
-    "treatments/prescriptions given, the submitted diagnosis, and any "
-    "free-text counselling captured. Plus the voice transcript if "
-    "available.\n\n"
-
-    "Process:\n"
-    "  1. For every criterion in rubric.data_gathering, "
-    "rubric.clinical_management, and rubric.interpersonal, decide one of "
-    "{met, partially-met, missed} using the criterion's `evidence` field "
-    "as your match key. Quote the trainee directly or name the action "
-    "in the `evidence` field of your output (not the rubric's evidence "
-    "string — your own observation).\n"
-    "  2. Return criterion verdicts and provisional domain scores required "
-    "by the tool schema. The application discards those arithmetic values "
-    "and deterministically recomputes raw, max, verdict bands, and the global "
-    "rating from immutable rubric weights. Never rewrite weights or add "
-    "criteria.\n"
-    "  3. Treat absent recorded evidence as insufficient evidence; never "
-    "invent an action or infer that it happened.\n"
-    "  4. If the trainee did anything dangerous — contraindicated drug, "
-    "missed a red-flag escalation that the rubric flagged, no safety-"
-    "netting on a high-risk diagnosis — set safety_breach with `what` "
-    "and a guideline_ref if one applies. The narrative MUST lead with "
-    "this regardless of the score.\n"
-    "  5. Pick 1–3 highlights (specific strengths the trainee actually "
-    "demonstrated) and 1–3 improvements (priority gaps). Do not list "
-    "everything; the trainee tunes out.\n"
-    "  6. Write narrative last, 1–2 paragraphs, voice of a senior "
-    "clinician giving a teaching debrief immediately after the case. "
-    "No praise sandwiches, no sycophancy, no generic encouragement.\n"
-    "  7. Emit ONE render_case_evaluation tool use with the full payload. "
-    "Then stop.\n\n"
-
-    "Hard rules — non-negotiable:\n"
-    "  • Cite, don't invent. Every clinical_management criterion's "
-    "guideline_ref MUST appear in the registry_slice. If the rubric "
-    "criterion has no guideline_ref AND no rec applies, drop the "
-    "criterion from your output rather than fabricating one.\n"
-    "  • Specific evidence. 'You missed ICE' is not enough. 'You closed "
-    "without asking what the patient was worried about — they hinted at "
-    "fear of stroke when they mentioned their father; that was a chance "
-    "to address concerns and tailor the explanation.' is the bar.\n"
-    "  • No medical advice for real patients. This is a training "
-    "simulator. Do not frame any output as guidance for actual care.\n"
-    "  • Cases are synthetic and doses simplified — do not hold the "
-    "trainee to a recommendation that is not in the registry_slice.\n\n"
-
-    "Scope: the cases are synthetic, the medication doses are simplified, "
-    "and the trainee is not a licensed clinician. Do not offer medical "
-    "advice outside the simulator."
-)
-
-# Custom tool JSON schemas — must match the Zod schemas in
-# src/agents/customTools.ts. If you change either side, update both.
-MEDSIM_CUSTOM_TOOLS: list[dict] = [
-    {
-        "type": "custom",
-        "name": "render_vitals_chart",
-        "description": (
-            "Display the patient's vitals (HR, BP, SpO2, temp, RR) as a "
-            "line chart over the course of the encounter."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "patient_id": {"type": "string"},
-            },
-            "required": ["patient_id"],
-        },
-    },
-    {
-        "type": "custom",
-        "name": "render_patient_timeline",
-        "description": (
-            "Display the tests ordered and treatments given for a patient "
-            "in chronological order."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "patient_id": {"type": "string"},
-            },
-            "required": ["patient_id"],
-        },
-    },
-    {
-        # End-of-encounter OSCE debrief. Replaces the older
-        # `render_case_grade` (a flat score+notes blob): this one carries
-        # a per-criterion verdict, three-domain scores, citations into the
-        # guideline registry the frontend ships with the debrief request,
-        # and a 1–2 paragraph spoken-aloud narrative. The renderer
-        # `<CaseEvaluationCard>` resolves every `guideline_ref` against the
-        # registry and shows a verbatim cite-card next to each criterion.
-        #
-        # The Zod schema in src/agents/customTools.ts must mirror this; if
-        # you change one, update the other.
-        "type": "custom",
-        "name": "render_case_evaluation",
-        "description": (
-            "End-of-encounter PLAB2-style debrief. Emit exactly once after "
-            "the trainee submits their diagnosis (and prescription, in "
-            "polyclinic). Score three domains (data_gathering, clinical_"
-            "management, interpersonal) against the case rubric provided "
-            "in the debrief request. Each criterion verdict (met / "
-            "partially-met / missed) must be backed by a transcript quote "
-            "or a named action. Every clinical_management criterion's "
-            "guideline_ref MUST be a real recommendation id present in the "
-            "guideline registry slice that accompanies the debrief request "
-            "— if no rec applies, drop the criterion. Never fabricate."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "case_id": {"type": "string"},
-                "global_rating": {
-                    "type": "string",
-                    "enum": [
-                        "clear-fail",
-                        "borderline",
-                        "satisfactory",
-                        "good",
-                        "excellent",
-                    ],
-                },
-                "domain_scores": {
-                    "type": "object",
-                    "properties": {
-                        "data_gathering": {
-                            "type": "object",
-                            "properties": {
-                                "raw": {"type": "number"},
-                                "max": {"type": "number"},
-                                "verdict": {
-                                    "type": "string",
-                                    "enum": [
-                                        "clear-fail",
-                                        "borderline",
-                                        "satisfactory",
-                                        "good",
-                                        "excellent",
-                                    ],
-                                },
-                            },
-                            "required": ["raw", "max", "verdict"],
-                        },
-                        "clinical_management": {
-                            "type": "object",
-                            "properties": {
-                                "raw": {"type": "number"},
-                                "max": {"type": "number"},
-                                "verdict": {
-                                    "type": "string",
-                                    "enum": [
-                                        "clear-fail",
-                                        "borderline",
-                                        "satisfactory",
-                                        "good",
-                                        "excellent",
-                                    ],
-                                },
-                            },
-                            "required": ["raw", "max", "verdict"],
-                        },
-                        "interpersonal": {
-                            "type": "object",
-                            "properties": {
-                                "raw": {"type": "number"},
-                                "max": {"type": "number"},
-                                "verdict": {
-                                    "type": "string",
-                                    "enum": [
-                                        "clear-fail",
-                                        "borderline",
-                                        "satisfactory",
-                                        "good",
-                                        "excellent",
-                                    ],
-                                },
-                            },
-                            "required": ["raw", "max", "verdict"],
-                        },
-                    },
-                    "required": [
-                        "data_gathering",
-                        "clinical_management",
-                        "interpersonal",
-                    ],
-                },
-                "criteria": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "criterion_id": {"type": "string"},
-                            "domain": {
-                                "type": "string",
-                                "enum": [
-                                    "data_gathering",
-                                    "clinical_management",
-                                    "interpersonal",
-                                ],
-                            },
-                            "verdict": {
-                                "type": "string",
-                                "enum": ["met", "partially-met", "missed"],
-                            },
-                            "evidence": {"type": "string"},
-                            "guideline_ref": {
-                                "type": ["string", "null"],
-                                "description": (
-                                    "Format: '<guideline_id>:<rec_id>'. "
-                                    "Required for clinical_management; "
-                                    "optional elsewhere; null if not "
-                                    "applicable."
-                                ),
-                            },
-                        },
-                        "required": [
-                            "criterion_id",
-                            "domain",
-                            "verdict",
-                            "evidence",
-                        ],
-                    },
-                },
-                "safety_breach": {
-                    "type": ["object", "null"],
-                    "description": (
-                        "Set ONLY when the trainee did something dangerous "
-                        "(contraindicated drug, missed red flag, no safety-"
-                        "netting on a high-risk dx). The narrative must "
-                        "lead with this regardless of total score."
-                    ),
-                    "properties": {
-                        "what": {"type": "string"},
-                        "guideline_ref": {"type": ["string", "null"]},
-                    },
-                },
-                "highlights": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "1–3 specific strengths.",
-                },
-                "improvements": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "1–3 priority improvements.",
-                },
-                "narrative": {
-                    "type": "string",
-                    "description": (
-                        "1–2 paragraph teaching debrief, written as if "
-                        "spoken aloud by a senior clinician. No praise "
-                        "sandwiches, no sycophancy."
-                    ),
-                },
-            },
-            "required": [
-                "case_id",
-                "global_rating",
-                "domain_scores",
-                "criteria",
-                "highlights",
-                "improvements",
-                "narrative",
-            ],
-        },
-    },
-    {
-        # Write-shaped tool: surfaces a disruptive banner in the trainee
-        # UI. Gated by the frontend permission policy — the renderer shows
-        # an approve/decline dialog and only acks once the human confirms.
-        # Custom tools aren't covered by Anthropic's own permission-policy
-        # gate (that's native + MCP tools only), so the confirm happens
-        # client-side in src/agents/eventStreamRenderer.tsx.
-        "type": "custom",
-        "name": "flag_critical_finding",
-        "description": (
-            "Raise a disruptive critical-finding banner on the trainee's "
-            "screen. Use ONLY when the patient is in imminent risk (peri-"
-            "arrest vitals, stroke window closing, anaphylaxis). Requires "
-            "explicit human confirmation before firing; do not expect the "
-            "result immediately."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "patient_id": {"type": "string"},
-                "severity": {"type": "string", "enum": ["critical", "urgent"]},
-                "reason": {"type": "string"},
-            },
-            "required": ["patient_id", "severity", "reason"],
-        },
-    },
-    {
-        # Credential-vault demo tool. When the agent emits this, the
-        # browser calls POST /agent/vault/ehr/lookup. The backend attaches
-        # the EHR auth token from server-side state (env var) and returns
-        # the fake record. The EHR_API_TOKEN never touches the Claude
-        # context or the browser — it's the "credential vault" pattern
-        # from Michael's Managed Agents session, modeled for a demo.
-        "type": "custom",
-        "name": "lookup_ehr_history",
-        "description": (
-            "Retrieve the patient's prior EHR encounters and medication "
-            "list from the hospital EHR system. The request is routed "
-            "through the credential vault so your context never sees "
-            "the EHR auth token."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "patient_id": {"type": "string"},
-            },
-            "required": ["patient_id"],
-        },
-    },
-]
-
-_anthropic_client: Optional["Anthropic"] = None
-_anthropic_async_client: Optional["AsyncAnthropic"] = None
-
-
-def _ensure_anthropic_available() -> None:
-    if not _HAS_ANTHROPIC:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "anthropic package not installed. Run `pip install "
-                "'anthropic>=0.88.0'` in the backend venv."
-            ),
-        )
-
-
-def _require_api_key() -> str:
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    if not key:
-        raise HTTPException(
-            status_code=500,
-            detail="ANTHROPIC_API_KEY is not set server-side.",
-        )
-    return key
-
-
-def get_anthropic_client() -> "Anthropic":
-    global _anthropic_client
-    _ensure_anthropic_available()
-    if _anthropic_client is None:
-        _anthropic_client = Anthropic(api_key=_require_api_key())
-    return _anthropic_client
-
-
-def get_async_anthropic_client() -> "AsyncAnthropic":
-    global _anthropic_async_client
-    _ensure_anthropic_available()
-    if _anthropic_async_client is None:
-        _anthropic_async_client = AsyncAnthropic(api_key=_require_api_key())
-    return _anthropic_async_client
-
-
-class BootstrapResponse(BaseModel):
-    agent_id: str
-    agent_version: int | None
-    environment_id: str
-    created: bool  # True if we created them this call, False if cached
-
-
-@app.post("/agent/bootstrap", response_model=BootstrapResponse)
-def bootstrap_agent():
-    """Idempotent: creates the medsim attending agent + environment if
-    MEDSIM_AGENT_ID and MEDSIM_ENV_ID aren't set; otherwise returns the
-    cached IDs.
-
-    When `created=True` the caller should persist `agent_id` and
-    `environment_id` into `backend/.env.local` (or the OS environment) so
-    the next startup skips the create calls.
-
-    The whole body runs under ``_bootstrap_lock`` so two racing clients
-    (e.g. Strict Mode double-mount with a cold server) don't each create
-    their own agent + environment.
-    """
-    with _bootstrap_lock:
-        # Re-read env vars under the lock — if an earlier racing call
-        # persisted the IDs (process-wide only; operator still needs to
-        # write .env.local for cross-restart), we skip the create.
-        agent_id = os.environ.get("MEDSIM_AGENT_ID")
-        env_id = os.environ.get("MEDSIM_ENV_ID")
-        if agent_id and env_id:
-            return BootstrapResponse(
-                agent_id=agent_id,
-                agent_version=None,
-                environment_id=env_id,
-                created=False,
-            )
-
-        client = get_anthropic_client()
-        try:
-            env = client.beta.environments.create(  # type: ignore[attr-defined]
-                name=ENV_NAME,
-                config={"type": "cloud", "networking": {"type": "unrestricted"}},
-            )
-            agent = client.beta.agents.create(  # type: ignore[attr-defined]
-                name=AGENT_NAME,
-                model=AGENT_MODEL,
-                system=MEDSIM_ATTENDING_SYSTEM_PROMPT,
-                tools=[
-                    {"type": "agent_toolset_20260401", "default_config": {"enabled": True}},
-                    *MEDSIM_CUSTOM_TOOLS,
-                ],
-            )
-        except Exception as e:
-            _agent_log.exception("bootstrap failed")
-            raise HTTPException(status_code=500, detail=f"bootstrap failed: {e}")
-
-        # Populate the in-process env vars so racing calls inside the same
-        # server process pick up the cached IDs. Operator still needs to
-        # persist them to backend/.env.local for the NEXT server restart.
-        os.environ["MEDSIM_AGENT_ID"] = agent.id
-        os.environ["MEDSIM_ENV_ID"] = env.id
-        _agent_log.info(
-            "bootstrap: created agent %s + env %s — persist these to "
-            "backend/.env.local before restarting the server",
-            agent.id, env.id,
-        )
-
-        return BootstrapResponse(
-            agent_id=agent.id,
-            agent_version=getattr(agent, "version", None),
-            environment_id=env.id,
-            created=True,
-        )
-
-
-class RefreshAgentResponse(BaseModel):
-    agent_id: str
-    version: int | None
-
-
-@app.post("/agent/refresh", response_model=RefreshAgentResponse)
-def refresh_agent():
-    """Push the current in-file system prompt + custom tools up to the
-    existing Agent object, creating a new version. Existing sessions keep
-    their pinned version; new sessions pick up the latest.
-
-    Use this whenever you edit ``MEDSIM_ATTENDING_SYSTEM_PROMPT`` or
-    ``MEDSIM_CUSTOM_TOOLS`` so the change takes effect without creating a
-    whole new Agent."""
-    agent_id = os.environ.get("MEDSIM_AGENT_ID")
-    if not agent_id:
-        raise HTTPException(
-            status_code=400,
-            detail="MEDSIM_AGENT_ID not set. Run /agent/bootstrap first.",
-        )
-    client = get_anthropic_client()
-    try:
-        # update() is optimistic-concurrency: pass the current version so
-        # we don't clobber a concurrent edit.
-        current = client.beta.agents.retrieve(agent_id)  # type: ignore[attr-defined]
-        updated = client.beta.agents.update(  # type: ignore[attr-defined]
-            agent_id,
-            version=current.version,
-            system=MEDSIM_ATTENDING_SYSTEM_PROMPT,
-            tools=[
-                {"type": "agent_toolset_20260401", "default_config": {"enabled": True}},
-                *MEDSIM_CUSTOM_TOOLS,
-            ],
-        )
-    except Exception as e:
-        _agent_log.exception("refresh failed")
-        raise HTTPException(status_code=500, detail=f"refresh failed: {e}")
-    _agent_log.info(
-        "refresh: agent %s bumped to version %s",
-        updated.id, getattr(updated, "version", None),
-    )
-    return RefreshAgentResponse(
-        agent_id=updated.id,
-        version=getattr(updated, "version", None),
-    )
-
-
-class CreateSessionRequest(BaseModel):
-    title: Optional[str] = None
-
-
-class CreateSessionResponse(BaseModel):
-    session_id: str
-
-
-@app.post("/agent/sessions", response_model=CreateSessionResponse)
-def create_session(req: CreateSessionRequest):
-    agent_id = os.environ.get("MEDSIM_AGENT_ID")
-    env_id = os.environ.get("MEDSIM_ENV_ID")
-    if not agent_id or not env_id:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "MEDSIM_AGENT_ID / MEDSIM_ENV_ID not set. Call POST /agent/bootstrap "
-                "first and persist the returned IDs into the environment."
-            ),
-        )
-    client = get_anthropic_client()
-    try:
-        session = client.beta.sessions.create(  # type: ignore[attr-defined]
-            agent=agent_id,
-            environment_id=env_id,
-            title=req.title or "MedSim training shift",
-        )
-    except Exception as e:
-        _agent_log.exception("create_session failed")
-        raise HTTPException(status_code=500, detail=f"create_session failed: {e}")
-    _agent_log.info("create_session: %s", session.id)
-    return CreateSessionResponse(session_id=session.id)
-
-
-@app.get("/agent/sessions/{session_id}")
-async def get_session(session_id: str):
-    """Fetch a session's status + usage. Used by debug tooling; the
-    frontend hook doesn't need this path day-to-day."""
-    client = get_async_anthropic_client()
-    try:
-        session = await client.beta.sessions.retrieve(session_id)  # type: ignore[attr-defined]
-    except Exception as e:
-        _agent_log.exception("get_session failed session_id=%s", session_id)
-        raise HTTPException(status_code=500, detail=f"get_session failed: {e}")
-    return (
-        session.model_dump(mode="json")
-        if hasattr(session, "model_dump")
-        else dict(session)
-    )
-
-
-@app.post("/agent/sessions/{session_id}/events")
-async def send_events(session_id: str, request: Request):
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"invalid JSON body: {e}")
-    events = body.get("events") if isinstance(body, dict) else None
-    if not isinstance(events, list) or not events:
-        raise HTTPException(status_code=400, detail="events must be a non-empty list")
-    # Use the ASYNC client here — this endpoint is `async def`, so calling
-    # the sync client would block uvicorn's event loop thread and starve
-    # the SSE stream handlers running in the same loop.
-    client = get_async_anthropic_client()
-    try:
-        await client.beta.sessions.events.send(  # type: ignore[attr-defined]
-            session_id=session_id, events=events
-        )
-    except Exception as e:
-        _agent_log.exception(
-            "send_events failed session_id=%s event_count=%d",
-            session_id, len(events),
-        )
-        raise HTTPException(status_code=500, detail=f"send_events failed: {e}")
-    return {"ok": True}
-
-
-@app.get("/agent/sessions/{session_id}/events")
-async def list_events(session_id: str, limit: int = 1000):
-    """Paginated history — used by the browser on reconnect to backfill
-    events emitted while the SSE stream was down."""
-    client = get_async_anthropic_client()
-    try:
-        page = await client.beta.sessions.events.list(  # type: ignore[attr-defined]
-            session_id=session_id, limit=limit
-        )
-    except Exception as e:
-        _agent_log.exception("list_events failed session_id=%s", session_id)
-        raise HTTPException(status_code=500, detail=f"list_events failed: {e}")
-    data = getattr(page, "data", None) or []
-    return {
-        "data": [
-            e.model_dump(mode="json") if hasattr(e, "model_dump") else dict(e)
-            for e in data
-        ]
-    }
-
-
-@app.get("/agent/sessions/{session_id}/stream")
-async def stream_events(session_id: str, request: Request):
-    """SSE passthrough. Each Managed-Agents event becomes one SSE
-    ``event:``/``data:`` pair so EventSource in the browser can dispatch
-    by type.
-
-    Uses the ASYNC Anthropic client so long-lived streams cooperate with
-    FastAPI's event loop — a synchronous generator here would tie up a
-    threadpool worker per open stream, and with hot-reloading + Strict
-    Mode double-mount, those streams pile up and saturate the pool,
-    which makes EVERY endpoint (including /health) stop responding.
-
-    Three robustness features:
-      1. ``request.is_disconnected()`` checked on every tick, so the
-         upstream stream is released as soon as the browser closes its
-         EventSource.
-      2. ``asyncio.wait_for`` wraps ``anext`` with a timeout — if no
-         upstream event arrives for ``SSE_KEEPALIVE_SEC`` seconds we
-         emit a comment line (``: keepalive\\n\\n``) to keep the socket
-         warm and to run the disconnect check. Without this the browser
-         (Chrome ~30s, nginx default 60s, corporate proxies often less)
-         can silently drop idle streams.
-      3. Any exception bubbling out of the upstream SDK becomes a
-         ``proxy_error`` SSE event so the client knows the pipe died
-         instead of silently seeing EOF.
-    """
-    client = get_async_anthropic_client()
-
-    async def generator():
-        # Small preamble so proxies don't buffer the response.
-        yield ": connected\n\n"
-        try:
-            # In the async SDK, events.stream() is a coroutine that
-            # resolves to the async context manager — must be awaited
-            # first. Synchronous SDK returns the context manager directly.
-            stream_ctx = await client.beta.sessions.events.stream(  # type: ignore[attr-defined]
-                session_id=session_id
-            )
-            async with stream_ctx as stream:
-                aiter_stream = stream.__aiter__()
-                while True:
-                    if await request.is_disconnected():
-                        break
-                    try:
-                        event = await asyncio.wait_for(
-                            aiter_stream.__anext__(),
-                            timeout=SSE_KEEPALIVE_SEC,
-                        )
-                    except asyncio.TimeoutError:
-                        # No event from upstream in the keepalive window;
-                        # poke the connection and loop to re-check
-                        # is_disconnected.
-                        yield ": keepalive\n\n"
-                        continue
-                    except StopAsyncIteration:
-                        break
-                    payload = (
-                        event.model_dump(mode="json")
-                        if hasattr(event, "model_dump")
-                        else dict(event)
-                    )
-                    etype = payload.get("type", "message")
-                    data = json.dumps(payload, default=str)
-                    yield f"event: {etype}\ndata: {data}\n\n"
-        except asyncio.CancelledError:
-            # Client disconnected mid-await; let it propagate so the
-            # upstream context manager (``async with``) cleans up, but
-            # don't treat it as an error.
-            raise
-        except Exception as e:
-            _agent_log.exception("SSE stream failed session_id=%s", session_id)
-            err = json.dumps({"type": "proxy_error", "message": str(e)})
-            yield f"event: proxy_error\ndata: {err}\n\n"
-
-    return StreamingResponse(
-        generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # disables nginx buffering if behind one
-        },
-    )
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# Credential vault — hospital EHR stub
-# ───────────────────────────────────────────────────────────────────────────
-#
-# Demo of Michael's "credential vault" pattern: a third-party system
-# (fake hospital EHR) needs an auth token to query patient history. The
-# token lives ONLY on the backend (EHR_API_TOKEN env var). The agent's
-# context window never sees it, the browser never sees it, and it never
-# appears in any event written to the Managed Agents session.
-#
-# Flow:
-#   1. Agent emits agent.custom_tool_use name=lookup_ehr_history.
-#   2. Browser receives the event, POSTs to /agent/vault/ehr/lookup.
-#   3. This endpoint attaches EHR_API_TOKEN server-side, calls the fake
-#      EHR (local dict for the demo; would be an HTTP call in prod),
-#      and returns the history JSON.
-#   4. Browser posts the JSON back as user.custom_tool_result.
-#
-# Logging is intentionally token-free — the log line records that the
-# vault was used and which patient was queried, but never the token
-# value. A grep for the token in logs should return zero hits.
-
-FAKE_EHR_RECORDS: dict[str, dict] = {
-    "poly-001": {
-        "patient_id": "poly-001",
-        "name": "Mehmet Demir",
-        "prior_encounters": [
-            {"date": "2025-11-14", "reason": "hypertension follow-up", "bp": "148/92"},
-            {"date": "2025-07-02", "reason": "annual physical", "bp": "140/88"},
-        ],
-        "active_medications": [
-            {"name": "lisinopril", "dose": "10 mg", "frequency": "daily"},
-            {"name": "atorvastatin", "dose": "20 mg", "frequency": "nightly"},
-        ],
-        "allergies": ["penicillin — hives"],
-    },
-    "poly-002": {
-        "patient_id": "poly-002",
-        "name": "Ayşe Kaya",
-        "prior_encounters": [
-            {"date": "2026-01-22", "reason": "asthma exacerbation", "peak_flow": 320},
-        ],
-        "active_medications": [
-            {"name": "albuterol", "dose": "90 mcg", "frequency": "PRN"},
-            {"name": "fluticasone", "dose": "110 mcg", "frequency": "BID"},
-        ],
-        "allergies": [],
-    },
-}
-
-
-class EhrLookupRequest(BaseModel):
-    patient_id: str
-
-
-class EhrLookupResponse(BaseModel):
-    patient_id: str
-    record: dict
-    fetched_via: str  # always "credential-vault"; demo label
-
-
-def _vault_token_configured() -> bool:
-    """Whether the EHR vault is operable. Tests can force a known value
-    by setting ``EHR_API_TOKEN`` in the process environment before
-    importing ``server``."""
-    return bool(os.environ.get("EHR_API_TOKEN"))
-
-
-@app.post("/agent/vault/ehr/lookup", response_model=EhrLookupResponse)
-def vault_ehr_lookup(req: EhrLookupRequest):
-    """Look up a patient's EHR record through the credential vault.
-
-    The browser calls this in response to an
-    ``agent.custom_tool_use`` for ``lookup_ehr_history``. The auth token
-    is read from the server process's environment, attached to the
-    downstream call (simulated here by a dict read), and the result is
-    returned without the token ever appearing in the response body or
-    in any log line.
-    """
-    patient_id = req.patient_id.strip()
-    if not patient_id:
-        raise HTTPException(status_code=400, detail="patient_id is required")
-    if not _vault_token_configured():
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "EHR_API_TOKEN is not configured server-side. Set it in "
-                "backend/.env.local to enable the vault."
-            ),
-        )
-    record = FAKE_EHR_RECORDS.get(patient_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail=f"patient_id not found: {patient_id}")
-    # Token-free log line — demonstrates the vault pattern.
-    _agent_log.info("vault: ehr lookup patient=%s", patient_id)
-    return EhrLookupResponse(
-        patient_id=patient_id,
-        record=record,
-        fetched_via="credential-vault",
-    )
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# ───────────────────────────────────────────────────────────────────────────
-#
-# ───────────────────────────────────────────────────────────────────────────
-# Patient persona streaming — Haiku 4.5
-# ───────────────────────────────────────────────────────────────────────────
-#
-# The browser used to call Anthropic directly with a VITE_ANTHROPIC_API_KEY
-# (dangerouslyAllowBrowser). That shipped the key in every bundle. We now
-# route patient-persona streaming through the backend so the key stays
-# server-side. SSE frames carry `{"text": "..."}` deltas, terminated with
-# `{"done": true}`. The Haiku response is short (max 256 tokens) so we
-# skip the keepalive logic the long-lived agent stream needs.
-
-PATIENT_MODEL = "claude-haiku-4-5"
-PATIENT_MAX_TOKENS = 256
-
-
-class PatientChatMessage(BaseModel):
-    role: str  # 'user' | 'assistant'
-    content: str
-
-
-class PatientStreamRequest(BaseModel):
-    system: str
-    messages: list[PatientChatMessage]
+class PatientTurnRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attemptId: str = Field(min_length=20, max_length=100)
+    question: str = Field(min_length=1, max_length=500)
+    source: Literal["typed", "predefined"]
+    questionId: str | None = Field(default=None, max_length=120)
+    requestId: str | None = Field(default=None, min_length=12, max_length=100)
+
+
+class TranscriptEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["trainee", "patient"]
+    content: str = Field(max_length=2000)
+    timestampIso: str = Field(max_length=80)
+    questionSource: Literal["typed", "predefined"] | None = None
+    attemptId: str = Field(min_length=20, max_length=100)
+
+
+class ExaminationEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    actionId: str = Field(min_length=1, max_length=120)
+    performedAt: float
+    attemptId: str = Field(min_length=20, max_length=100)
+
+
+class PrescriptionEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    medicationId: str = Field(max_length=120)
+    dose: str = Field(max_length=120)
+    duration: str = Field(max_length=120)
+
+
+class CompletionEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    summaryCompleted: bool = False
+    safetyNettingCompleted: bool = False
+    ideasConcernsExpectationsCompleted: bool = False
+
+
+class EvaluationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attemptId: str = Field(min_length=20, max_length=100)
+    caseId: str = Field(max_length=120)
+    caseVersion: str = Field(max_length=120)
+    variantSeed: str = Field(default="", max_length=200)
+    askedQuestionIds: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=128)
+    treatmentIds: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=128)
+    prescriptions: list[PrescriptionEvidence] = Field(default_factory=list, max_length=64)
+    submittedDiagnosisId: str | None = Field(default=None, max_length=120)
+    transcript: list[TranscriptEvidence] = Field(default_factory=list, max_length=256)
+    examinations: list[ExaminationEvidence] = Field(default_factory=list, max_length=64)
+    completionChecks: CompletionEvidence | None = None
+
+
+def _sse(value: dict[str, Any]) -> str:
+    return "data: " + json.dumps(value, separators=(",", ":")) + "\n\n"
+
+
+def _safe_error_category(exc: Exception) -> tuple[str, str, bool]:
+    if isinstance(exc, LLMProviderError):
+        return exc.category, exc.safe_message, exc.retryable
+    if isinstance(exc, TimeoutError):
+        return "response-timeout", "The configured model timed out. Retry the question.", True
+    return "model-unavailable", "The configured model is unavailable. Retry later.", True
 
 
 @app.post("/agent/patient/stream")
-async def patient_stream(req: PatientStreamRequest):
-    client = get_async_anthropic_client()
+async def patient_stream(req: PatientTurnRequest, request: Request):
+    correlation_id = req.requestId or secrets.token_urlsafe(12)
+    with _INVESTIGATION_LOCK:
+        attempt = _get_attempt(request, req.attemptId)
+        cached = attempt["patientResponses"].get(correlation_id)
+        if cached is not None:
+            cached_record = cached if isinstance(cached, dict) else {"text": str(cached), "provenance": "deterministic-authored", "actualModel": None}
+            async def cached_generator():
+                text = cached_record["text"]
+                for offset in range(0, len(text), 32):
+                    yield _sse({"text": text[offset:offset + 32], "correlationId": correlation_id})
+                yield _sse({
+                    "done": True, "correlationId": correlation_id,
+                    "provenance": cached_record.get("provenance"),
+                    "actualModel": cached_record.get("actualModel"),
+                    "matchConfidence": cached_record.get("matchConfidence", 0.0),
+                    "intentId": cached_record.get("intentId"),
+                    "matchedSource": cached_record.get("matchedSource"),
+                })
+            return StreamingResponse(cached_generator(), media_type="text/event-stream")
+        case = attempt["localAiCase"]
+        profile = copy.deepcopy(attempt["patientProfile"])
+        history = copy.deepcopy(attempt["patientMessages"][-8:])
+        authored_value: str | None = None
+        matched_question_id: str | None = None
+        match_confidence = 0.0
+        deterministic_fallback = deterministic_patient_match(
+            case, req.question, is_parent=profile["age"] < 14, profile=profile,
+        )
+        answer_provenance = "deterministic-authored"
+        if req.source == "predefined":
+            authored_value = exact_patient_answer(case, req.questionId)
+            if authored_value is None:
+                raise HTTPException(status_code=422, detail="unknown predefined question")
+            answer = compose_patient_answer(authored_value, req.question, is_parent=profile["age"] < 14)
+            matched_question_id = req.questionId
+            match_confidence = 1.0
+        elif req.questionId is not None:
+            raise HTTPException(status_code=422, detail="typed questions cannot supply a question ID")
+        else:
+            immediate = deterministic_fallback.provenance == "deterministic-authored" or deterministic_fallback.confidence == 1.0
+            answer = deterministic_fallback.response if immediate else None
+            if immediate:
+                answer_provenance = deterministic_fallback.provenance
+                authored_value = deterministic_fallback.authored_value
+                matched_question_id = deterministic_fallback.matched_question_id
+                match_confidence = deterministic_fallback.confidence
+        if attempt["patientRequestActive"]:
+            raise HTTPException(status_code=409, detail="A patient response is already in progress for this encounter.")
+        attempt["patientRequestActive"] = True
 
     async def generator():
+        response_text = ""
+        provenance = answer_provenance
+        actual_model: str | None = None
+        attempted_models: list[str] = []
+        provider_error_category: str | None = None
+        record_authored_value = authored_value
+        record_matched_question_id = matched_question_id
+        record_match_confidence = match_confidence
+        record_intent_id = deterministic_fallback.intent_id
+        record_matched_source = deterministic_fallback.matched_source
         try:
-            async with client.messages.stream(  # type: ignore[attr-defined]
-                model=PATIENT_MODEL,
-                max_tokens=PATIENT_MAX_TOKENS,
-                system=[
-                    {
-                        "type": "text",
-                        "text": req.system,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                messages=[
-                    {"role": m.role, "content": m.content} for m in req.messages
-                ],
-            ) as stream:
-                async for event in stream:
-                    etype = getattr(event, "type", None)
-                    if etype != "content_block_delta":
-                        continue
-                    delta = getattr(event, "delta", None)
-                    if getattr(delta, "type", None) != "text_delta":
-                        continue
-                    text = getattr(delta, "text", "")
-                    if not text:
-                        continue
-                    yield "data: " + json.dumps({"text": text}) + "\n\n"
-            yield "data: " + json.dumps({"done": True}) + "\n\n"
+            if answer is not None:
+                response_text = answer
+            else:
+                provider = get_local_llm_provider()
+                messages = [*history, {"role": "user", "content": req.question.strip()}]
+                try:
+                    completion = await provider.complete_chat(ChatRequest(
+                        system=patient_system_prompt(case, profile),
+                        messages=messages,
+                        max_tokens=80,
+                        temperature=0.1,
+                        request_id=correlation_id,
+                    ))
+                    attempted_models = list(completion.attempted_models)
+                    actual_model = completion.actual_model
+                    response_text = sanitize_patient_response(completion.text, case)
+                    provenance = "safe-unknown" if response_text == SAFE_UNKNOWN_RESPONSE else "openrouter"
+                except Exception as exc:
+                    provider_error_category, _message, _retryable = _safe_error_category(exc)
+                    response_text = deterministic_fallback.response
+                    provenance = deterministic_fallback.provenance
+                    record_authored_value = deterministic_fallback.authored_value
+                    record_matched_question_id = deterministic_fallback.matched_question_id
+                    record_match_confidence = deterministic_fallback.confidence
+            with _INVESTIGATION_LOCK:
+                current = _get_attempt(request, req.attemptId)
+                current["patientMessages"] = [
+                    *current["patientMessages"],
+                    {"role": "user", "content": req.question.strip()},
+                    {"role": "assistant", "content": response_text},
+                ][-16:]
+                current["patientResponses"][correlation_id] = {
+                    "text": response_text, "provenance": provenance,
+                    "actualModel": actual_model, "attemptedModels": attempted_models,
+                    "providerErrorCategory": provider_error_category,
+                    "matchConfidence": record_match_confidence,
+                    "matchedQuestionId": record_matched_question_id,
+                    "authoredValue": record_authored_value,
+                    "intentId": record_intent_id,
+                    "matchedSource": record_matched_source,
+                }
+                if len(current["patientResponses"]) > 16:
+                    current["patientResponses"].pop(next(iter(current["patientResponses"])))
+                recorded_question_id = req.questionId or record_matched_question_id
+                if recorded_question_id and recorded_question_id not in current["askedQuestionIds"]:
+                    current["askedQuestionIds"].append(recorded_question_id)
+                if os.environ.get("MEDSIM_DEBUG_EVIDENCE", "").lower() in {"1", "true", "yes"}:
+                    logging.getLogger("medsim.evidence").info(
+                        "patient-turn attempt=%s source=%s question_id=%s intent=%s provenance=%s",
+                        req.attemptId, req.source, recorded_question_id, record_intent_id, provenance,
+                    )
+            # Buffering and sanitization are complete before any text is emitted.
+            for offset in range(0, len(response_text), 32):
+                yield _sse({"text": response_text[offset:offset + 32], "correlationId": correlation_id})
+                await asyncio.sleep(0)
+            yield _sse({
+                "done": True, "correlationId": correlation_id,
+                "provenance": provenance, "actualModel": actual_model,
+                "matchConfidence": record_match_confidence,
+                "intentId": record_intent_id, "matchedSource": record_matched_source,
+            })
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            _agent_log.exception("patient stream failed")
-            yield "data: " + json.dumps({"error": str(e)}) + "\n\n"
+        except Exception as exc:
+            category, _message, _retryable = _safe_error_category(exc)
+            logging.getLogger("medsim.local_ai").warning("patient inference failed: %s", category)
+            yield _sse({"text": SAFE_UNKNOWN_RESPONSE, "correlationId": correlation_id})
+            yield _sse({"done": True, "correlationId": correlation_id, "provenance": "safe-unknown", "actualModel": None})
+        finally:
+            with _INVESTIGATION_LOCK:
+                try:
+                    _get_attempt(request, req.attemptId)["patientRequestActive"] = False
+                except HTTPException:
+                    pass
 
     return StreamingResponse(
-        generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        generator(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
 
 
-# ───────────────────────────────────────────────────────────────────────────
-# Local patient text-to-speech
-# ───────────────────────────────────────────────────────────────────────────
-#
+@app.post("/api/local-ai/evaluate")
+async def evaluate_encounter(payload: EvaluationRequest, request: Request):
+    with _INVESTIGATION_LOCK:
+        attempt = _get_attempt(request, payload.attemptId)
+        if payload.caseId != attempt["caseId"] or payload.caseVersion != attempt["caseVersion"]:
+            raise HTTPException(status_code=409, detail="attempt provenance mismatch")
+        if payload.variantSeed != attempt["variantSeed"]:
+            raise HTTPException(status_code=409, detail="attempt variant mismatch")
+        if any(item.attemptId != payload.attemptId for item in payload.transcript):
+            raise HTTPException(status_code=409, detail="transcript attempt provenance mismatch")
+        if any(item.attemptId != payload.attemptId for item in payload.examinations):
+            raise HTTPException(status_code=409, detail="examination attempt provenance mismatch")
+        if attempt["evaluationResult"] is not None:
+            return copy.deepcopy(attempt["evaluationResult"])
+        if attempt["evaluationActive"]:
+            raise HTTPException(status_code=409, detail="An evaluation is already in progress for this encounter.")
+        attempt["evaluationActive"] = True
+        case = attempt["localAiCase"]
+        investigation_case = _INVESTIGATION_CASES[attempt["caseId"]]
+        catalogue = {item["testId"]: item for item in investigation_case["investigations"]}
+        server_orders = []
+        for order in attempt["orders"].values():
+            released = order.get("releasedAt") is not None
+            safe_order = _public_order(order, include_result=released)
+            definition = catalogue.get(order["investigationId"], {})
+            safe_order["role"] = definition.get("role")
+            safe_order["availability"] = definition.get("availability")
+            safe_order["released"] = released
+            server_orders.append(safe_order)
+        asked_ids = list(attempt["askedQuestionIds"])
+        ordered_ids = {item["investigationId"] for item in server_orders}
+        essential_ids = {item["testId"] for item in investigation_case["investigations"] if item.get("role") == "essential"}
+        investigation_authority = {
+            "essential_total": len(essential_ids),
+            "essential_ordered": len(essential_ids & ordered_ids),
+            "relevant_ordered": sum(item.get("role") in {"essential", "useful"} for item in server_orders),
+            "harmful_ordered": sum(item.get("role") == "harmful" for item in server_orders),
+            "results_released": sum(bool(item.get("released")) for item in server_orders),
+        }
+
+    evidence = {
+        "asked_question_ids": asked_ids,
+        "transcript": [item.model_dump() for item in payload.transcript],
+        "examinations": [item.model_dump() for item in payload.examinations],
+        "treatments": list(dict.fromkeys(payload.treatmentIds)),
+        "prescriptions": [item.model_dump() for item in payload.prescriptions],
+        "submitted_diagnosis_id": payload.submittedDiagnosisId,
+        "completion_checks": None if payload.completionChecks is None else {
+            "summary_completed": payload.completionChecks.summaryCompleted,
+            "safety_netting_completed": payload.completionChecks.safetyNettingCompleted,
+            "ideas_concerns_expectations_completed": payload.completionChecks.ideasConcernsExpectationsCompleted,
+        },
+        "investigation_authority": investigation_authority,
+    }
+    if os.environ.get("MEDSIM_DEBUG_EVIDENCE", "").lower() in {"1", "true", "yes"}:
+        logging.getLogger("medsim.evidence").info(
+            "debrief attempt=%s case=%s questions=%d transcript=%d examinations=%d investigations=%d treatments=%d prescriptions=%d diagnosis=%s rubric=%s",
+            payload.attemptId, payload.caseId, len(asked_ids), len(payload.transcript), len(payload.examinations),
+            len(server_orders), len(payload.treatmentIds), len(payload.prescriptions), bool(payload.submittedDiagnosisId),
+            ",".join(item["criterionId"] for item in case["evaluation"]["rubric"]),
+        )
+    system, user = evaluation_prompt(case, evidence, server_orders)
+    model_result: dict[str, Any] | None = None
+    actual_model: str | None = None
+    correlation_id = secrets.token_urlsafe(12)
+    error_category: str | None = None
+    provider = get_local_llm_provider()
+    readiness = None
+    try:
+        async with asyncio.timeout(3.5):
+            readiness = await provider.health()
+            if readiness.state != "ready" or readiness.safety_status.startswith("unsafe"):
+                error_category = "low-memory" if readiness.safety_status.startswith("unsafe") else readiness.last_error_category or "evaluation-unavailable"
+            else:
+                completion = await provider.structured_completion(
+                    StructuredRequest(system=system, user=user, max_tokens=700, temperature=0.0, request_id=correlation_id),
+                    EVALUATION_SCHEMA,
+                )
+                actual_model = completion.actual_model
+                if validate_model_evaluation(case, completion.value):
+                    model_result = completion.value
+                error_category = "invalid-evaluator-schema"
+                if model_result is not None:
+                    error_category = None
+    except TimeoutError:
+        error_category = "evaluation-timeout"
+    except LLMProviderError as exc:
+        error_category = exc.category
+        actual_model = exc.actual_model
+    except Exception:
+        error_category = "evaluation-unavailable"
+    result = normalize_evaluation(case, evidence, server_orders, model_result)
+    if result["generation"].pop("rejected_model_evidence", False) and error_category is None:
+        error_category = "ungrounded-evaluator-evidence"
+    result["generation"].update({
+        "error_category": error_category,
+        "provider": readiness.provider if readiness else "deterministic",
+        "configured_model": (readiness.model or None) if readiness else None,
+        "actual_model": actual_model,
+        "request_id": correlation_id,
+    })
+    with _INVESTIGATION_LOCK:
+        current = _get_attempt(request, payload.attemptId)
+        current["evaluationActive"] = False
+        current["evaluationResult"] = copy.deepcopy(result)
+    return result
+
+
+@app.get("/health")
+async def health():
+    try:
+        tts_status = get_tts_manager().health()
+    except TTSConfigurationError as exc:
+        tts_status = {"configured": False, "error": str(exc)}
+    llm = health_dict(await get_local_llm_provider().health())
+    return {
+        "ok": True,
+        "patient_tts": tts_status,
+        "local_ai": llm,
+        "evaluation_mode": llm_settings().evaluation_mode,
+        "patient_ready": llm["state"] == "ready" and not llm["safety_status"].startswith("unsafe"),
+        # Evaluation always has an authoritative deterministic fallback.
+        "evaluator_ready": True,
+        "last_safe_error_category": llm["last_error_category"],
+    }
+
+
 class PatientTTSRequestBody(BaseModel):
     text: str
     caseId: str
@@ -1338,6 +759,10 @@ class PatientTTSRequestBody(BaseModel):
     isPediatric: bool = False
     speed: Optional[float] = None
     language: str = "en"
+    caseVersion: str = Field(default="", max_length=120)
+    isOpeningGreeting: bool = False
+    cacheable: bool = False
+    requestId: str = Field(default="", max_length=100)
 
 
 @app.post("/tts/synthesize")
@@ -1354,6 +779,8 @@ async def synthesize_patient_speech(req: PatientTTSRequestBody):
         result = await get_tts_manager().synthesize(TTSRequest(
             text=req.text, case_id=req.caseId, gender=req.gender,
             is_pediatric=req.isPediatric, speed=req.speed, language=req.language,
+            case_version=req.caseVersion, is_opening_greeting=req.isOpeningGreeting,
+            cacheable=req.cacheable, request_id=req.requestId,
         ))
     except (TTSConfigurationError, TTSProviderError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -1364,6 +791,7 @@ async def synthesize_patient_speech(req: PatientTTSRequestBody):
             "Cache-Control": "no-store",
             "X-Patient-TTS-Provider": result.provider,
             "X-Patient-TTS-Voice": result.voice,
+            "X-Patient-TTS-Cache": "hit" if result.cache_hit else "miss",
             "X-Patient-TTS-Normalized": result.synthesized_text.encode("ascii", "ignore").decode("ascii")[:500],
         },
     )

@@ -23,7 +23,7 @@ const CARDS: Card[] = [
     bg: 'var(--mint)',
     title: 'How it works.',
     body:
-      'Pick a clinic. The next patient is called in. You speak; they answer in conversation. You order labs, prescribe, counsel, refer. At the end, a senior clinician walks you through what you did well and what to work on. Five to eight minutes per case. Patient conversations powered by Claude Opus 4.7.',
+      'Pick a clinic. The next patient is called in. You speak; they answer in conversation. You order labs, prescribe, counsel, refer. At the end, a structured debrief walks you through what you did well and what to work on. Five to eight minutes per case. Patient conversations use the model provider configured securely by the backend.',
     icon: <Doodle kind="cross" size={140} color="#F47A92" />,
     tag: '02 · the loop',
   },

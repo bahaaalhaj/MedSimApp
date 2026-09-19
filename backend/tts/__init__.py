@@ -9,6 +9,7 @@ from .providers import (
     get_tts_manager,
     load_tts_settings,
 )
+from .kokoro_cache import inspect_kokoro_cache
 
 __all__ = [
     "PatientTTSProvider",
@@ -18,4 +19,5 @@ __all__ = [
     "TTSResult",
     "get_tts_manager",
     "load_tts_settings",
+    "inspect_kokoro_cache",
 ]

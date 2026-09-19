@@ -22,6 +22,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
   const [volume, setVolume] = useState(0.85);
   const [muted, setMuted] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [responseError, setResponseError] = useState('');
 
   // Hook into the live conversation. We resync on mount AND poll for the
   // first 2s in case the conversation hasn't been created yet (e.g. the
@@ -68,6 +69,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
       if (conv) {
         setStatus(conv.getStatus());
         setAudioError(conv.getLastAudioError());
+        setResponseError(conv.getLastResponseError());
       }
     }, 500);
 
@@ -80,16 +82,18 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
 
   const firstName = patientName.split(' ')[0];
   const statusLabel =
-    status === 'thinking' ? 'THINKING…' :
+    status === 'preparing' ? 'PREPARING…' :
+    status === 'streaming' ? 'TEXT STREAMING…' :
+    status === 'audio-preparing' ? 'PREPARING AUDIO…' :
     status === 'speaking' ? `${firstName.toUpperCase()} SPEAKING` :
     status === 'loading' ? 'CONNECTING…' :
     status === 'ready' ? 'LIVE' :
     'OFFLINE';
 
-  const live = status === 'speaking' || status === 'thinking' || status === 'ready';
+  const live = ['speaking', 'preparing', 'streaming', 'audio-preparing', 'ready'].includes(status);
   const statusColor =
     status === 'speaking' ? 'var(--peach-deep)' :
-    status === 'thinking' ? 'var(--butter-deep)' :
+    ['preparing', 'streaming', 'audio-preparing'].includes(status) ? 'var(--butter-deep)' :
     live ? 'var(--mint-deep)' : 'var(--ink-soft)';
 
   const showSubtitle = !!subtitle.text && subtitle.text !== '…';
@@ -180,6 +184,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
         <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.replayLastResponse()}>↻</button>
       </div>
       {audioError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{audioError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retrySpeech()}>Retry audio</button></div>}
+      {responseError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{responseError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retryLastResponse()}>Retry response</button></div>}
 
       <div
         ref={scrollRef}

@@ -51,13 +51,13 @@ test('patient selection uses only the outpatient catalogue', () => {
   assert.match(library, /setFilter\(chip\.id\)/);
 });
 
-test('outpatient completion snapshots once and continues to confirmation and debrief', () => {
+test('outpatient completion snapshots once and transitions directly to debrief', () => {
   const encounter = read('src/components/EncounterScreen.tsx');
-  const confirmation = read('src/components/EndConfirmScreen.tsx');
+  const store = read('src/game/store.ts');
   assert.doesNotMatch(encounter, /pickNextCaseId\(\)/);
-  assert.match(encounter, /store\.setScreen\('endConfirm'\)/);
-  assert.match(confirmation, /store\.finishPolyclinicCase\(\)/);
-  assert.match(confirmation, /store\.setScreen\('debrief'\)/);
+  assert.match(encounter, /store\.finishPolyclinicCase\(true\)/);
+  assert.match(encounter, /finishingRef\.current/);
+  assert.match(store, /navigateToDebrief[\s\S]*screen: 'debrief'/);
 });
 
 test('protected screens are replaced by auth without an account or guest identity', () => {

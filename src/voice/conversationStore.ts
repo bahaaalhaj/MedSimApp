@@ -1,7 +1,8 @@
 import { Conversation, type ConversationListeners } from './conversation';
-import { buildPersona, buildInitialLine, isPediatric, parentGenderFor } from './patientPersona';
+import { buildInitialLine, isPediatric, parentGenderFor } from './patientPersona';
 import type { PatientCase } from '../game/types';
 import { store as gameStore } from '../game/store';
+import { caseVersionFor } from '../clinical/cases';
 
 let sharedCtx: AudioContext | null = null;
 
@@ -57,11 +58,15 @@ export function getOrCreatePatientConversation(
     ? parentGenderFor(patientCase)
     : patientCase.gender;
   const conv = new Conversation(ctx, listeners, {
-    systemPrompt: buildPersona(patientCase),
     initialMessage: buildInitialLine(patientCase),
     speakerGender,
     isPediatric: isPediatric(patientCase),
     caseId: patientCase.id,
+    caseVersion: caseVersionFor(patientCase.id),
+    ensureAttempt: async () => {
+      await gameStore.initializeInvestigationAttempt();
+      return gameStore.getState().polyclinic.patient?.investigationAttemptId ?? null;
+    },
     onTranscript: (record) => {
       const active = gameStore.getState().polyclinic.patient;
       if (!active || active.case.id !== patientCase.id) return;

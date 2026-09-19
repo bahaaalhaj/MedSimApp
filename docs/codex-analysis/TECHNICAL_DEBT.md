@@ -1,4 +1,6 @@
-# Technical Debt and Risks
+# Technical Debt and Risks (archived pre-local-AI audit)
+
+> Historical snapshot retained for migration context; validate every item against current code.
 
 ## Critical
 

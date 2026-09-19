@@ -1,25 +1,58 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import types
 import unittest
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 from tts.providers import (
     ChatterboxTTSProvider,
     DisabledTTSProvider,
+    KokoroTTSProvider,
+    TTSManager,
+    TTSRequest,
+    TTSResult,
     TTSConfigurationError,
     load_tts_settings,
     normalize_for_speech,
     select_device,
 )
+from tts.kokoro_cache import inspect_kokoro_cache
 import asyncio
+from tts.audio_cache import PersistentAudioCache
 
 
 class TTSConfigurationTests(unittest.TestCase):
+    def test_persistent_cache_round_trip_is_atomic_and_content_addressed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = PersistentAudioCache(temporary, 64 * 1024 * 1024)
+            metadata = cache.metadata(case_version="1", normalized_text="hello", voice="af_heart", speed=1.0, model_revision="rev")
+            wav = b"RIFF" + (b"\0" * 4) + b"WAVE" + (b"\0" * 36)
+            key = cache.put(metadata, wav)
+            self.assertEqual(cache.get(metadata), wav)
+            self.assertTrue((Path(temporary) / f"{key}.wav").exists())
+            self.assertFalse(list(Path(temporary).glob("*.incomplete")))
+
     def test_kokoro_is_default(self):
         settings = load_tts_settings({})
         self.assertEqual(settings.provider, "kokoro")
         self.assertEqual(settings.device, "auto")
+        self.assertEqual(settings.model_cache_dir, "~/.cache/huggingface")
+
+    def test_missing_cache_reports_safe_setup_without_loading_kokoro(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inspect_kokoro_cache.cache_clear()
+            settings = load_tts_settings({
+                "PATIENT_TTS_PROVIDER": "kokoro",
+                "PATIENT_TTS_MODEL_CACHE_DIR": temporary,
+            })
+            health = TTSManager(settings).health()
+            self.assertEqual(health["state"], "failed")
+            self.assertEqual(health["error_category"], "tts-model-missing")
+            self.assertIn("prepare_kokoro.py", str(health["setup_instruction"]))
+            self.assertNotIn("kokoro", sys.modules)
 
     def test_cuda_falls_back_to_cpu(self):
         fake_torch = types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda: False))
@@ -59,6 +92,52 @@ class TTSConfigurationTests(unittest.TestCase):
 
     def test_pronunciation_normalization_is_separate_from_transcript(self):
         self.assertEqual(normalize_for_speech("BP 120 mmHg [hidden]"), "blood pressure 120 millimetres of mercury hidden")
+
+    def test_background_preload_is_single_and_reports_ready(self):
+        async def run():
+            manager = TTSManager(load_tts_settings({"PATIENT_TTS_DEVICE": "cpu"}))
+            provider = KokoroTTSProvider(manager.settings)
+            provider.warm_up = AsyncMock()  # type: ignore[method-assign]
+            manager._provider = provider
+            status = types.SimpleNamespace(ready=True, revision="test-revision", public_dict=lambda: {"state": "ready"})
+            with patch("tts.providers.inspect_kokoro_cache", return_value=status):
+                first = manager.start_preload()
+                second = manager.start_preload()
+                self.assertIs(first, second)
+                self.assertEqual(manager.health()["state"], "loading")
+                await first
+                self.assertEqual(manager.health()["state"], "ready")
+                provider.warm_up.assert_awaited_once()
+        asyncio.run(run())
+
+    def test_opening_greeting_audio_cache_is_bounded_and_reused(self):
+        async def run():
+            manager = TTSManager(load_tts_settings({"PATIENT_TTS_DEVICE": "cpu"}))
+            provider = KokoroTTSProvider(manager.settings)
+            expected = TTSResult(b"wav", "audio/wav", 24000, "kokoro", "af_heart", "Hello.", "Hello.")
+            provider.synthesize = AsyncMock(return_value=expected)  # type: ignore[method-assign]
+            manager._provider = provider
+            request = TTSRequest("Hello.", "case-1", "F", case_version="1.1.0", is_opening_greeting=True)
+            first = await manager.synthesize(request)
+            second = await manager.synthesize(request)
+            self.assertFalse(first.cache_hit)
+            self.assertTrue(second.cache_hit)
+            provider.synthesize.assert_awaited_once()
+            self.assertEqual(len(manager._audio_cache), 1)
+        asyncio.run(run())
+
+    def test_authored_audio_cache_key_includes_version_voice_speed_and_revision(self):
+        manager = TTSManager(load_tts_settings({"PATIENT_TTS_DEVICE": "cpu"}))
+        provider = KokoroTTSProvider(manager.settings)
+        manager._provider = provider
+        base = TTSRequest("It usually happens in spring.", "case-1", "F", case_version="1", cacheable=True)
+        with patch("tts.providers.inspect_kokoro_cache", return_value=types.SimpleNamespace(revision="rev-a")):
+            key = manager._cache_key(base, provider)
+            self.assertNotEqual(key, manager._cache_key(TTSRequest(**{**base.__dict__, "case_version": "2"}), provider))
+            self.assertNotEqual(key, manager._cache_key(TTSRequest(**{**base.__dict__, "gender": "M"}), provider))
+            self.assertNotEqual(key, manager._cache_key(TTSRequest(**{**base.__dict__, "speed": 1.1}), provider))
+        with patch("tts.providers.inspect_kokoro_cache", return_value=types.SimpleNamespace(revision="rev-b")):
+            self.assertNotEqual(key, manager._cache_key(base, provider))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const root = resolve(import.meta.dirname, '../..');
+const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
+
+test('patient text has one bounded hosted deadline and no sequential Pro request', () => {
+  const provider = read('backend/local_llm.py');
+  assert.match(provider, /patient_timeout_seconds: float = 3\.0/);
+  assert.match(provider, /min\(self\.settings\.patient_timeout_seconds, 3\.0\)/);
+  assert.match(provider, /return \(self\.settings\.patient_model,\)/);
+});
+
+test('Kokoro lifecycle is singleton, preloaded once, offline, queued and cached', () => {
+  const tts = read('backend/tts/providers.py');
+  const cache = read('backend/tts/kokoro_cache.py');
+  assert.match(tts, /if self\._preload_task is not None/);
+  assert.match(tts, /asyncio\.Semaphore\(4\)/);
+  assert.match(tts, /self\._audio_cache_limit = 64/);
+  assert.match(tts, /request\.case_version, normalized, provider\._voice\(request\), round\(speed, 3\), revision/);
+  assert.match(cache, /HF_HUB_OFFLINE.*"1"/);
+  assert.match(cache, /TRANSFORMERS_OFFLINE.*"1"/);
+});
+
+test('deterministic and safe-unknown audio are cacheable while model text is not', () => {
+  const conversation = read('src/voice/conversation.ts');
+  assert.match(conversation, /patientProvenance !== 'openrouter'/);
+  assert.match(conversation, /cacheable,/);
+  assert.match(conversation, /X-Patient-TTS-Cache/);
+});
+
+test('actual Finish consultation controls call immediate idempotent finalization', () => {
+  const encounter = read('src/components/EncounterScreen.tsx');
+  const overlay = read('src/components/ExamineOverlay.tsx');
+  assert.match(encounter, /onClick=\{\(e\) => \{[\s\S]*endConsultation\(\)/);
+  assert.match(overlay, /onClick=\{onFinish\}[\s\S]*Finish consultation/);
+  assert.match(encounter, /if \(finishingRef\.current\) return/);
+  assert.match(encounter, /finishPolyclinicCase\(true\)[\s\S]*disposePatientConversation\(POLYCLINIC_BED_INDEX\)/);
+  assert.doesNotMatch(encounter, /sayFarewell/);
+});
+
+test('Finish validation is visible and actionable', () => {
+  const encounter = read('src/components/EncounterScreen.tsx');
+  const overlay = read('src/components/ExamineOverlay.tsx');
+  assert.match(encounter, /!active\?\.submittedDiagnosisId/);
+  assert.match(encounter, /Open Examine, choose Diagnose/);
+  assert.match(encounter, /role="alert"/);
+  assert.match(overlay, /finishError[\s\S]*role="alert"/);
+});
+
+test('debrief starts after navigation, shows loading, and has deterministic API-failure fallback', () => {
+  const debrief = read('src/components/DebriefScreen.tsx');
+  const hook = read('src/agents/useLocalDebrief.ts');
+  const fallback = read('src/agents/deterministicEvaluation.ts');
+  assert.match(debrief, /status === 'starting' \|\| status === 'idle'/);
+  assert.match(debrief, /status === 'streaming'/);
+  assert.match(hook, /buildConservativeDeterministicEvaluation/);
+  assert.match(hook, /12_000/);
+  assert.match(fallback, /mode: 'deterministic-fallback'/);
+});
+
+test('evaluation persistence remains exactly-once guarded', () => {
+  const debrief = read('src/components/DebriefScreen.tsx');
+  assert.match(debrief, /if \(savedRef\.current\) return/);
+  assert.match(debrief, /savedRef\.current = true/);
+});

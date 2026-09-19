@@ -6,19 +6,20 @@ import { POLYCLINIC_DIAGNOSIS_LABELS, getCaseSpecialty } from '../data/polyclini
 import { MEDICATIONS, CATEGORY_LABELS, SPECIALTY_MEDICATION_CATEGORIES, medicationById, type Medication, type MedicationCategory } from '../data/medications';
 import { CLINIC_LABELS } from '../game/clinic';
 import { getExistingConversation } from '../voice/conversationStore';
-import type { ChatMessage } from '../voice/claude';
+import type { ConversationMessage } from '../voice/conversation';
 
-type Tab = 'history' | 'chat' | 'tests' | 'results' | 'diagnose' | 'rx';
+type Tab = 'history' | 'chat' | 'examination' | 'tests' | 'results' | 'diagnose' | 'rx';
 
 interface Props {
   onClose: () => void;
   onFinish: () => void;
+  finishError?: string;
 }
 
 const diagLabel = (id: string): string =>
   POLYCLINIC_DIAGNOSIS_LABELS[id] ?? id.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 
-export function ExamineOverlay({ onClose, onFinish }: Props) {
+export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
   const state = useGameState();
   const patient = state.polyclinic.patient;
   const [tab, setTab] = useState<Tab>('history');
@@ -46,6 +47,7 @@ export function ExamineOverlay({ onClose, onFinish }: Props) {
   const tabs: Array<{ id: Tab; label: string; badge?: number | string; disabled?: boolean }> = [
     { id: 'history', label: 'History', badge: `${asked.size}/${c.anamnesis.length}` },
     { id: 'chat', label: 'Chat' },
+    { id: 'examination', label: 'Examination', badge: patient.examinationActions.length || undefined },
     { id: 'tests', label: 'Order tests' },
     { id: 'results', label: 'Results', badge: newResultsCount > 0 ? newResultsCount : undefined },
     { id: 'diagnose', label: 'Diagnose' },
@@ -193,6 +195,11 @@ export function ExamineOverlay({ onClose, onFinish }: Props) {
 
         {/* Tab body */}
         <div style={{ padding: 22, overflowY: 'auto', flex: 1 }}>
+          {finishError && (
+            <div role="alert" style={{ padding: '10px 12px', marginBottom: 14, background: 'var(--rose)', border: '3px solid var(--line)', borderRadius: 12, fontWeight: 800 }}>
+              {finishError}
+            </div>
+          )}
           <div
             style={{
               padding: '12px 14px',
@@ -211,6 +218,7 @@ export function ExamineOverlay({ onClose, onFinish }: Props) {
 
           {tab === 'history' && <HistoryTab patient={patient} />}
           {tab === 'chat' && <ChatTab patient={patient} />}
+          {tab === 'examination' && <ExaminationTab patient={patient} />}
           {tab === 'tests' && <TestsTab patient={patient} />}
           {tab === 'results' && <ResultsTab patient={patient} />}
           {tab === 'diagnose' && (
@@ -356,9 +364,9 @@ function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGam
                 }
                 setQuestionError('');
                 setSubmittingId(q.id);
-                await conversation.sendTextMessage(q.question, 'predefined');
+                await conversation.sendTextMessage(q.question, 'predefined', q.id);
                 if (conversation.getStatus() === 'error') {
-                  setQuestionError('The patient could not respond. Please retry the question.');
+                  setQuestionError(conversation.getLastResponseError() || 'The local patient response failed. Please retry the question.');
                 } else {
                   store.askPolyclinicQuestion(q.id);
                 }
@@ -1004,15 +1012,31 @@ function DiagnoseTab({
 
 // ── Chat tab — live voice transcript ─────────────────────────────
 
+function ExaminationTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
+  const actions = [
+    { id: 'general-observation', label: 'General observation', detail: 'Record a general visual assessment.' },
+    { id: 'record-vital-signs', label: 'Review vital signs', detail: 'Record review of the displayed observations.' },
+    { id: 'focused-examination', label: 'Focused examination', detail: 'Record a focused physical examination. Detailed findings are not modeled.' },
+  ];
+  const recorded = new Set(patient.examinationActions.map((item) => item.actionId));
+  return <div style={{ display: 'grid', gap: 10 }}>
+    <p style={{ margin: 0, fontWeight: 700 }}>Choose each examination action you performed. This records the action without inventing findings.</p>
+    {actions.map((action) => <button key={action.id} type="button" className="btn-plush ghost" disabled={recorded.has(action.id)} onClick={() => store.recordExaminationAction(action.id)} style={{ textAlign: 'left', padding: 14 }}>
+      <strong>{recorded.has(action.id) ? 'Recorded: ' : ''}{action.label}</strong><br /><span style={{ fontSize: 12 }}>{action.detail}</span>
+    </button>)}
+  </div>;
+}
+
 function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
   const patientName = patient.case.name;
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
-  const [messages, setMessages] = useState<ReadonlyArray<ChatMessage>>(() => {
+  const [messages, setMessages] = useState<ReadonlyArray<ConversationMessage>>(() => {
     const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
     return conv ? conv.getMessages() : [];
   });
+  const [, setAudioRevision] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Subscribe to live message updates so the chat history updates while
@@ -1022,7 +1046,9 @@ function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameSt
     const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
     if (!conv) return;
     setMessages(conv.getMessages());
-    return conv.subscribeMessages((msgs) => setMessages(msgs));
+    const unsubscribeMessages = conv.subscribeMessages((msgs) => setMessages(msgs));
+    const unsubscribeAudio = conv.subscribeAudioStates(() => setAudioRevision((value) => value + 1));
+    return () => { unsubscribeMessages(); unsubscribeAudio(); };
   }, []);
 
   // Auto-scroll to the latest message whenever new ones come in.
@@ -1059,7 +1085,7 @@ function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameSt
     await conversation.sendTextMessage(text, 'typed');
     if (conversation.getStatus() === 'error') {
       setDraft(text);
-      setSendError('The patient could not respond. Your question was restored so you can retry.');
+      setSendError(`${conversation.getLastResponseError() || 'The local patient response failed.'} Your question was restored so you can retry.`);
     }
     setSending(false);
   };
@@ -1109,6 +1135,14 @@ function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameSt
               {mine ? 'You' : patientName.split(' ')[0]}
             </div>
             {m.content}
+            {!mine && m.audioTurnId && (() => {
+              const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
+              const audioState = conversation?.getAudioTurnState(m.audioTurnId);
+              return <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', fontSize: 10 }}>
+                <span>Audio: {audioState ?? 'not requested'}</span>
+                {(audioState === 'played' || audioState === 'error') && <button type="button" onClick={() => conversation?.replayTurn(m.audioTurnId!)} style={{ font: 'inherit' }}>Replay</button>}
+              </div>;
+            })()}
           </div>
         );
       })}

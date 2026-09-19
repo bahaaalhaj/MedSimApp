@@ -1,4 +1,6 @@
-# Repository Map
+# Repository Map (archived pre-local-AI audit)
+
+> Historical snapshot only. See `docs/local-ai-architecture.md` for the current runtime.
 
 ## Roots and entry points
 

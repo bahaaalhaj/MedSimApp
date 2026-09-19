@@ -30,8 +30,8 @@ There is no mode-selection step or Emergency Room application mode.
 - Laboratory and imaging orders with simulated results.
 - Diagnosis selection, prescription, encounter snapshot, debrief, and history.
 - Account authentication plus device-local guest mode.
-- Managed Agent custom tools for outpatient vitals, timeline, evaluation,
-  critical-finding confirmation, and protected EHR-history lookup.
+- Owner-bound local patient streaming and a server-owned hybrid evaluation
+  endpoint with deterministic fallback.
 
 Urgent and critical labels remain valid for outpatient red flags that require
 immediate escalation or referral. They do not represent another product mode.

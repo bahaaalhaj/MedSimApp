@@ -1,8 +1,4 @@
-// Builds the [debrief request] payload sent to the medsim-attending Managed
-// Agent at end-of-encounter. The agent's system prompt (DEBRIEF MODE in
-// backend/server.py) declares the exact contract: case_id, rubric,
-// registry_slice, encounter_log. This module produces that JSON from the
-// in-memory PatientCase + ActivePatient.
+// Builds encounter evidence for the local backend evaluation endpoint.
 
 import type {
   ActivePatient,
@@ -24,6 +20,7 @@ import { CLINICAL_CASE_BY_ID } from '../clinical/cases.ts';
 import { investigationResultText } from '../clinical/investigations.ts';
 
 export interface DebriefRequest {
+  investigation_attempt_id: string | null;
   case_id: string;
   case_version: string;
   rubric_version: string;
@@ -74,6 +71,7 @@ export interface DebriefRequest {
       treatment_name: string;
       was_critical: boolean;
     }>;
+    examinations_performed: Array<{ action_id: string; performed_at: number; attempt_id: string }>;
     prescriptions: Array<{
       medication_id: string;
       dose: string;
@@ -160,6 +158,7 @@ export function buildDebriefRequest(
   }));
 
   return {
+    investigation_attempt_id: patient.investigationAttemptId,
     case_id: c.id,
     case_version: patient.caseVersion,
     rubric_version: patient.rubricVersion,
@@ -183,6 +182,7 @@ export function buildDebriefRequest(
       history_questions_asked,
       tests_ordered,
       treatments_given,
+      examinations_performed: (patient.examinationActions ?? []).map((item) => ({ action_id: item.actionId, performed_at: item.performedAt, attempt_id: item.attemptId })),
       prescriptions,
       submitted_diagnosis_id: patient.submittedDiagnosisId,
       diagnosis_was_correct:
@@ -215,26 +215,10 @@ function canonicalRubric(canonical: NonNullable<ReturnType<typeof CLINICAL_CASE_
       weight: criterion.weight,
       framework: criterion.domain === 'communication' ? 'SEGUE' : 'PLAB2',
       evidence: criterion.observableEvidence.join(' '),
+      source_domain: criterion.domain,
     });
   }
   return { ...mapped, global_rating: 'borderline-regression' };
-}
-
-/** Encode the request as a single chat-message text block. The agent
- *  reads it from the user.message it receives — no separate channel
- *  exists in the Managed Agents API, so we prefix a stable header to
- *  make the trigger unambiguous in the system prompt's DEBRIEF MODE. */
-export function debriefRequestToUserMessage(req: DebriefRequest): string {
-  return [
-    '[debrief request]',
-    'The trainee has ended the encounter. Grade against the rubric and',
-    'emit exactly one render_case_evaluation tool use. Use ONLY recIds',
-    'from registry_slice.recommendations[].recId.',
-    '',
-    '```json',
-    JSON.stringify(req, null, 2),
-    '```',
-  ].join('\n');
 }
 
 function collectRegistrySlice(rubric: CaseRubric): DebriefRequest['registry_slice'] {

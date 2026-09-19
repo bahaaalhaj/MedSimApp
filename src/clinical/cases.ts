@@ -304,6 +304,11 @@ export const CLINICAL_CASES: ClinicalCase[] = Object.entries(CURATED_CASE_IDS_BY
   .flatMap(([specialtyId, ids]) => ids.map((caseId) => rebuiltCase(caseId, specialtyId as ClinicalCase['specialtyId'])));
 export const CLINICAL_CASE_BY_ID = new Map(CLINICAL_CASES.map((c) => [c.caseId, c]));
 
+/** Server-manifest build helper. Never use this object as a browser DTO. */
+export function getServerPatientSource(caseId: string): PatientCase | undefined {
+  return LEGACY_BY_ID.get(caseId);
+}
+
 export function reviewStatusForCase(caseId: string): ClinicalCase['reviewStatus'] | 'legacy-unreviewed' {
   return CLINICAL_CASE_BY_ID.get(caseId)?.reviewStatus ?? 'legacy-unreviewed';
 }

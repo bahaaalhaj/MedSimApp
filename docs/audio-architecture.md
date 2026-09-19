@@ -35,12 +35,14 @@ Only transcript response text is sent to TTS. Pronunciation normalization operat
 | `PATIENT_TTS_PROVIDER` | `kokoro` | `kokoro`, `chatterbox`, or `disabled` |
 | `PATIENT_TTS_DEVICE` | `auto` | `auto`, `cuda`, or `cpu` |
 | `PATIENT_TTS_FALLBACK` | `disabled` | Failure fallback; may be `kokoro` for Chatterbox |
-| `PATIENT_TTS_MODEL_CACHE_DIR` | library default | Model cache outside Git |
+| `PATIENT_TTS_MODEL_CACHE_DIR` | `~/.cache/huggingface` | Canonical model cache outside Git |
 | `PATIENT_TTS_ENABLE_CHATTERBOX` | `false` | Required before Chatterbox can load |
 | `PATIENT_TTS_SPEED` | `1.0` | Kokoro rate, constrained to 0.7–1.3 |
 | `PATIENT_TTS_LANGUAGE` | `en` | `en`, or `ar` with Chatterbox |
 
-Configuration is validated without loading either model. `/health` reports configuration but deliberately does not trigger model download.
+Prepare the cache explicitly with `backend/.venv/Scripts/python.exe backend/prepare_kokoro.py`. Configuration and all four selected voices are integrity-checked without loading the model. Only after the cache passes does runtime set Hugging Face offline mode and import Kokoro. `/health` never downloads; missing files produce `tts-model-missing` and the setup command.
+
+FastAPI starts one background Kokoro preload and discarded warm-up utterance. Readiness is `loading`, `ready`, or `failed`; patient text never waits for it. Deterministic opening audio is cached in memory by case, case version, voice, speed, and text with a 32-entry LRU bound.
 
 ## Hardware and cleanup
 
@@ -59,7 +61,8 @@ Implement `PatientTTSProvider.synthesize`, add the provider name to configuratio
 
 ## Troubleshooting
 
-- `Kokoro could not start`: install `backend/requirements-tts.txt`, install `espeak-ng`, and restart.
+- `tts-model-missing`: run `backend/.venv/Scripts/python.exe backend/prepare_kokoro.py`, then restart.
+- `Kokoro could not start` with a ready cache: install `backend/requirements-tts.txt`, install `espeak-ng`, and restart.
 - Speech text appears but audio does not: interact with the page once to satisfy browser autoplay rules, check `/health`, then use Retry audio.
 - CUDA falls back to CPU: install a CUDA-compatible PyTorch build or set `PATIENT_TTS_DEVICE=cpu` explicitly.
 - Chatterbox is disabled: install its package and set both the provider and feature flag; it intentionally cannot auto-enable.

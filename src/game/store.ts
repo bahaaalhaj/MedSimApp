@@ -89,6 +89,7 @@ function hasEncounterActivity(p: ActivePatient): boolean {
   return (
     p.askedQuestionIds.length > 0 ||
     p.transcript.some((entry) => entry.role === 'trainee') ||
+    p.examinationActions.length > 0 ||
     p.orderedTestIds.length > 0 ||
     p.givenTreatmentIds.length > 0 ||
     (p.prescriptions?.length ?? 0) > 0 ||
@@ -105,6 +106,7 @@ function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): 
     status: 'in-bed',
     askedQuestionIds: [],
     transcript: [],
+    examinationActions: [],
     encounterAttemptId: `${c.id}-${now}-${Math.random().toString(36).slice(2, 10)}`,
     orderedTestIds: [],
     testOrderedAt: {},
@@ -138,6 +140,7 @@ class Store {
   };
 
   private listeners = new Set<() => void>();
+  private investigationInitPromise: Promise<string | null> | null = null;
 
   getState = (): GameState => this.state;
 
@@ -253,14 +256,17 @@ class Store {
    *
    *  Only overwrites `lastEncounter` if the snapshot has actual encounter
    *  activity. Otherwise the previous snapshot is preserved. */
-  finishPolyclinicCase = () => {
+  finishPolyclinicCase = (navigateToDebrief = false): boolean => {
     const current = this.state.polyclinic.patient;
+    if (!current) return false;
     const snapshot = current ? { ...current, encounterChecks: { ...this.state.endConfirm } } : null;
     const keepSnapshot = snapshot && hasEncounterActivity(snapshot);
     this.set({
       polyclinic: { ...this.state.polyclinic, patient: null },
       lastEncounter: keepSnapshot ? snapshot : this.state.lastEncounter,
+      ...(navigateToDebrief ? { screen: 'debrief' as const } : {}),
     });
+    return Boolean(keepSnapshot);
   };
 
   // ── per-screen state ──────────────────────────
@@ -333,17 +339,45 @@ class Store {
       return { ...p, transcript: [...p.transcript, entry] };
     });
 
+  recordExaminationAction = (actionId: string) =>
+    this.updatePolyclinicPatient((p) => p.examinationActions.some((item) => item.actionId === actionId)
+      ? p
+      : { ...p, examinationActions: [...p.examinationActions, {
+        actionId, performedAt: Date.now(), attemptId: p.investigationAttemptId ?? p.encounterAttemptId,
+      }] });
+
   initializeInvestigationAttempt = async () => {
     const patient = this.state.polyclinic.patient;
-    if (!patient || patient.investigationAttemptId || patient.investigationAttemptStatus === 'ready') return;
-    try {
-      const attempt = await createInvestigationAttempt(patient.case.id, patient.caseVersion);
-      this.updatePolyclinicPatient((current) => current.case.id !== patient.case.id ? current : {
-        ...current, investigationAttemptId: attempt.attemptId, investigationAttemptStatus: 'ready', investigationCatalogue: attempt.investigations,
-      });
-    } catch {
-      this.updatePolyclinicPatient((current) => ({ ...current, investigationAttemptStatus: 'error' }));
-    }
+    if (!patient) return null;
+    if (patient.investigationAttemptId) return patient.investigationAttemptId;
+    if (this.investigationInitPromise) return this.investigationInitPromise;
+    this.investigationInitPromise = (async () => {
+      try {
+        const attempt = await createInvestigationAttempt(
+          patient.case.id,
+          patient.caseVersion,
+          patient.variantSeed,
+          patient.encounterAttemptId,
+          { displayName: patient.case.name, age: patient.case.age, chiefComplaint: patient.case.chiefComplaint },
+        );
+        this.updatePolyclinicPatient((current) => current.case.id !== patient.case.id ? current : {
+          ...current,
+          encounterAttemptId: attempt.attemptId,
+          investigationAttemptId: attempt.attemptId,
+          investigationAttemptStatus: 'ready',
+          investigationCatalogue: attempt.investigations,
+          transcript: current.transcript.map((entry) => ({ ...entry, attemptId: attempt.attemptId })),
+          examinationActions: current.examinationActions.map((entry) => ({ ...entry, attemptId: attempt.attemptId })),
+        });
+        return attempt.attemptId;
+      } catch {
+        this.updatePolyclinicPatient((current) => ({ ...current, investigationAttemptStatus: 'error' }));
+        return null;
+      } finally {
+        this.investigationInitPromise = null;
+      }
+    })();
+    return this.investigationInitPromise;
   };
 
   /** Order an individual case-available investigation through the server.

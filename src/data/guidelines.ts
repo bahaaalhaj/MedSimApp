@@ -1,4 +1,4 @@
-// Clinical practice guideline registry for the medsim-attending grading agent.
+// Clinical practice guideline registry for the server-owned hybrid evaluator.
 //
 // Each entry is sourced directly from the publishing society's website
 // (NICE, BTS, ESC, ADA, AHA, IDSA/ATS, etc.). Recommendation `text` fields

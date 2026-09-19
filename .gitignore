@@ -13,6 +13,7 @@ backend/.venv-voice/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/data/
+backend/tools/
 backend/.tts-cache/
 backend/generated-audio/
 backend/samples/*.wav

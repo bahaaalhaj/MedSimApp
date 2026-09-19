@@ -1,4 +1,6 @@
-# Medical, Clinical, and Grading System
+# Medical, Clinical, and Grading System (archived pre-local-AI audit)
+
+> Historical snapshot only. See `docs/local-ai-architecture.md` for current evaluation boundaries.
 
 ## Clinical knowledge architecture
 

@@ -82,7 +82,7 @@ export interface PatientCase {
 
 // ── OSCE rubric — grades a completed encounter ────────────────────────
 //
-// The `medsim-attending` Managed Agent reads this rubric at debrief time and
+// The backend hybrid evaluator reads this rubric at debrief time and
 // emits one `render_case_evaluation` tool call. Every clinical_management
 // criterion's `guideline_ref` MUST resolve in `src/data/guidelines.ts` —
 // the agent is instructed to drop a criterion rather than fabricate a
@@ -117,6 +117,7 @@ export interface RubricCriterion {
   /** What counts as "met" — specific enough that the agent can quote the
    *  transcript or name the action that did/didn't satisfy it. */
   evidence: string;
+  source_domain?: 'history' | 'examination' | 'investigation' | 'clinical-reasoning' | 'diagnosis' | 'management' | 'communication' | 'patient-safety';
 }
 
 export interface SafetyNetCriterion {
@@ -171,6 +172,11 @@ export interface EncounterTranscriptEntry {
   content: string;
   timestampIso: string;
   questionSource: 'typed' | 'predefined' | null;
+  patientProvenance?: 'openrouter' | 'deterministic-authored' | 'safe-unknown';
+  actualModel?: string | null;
+  audioTurnId?: string;
+  patientIntentId?: string | null;
+  patientMatchedSource?: string | null;
   caseId: string;
   caseVersion: string;
   attemptId: string;
@@ -182,6 +188,7 @@ export interface ActivePatient {
   status: PatientStatus;
   askedQuestionIds: string[];
   transcript: EncounterTranscriptEntry[];
+  examinationActions: Array<{ actionId: string; performedAt: number; attemptId: string }>;
   encounterAttemptId: string;
   orderedTestIds: string[];
   testOrderedAt: Record<string, number>;

@@ -13,7 +13,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Three.js outpatient scene (`src/components/three/Polyclinic.tsx`).
 - FastAPI proxy/token service (`backend/server.py`).
 - Text-first patient dialogue with local provider-based TTS (`src/voice/`, `backend/tts/`); Kokoro is default and Chatterbox is optional.
-- Managed Agent debrief uses Opus and frontend Zod schemas (`src/agents/`).
+- Hybrid provider-neutral debrief uses server-owned deterministic scoring and frontend Zod schemas (`src/agents/`).
 - SQLite-backed accounts and server sessions live in `backend/auth_system.py`; authenticated debrief history is server-owned, while onboarding/chat and namespaced guest history use browser `localStorage`.
 
 ## Critical paths
@@ -24,7 +24,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Tests/treatments/medications/guidelines: `src/data/`
 - Clinical action UI: `src/components/ExamineOverlay.tsx`
 - Encounter/voice lifecycle: `src/components/EncounterScreen.tsx`, `src/voice/`
-- Grading: `src/data/autoRubric.ts`, `src/agents/debriefRequest.ts`, `src/agents/useAttendingDebrief.ts`, `src/components/DebriefScreen.tsx`
+- Grading: `src/data/autoRubric.ts`, `src/agents/debriefRequest.ts`, `src/agents/useLocalDebrief.ts`, `src/components/DebriefScreen.tsx`
 - Security/routing: `backend/server.py`, `middleware.ts`, `vite.config.ts`, `vercel.json`
 
 ## Known hazards
@@ -33,7 +33,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Polyclinic records prescriptions, not `givenTreatmentIds`; fallback clinical rubrics grade critical treatment IDs. `gradePrescription()` currently has no caller.
 - Only three cases have authored guideline-cited rubrics; all guideline records are `auto-fetched`, not clinician-verified.
 - Backend localhost Origin/Referer is an authentication bypass and must not be trusted in production.
-- Frontend/backend custom-tool schemas are manually duplicated and must remain aligned.
+- Frontend/backend evaluator result schemas are manually duplicated and must remain aligned.
 - `POLYCLINIC_BED_INDEX = -10` is shared by store, scene, and conversation cache.
 - `getCase()` silently returns the first case for an unknown ID.
 - Historical notes may describe pre-outpatient prototypes; do not treat them as current behavior.

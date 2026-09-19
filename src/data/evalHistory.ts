@@ -1,4 +1,4 @@
-import type { CaseEvaluationInput } from '../agents/customTools';
+import type { CaseEvaluationInput } from '../agents/evaluationSchema';
 import type { ActivePatient } from '../game/types';
 import { getAuthSnapshot } from '../auth/AuthProvider';
 import { deleteAccountEncounter, getAccountEncounter, listAccountEncounters, saveAccountEncounter } from '../auth/authApi';
