@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 import uuid
@@ -8,6 +9,7 @@ from contextlib import closing
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(_BACKEND_DIR) not in sys.path:
@@ -17,6 +19,39 @@ from fastapi.testclient import TestClient
 
 import server
 from auth_system import AuthRepository, AuthService, AuthSettings, iso, utcnow
+
+
+class DatabasePathResolutionTests(unittest.TestCase):
+    def test_relative_database_path_is_rooted_at_repository_from_supported_working_directories(self) -> None:
+        expected = (_BACKEND_DIR / "data" / "medsim.db").resolve()
+        original_cwd = Path.cwd()
+        try:
+            for working_directory in (_BACKEND_DIR.parent, _BACKEND_DIR):
+                os.chdir(working_directory)
+                with patch.dict(os.environ, {"MEDSIM_DATABASE_PATH": "backend/data/medsim.db"}):
+                    self.assertEqual(AuthSettings.from_env().database_path, expected)
+        finally:
+            os.chdir(original_cwd)
+
+    def test_absolute_database_path_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            expected = (Path(directory) / "explicit.db").resolve()
+            with patch.dict(os.environ, {"MEDSIM_DATABASE_PATH": str(expected)}):
+                self.assertEqual(AuthSettings.from_env().database_path, expected)
+
+    def test_migrations_create_the_existing_schema_in_a_temporary_database(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = AuthRepository(Path(directory) / "nested" / "auth.db")
+            with closing(repository.connect()) as conn:
+                tables = {
+                    row[0]
+                    for row in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+                    )
+                }
+                applied_migrations = conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0]
+            self.assertEqual(tables, {"auth_sessions", "clinical_encounters", "schema_migrations", "users"})
+            self.assertEqual(applied_migrations, 1)
 
 
 class AuthenticationTests(unittest.TestCase):

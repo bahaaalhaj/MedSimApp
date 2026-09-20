@@ -13,12 +13,18 @@ backend/.venv-voice/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/data/
+backend/**/data/
 backend/tools/
 backend/.tts-cache/
 backend/generated-audio/
 backend/samples/*.wav
 !backend/samples/ref_voice.wav
 !backend/samples/test.wav
+
+# SQLite runtime databases and their write-ahead-log journals.
+*.db
+*.db-shm
+*.db-wal
 
 tsconfig.tsbuildinfo
 

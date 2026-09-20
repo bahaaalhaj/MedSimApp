@@ -20,6 +20,15 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
+APPLICATION_ROOT = Path(__file__).resolve().parent.parent
+
+
+def resolve_database_path(value: str | None) -> Path:
+    """Resolve configured database paths from the repository application root."""
+    path = Path(value) if value else APPLICATION_ROOT / "backend" / "data" / "medsim.db"
+    return path.resolve() if path.is_absolute() else (APPLICATION_ROOT / path).resolve()
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -39,7 +48,6 @@ class AuthSettings:
 
     @classmethod
     def from_env(cls) -> "AuthSettings":
-        backend_dir = Path(__file__).resolve().parent
         production = os.environ.get("MEDSIM_ENVIRONMENT", "development").lower() in {"production", "prod"} or os.environ.get("RENDER", "").lower() == "true"
         raw_samesite = os.environ.get("MEDSIM_COOKIE_SAMESITE", "lax").lower()
         samesite: Literal["lax", "strict", "none"] = (
@@ -50,7 +58,7 @@ class AuthSettings:
         if samesite == "none" and not secure:
             raise RuntimeError("MEDSIM_COOKIE_SAMESITE=none requires MEDSIM_COOKIE_SECURE=1")
         return cls(
-            database_path=Path(os.environ.get("MEDSIM_DATABASE_PATH", backend_dir / "data" / "medsim.db")),
+            database_path=resolve_database_path(os.environ.get("MEDSIM_DATABASE_PATH")),
             cookie_secure=secure,
             cookie_samesite=samesite,
             cookie_domain=os.environ.get("MEDSIM_COOKIE_DOMAIN") or None,
