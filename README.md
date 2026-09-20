@@ -37,7 +37,7 @@ npm run dev
 
 On 2026-09-15 a focused live comparison kept `nex-agi/nex-n2.5-mini:free` as the only default hosted patient attempt. The live patient deadline is now capped at 3 seconds; the separate 7-second general timeout is reserved for optional evaluator enrichment. High-confidence authored and clearly unavailable questions bypass hosted inference entirely. Pro remains allowlisted but configuration-disabled and is never chained after Mini; failure goes directly to authored or safe-unknown fallback. Paid and random routing remain blocked.
 
-The verified llama.cpp/Qwen 1.7B implementation remains an explicit offline option. It never starts while OpenRouter is selected; see [AI architecture and operations](docs/local-ai-architecture.md) for opt-in commands and the unchanged 2.5 GB RAM gate. See also [migration evidence](docs/local-ai-migration-report.md) and [audio architecture](docs/audio-architecture.md).
+The verified llama.cpp/Qwen 1.7B implementation remains an explicit offline option. It never starts while OpenRouter is selected; see [AI architecture and operations](docs/local-ai-architecture.md) for opt-in commands and the unchanged 2.5 GB RAM gate. See also [historical migration evidence](docs/archive/local-ai-migration-report.md) and [audio architecture](docs/audio-architecture.md).
 
 ## Verification
 

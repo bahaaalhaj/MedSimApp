@@ -9,7 +9,7 @@ This loop is intentionally narrow. It does NOT generate new cases, touch the 3D 
 1. **Run `npm run verify`.** If it fails, read the violations, open the offending data file, fix it, re-run. Do not edit the verify script to suppress a violation — fix the data.
 2. **Run `node node_modules/typescript/bin/tsc --noEmit`**. If it fails, fix it. Type errors in `src/agents/*` are high-signal — they usually mean the backend result / Zod / renderer contract drifted.
 3. **`git status`.** If there are uncommitted changes that look like stale debug code (extra `console.log`, commented-out sections, a `.bak` file), flag them to the user. Don't auto-commit.
-4. **Read `docs/evolution.md`.** If the latest entry is more than 24 hours old, remind the user that the Keep Thinking prize wants to see the log move.
+4. **Read `docs/archive/evolution.md`.** If the latest entry is more than 24 hours old, remind the user that the Keep Thinking prize wants to see the log move.
 5. **Read the last entry in `.claude/settings.local.json`'s permission allowlist**. If auto-mode has granted anything obviously wrong (write access to somewhere unexpected), flag it.
 
 ## What to report each tick

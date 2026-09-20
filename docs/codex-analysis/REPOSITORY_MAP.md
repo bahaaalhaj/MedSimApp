@@ -56,4 +56,4 @@
 
 ## Documentation reliability
 
-`README.md` is useful for setup and the voice topology but overstates ER implementation. `CLAUDE.md`, `spec.md`, `docs/evolution.md`, `docs/design-system.html`, and the two agent explainer screens contain stale paths, test counts, and feature claims. The source code and this directory should be used as the technical source of truth.
+`README.md` is useful for setup and the voice topology but overstates ER implementation. `CLAUDE.md`, `spec.md`, `docs/archive/evolution.md`, `docs/design-system.html`, and the two agent explainer screens contain stale paths, test counts, and feature claims. The source code and this directory should be used as the technical source of truth.

@@ -1,6 +1,12 @@
 {
+  "_generated": {
+    "notice": "AUTO-GENERATED. DO NOT EDIT.",
+    "sourceFile": "src/clinical/cases.ts",
+    "generatorCommand": "npm run clinical:generate",
+    "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+    "semanticChecksum": "sha256:dd0c950d93902852277c81bce63e134a3e4bece78ee9a60269810edbba8ec661"
+  },
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-10T19:17:11.427Z",
   "publicLabel": "Educational case / Source-backed formative case",
   "accreditationClaim": false,
   "counts": {
@@ -1239,5 +1245,6 @@
       "learnerLevel": "undergraduate-clinical-years",
       "reviewStatus": "source-verified-formative"
     }
-  ]
+  ],
+  "generatedAt": "1970-01-01T00:00:00.000Z"
 }

@@ -10,6 +10,8 @@
     "verify": "node scripts/verify/run-all.ts",
     "test": "node scripts/test/run-all.ts",
     "clinical:validate": "node scripts/clinical/validate.ts",
+    "clinical:generate": "node --max-old-space-size=8192 scripts/clinical/generate.ts",
+    "clinical:verify-generated": "node --max-old-space-size=8192 scripts/clinical/generate.ts --check",
     "clinical:references": "node scripts/clinical/references.ts",
     "clinical:audit": "node scripts/clinical/audit.ts",
     "clinical:export-review": "node --max-old-space-size=8192 scripts/clinical/export-review.ts",
@@ -32,6 +34,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^4.3.3",
+    "fflate": "~0.8.2",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   },

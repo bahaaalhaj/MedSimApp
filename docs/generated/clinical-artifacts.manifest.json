@@ -1,0 +1,48 @@
+{
+  "_generated": {
+    "notice": "AUTO-GENERATED. DO NOT EDIT.",
+    "sourceFile": "src/clinical/cases.ts",
+    "generatorCommand": "npm run clinical:generate",
+    "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+    "semanticChecksum": "sha256:392fedbfde45089ce24eda9e2b36bccf4f67a7a199d12c6ec5de312e7bc38cf5"
+  },
+  "schemaVersion": "1.0.0",
+  "canonicalSource": "src/clinical/cases.ts",
+  "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+  "generatorCommand": "npm run clinical:generate",
+  "counts": {
+    "assignableCases": 72,
+    "archivedCases": 168,
+    "investigationRecords": 422
+  },
+  "artifacts": [
+    {
+      "path": "docs/generated/curation-manifest.json",
+      "semanticChecksum": "sha256:dd0c950d93902852277c81bce63e134a3e4bece78ee9a60269810edbba8ec661"
+    },
+    {
+      "path": "docs/generated/investigation-manifest.server.json",
+      "semanticChecksum": "sha256:dc044191268b23f4f9b657edfbd29dd910d95e996ac375570960d4035a8137a3"
+    },
+    {
+      "path": "docs/generated/local-ai-manifest.server.json",
+      "semanticChecksum": "sha256:e72f06384ea0fcb26a964d045e3ce9855578d06262306d7794c94a752368be45"
+    },
+    {
+      "path": "docs/generated/case-reference-matrix.csv",
+      "semanticChecksum": "sha256:7e7f07de5334d9ed793a475d224ac319dde4ffebe45f98e96695122a1187281b"
+    },
+    {
+      "path": "docs/generated/clinical-references.md",
+      "semanticChecksum": "sha256:96213aefca2f6b9218f2df000c52dd9474b39cc4a34bf688c13ba12b266bee6d"
+    },
+    {
+      "path": "docs/generated/medsim-medical-cases-review.json",
+      "semanticChecksum": "sha256:90de848bd954f8e03456608a187677f3a6a320c8f153118060366dea889be82b"
+    },
+    {
+      "path": "docs/generated/medsim-medical-cases-review.xlsx",
+      "semanticChecksum": "sha256:3fdeaa0be3d244e1d6809f082af378d2735f15a93d45ae7536d2d254ccb25a70"
+    }
+  ]
+}

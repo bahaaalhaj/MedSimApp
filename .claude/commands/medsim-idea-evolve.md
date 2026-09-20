@@ -1,5 +1,5 @@
 ---
-description: Propose one sharpening tweak to docs/evolution.md based on recent work. Draft-only — waits for approval before writing.
+description: Propose one sharpening tweak to docs/archive/evolution.md based on recent work. Draft-only — waits for approval before writing.
 ---
 
 # `/medsim-idea-evolve`
@@ -10,13 +10,13 @@ the first shower-thought.
 
 ## What to do
 
-1. Read `docs/evolution.md` — note the last entry date and content.
+1. Read `docs/archive/evolution.md` — note the last entry date and content.
 2. Read the most recent 3 commits: `git log -3 --stat`.
 3. Skim open work: `git status`, `git diff --stat`.
 4. Consider whether the recent work changes how the submission
    should be pitched or what the demo should emphasize.
 5. Draft ONE new entry using the template at the bottom of
-   `docs/evolution.md`:
+   `docs/archive/evolution.md`:
    ```
    ## YYYY-MM-DD — <one-line change>
 
@@ -28,7 +28,7 @@ the first shower-thought.
    ```
 6. Print the draft in chat. Do NOT write it to the file yet. Wait for
    the user to confirm (a simple "yes" / "looks good" / "ship it").
-7. Only after approval, append the entry to `docs/evolution.md` just
+7. Only after approval, append the entry to `docs/archive/evolution.md` just
    above the `## Template for new entries` section.
 
 ## Skip the firing if nothing meaningful changed

@@ -108,7 +108,7 @@ test('medsim-idea-evolve command file exists and enforces draft-only behavior', 
   assert.ok(existsSync(cmdPath), `${cmdPath} missing`);
   const body = readFileSync(cmdPath, 'utf8');
   assert.match(body, /^---\s*\n[\s\S]+?\n---/, 'missing YAML frontmatter');
-  // The key safety property: the loop may NOT auto-commit to evolution.md.
+  // The key safety property: the loop may NOT auto-commit to the evolution log.
   assert.match(
     body,
     /(wait|waits)\s+for.+(approv|confirm)/i,
@@ -119,7 +119,7 @@ test('medsim-idea-evolve command file exists and enforces draft-only behavior', 
     /do not write/i,
     'command must explicitly say not to write without approval',
   );
-  assert.match(body, /docs\/evolution\.md/, 'must reference docs/evolution.md');
+  assert.match(body, /docs\/archive\/evolution\.md/, 'must reference the archived evolution log');
 });
 
 test('verify-loop script is not referenced by accident outside its command', () => {

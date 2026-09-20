@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { CLINICAL_CASES, isAssignableCase } from '../../src/clinical/cases.ts';
 import { LEGACY_CASE_MIGRATIONS } from '../../src/clinical/migration.ts';
 import { CLINICAL_REFERENCES } from '../../src/clinical/references.ts';
@@ -12,6 +11,9 @@ import { deriveAutoRubric } from '../../src/data/autoRubric.ts';
 import { CLINIC_LABELS, type ClinicId } from '../../src/game/clinic.ts';
 import type { CaseRubric, PatientCase, RubricCriterion } from '../../src/game/types.ts';
 import type { ClinicalCase } from '../../src/clinical/types.ts';
+import { semanticSha256, stableStringify } from './generation-metadata.ts';
+
+export { stableStringify } from './generation-metadata.ts';
 
 export const EXPORT_SCRIPT_VERSION = '1.0.0';
 
@@ -62,15 +64,8 @@ const GUIDELINE_SOURCE = 'src/data/guidelines.ts';
 const j = (value: unknown): string => JSON.stringify(value ?? null);
 const nullIfUndefined = <T>(value: T | undefined): T | null => value === undefined ? null : value;
 
-export function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-  const object = value as Record<string, unknown>;
-  return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(object[key])}`).join(',')}}`;
-}
-
 export function sha256(value: unknown): string {
-  return createHash('sha256').update(stableStringify(value), 'utf8').digest('hex');
+  return semanticSha256(value);
 }
 
 function diagnosisName(id: string): string {
@@ -127,13 +122,10 @@ function sourceFilesScanned(): string[] {
     'src/data/polyclinicPatients.ts','src/data/patients.ts','src/data/cases.ts','src/data/tests.ts','src/data/defaultTestResults.ts','src/data/radiologyImages.ts','src/data/medications.ts','src/data/treatments.ts','src/data/guidelines.ts','src/data/autoRubric.ts',
     'src/game/types.ts','src/game/clinic.ts','src/agents/debriefRequest.ts','src/agents/deterministicEvaluation.ts',
     'docs/clinical-case-governance.md','docs/clinical-review-checklist.md','docs/reference-policy.md','docs/legacy-case-migration.md',
+    'scripts/clinical/generate.ts','scripts/clinical/generated-artifacts.ts','scripts/clinical/generation-metadata.ts',
+    'scripts/clinical/export-curation.ts','scripts/clinical/export-investigation-manifest.ts','scripts/clinical/export-local-ai-manifest.ts',
+    'scripts/clinical/references.ts','scripts/clinical/export-review.ts','scripts/clinical/export-review-model.ts',
   ];
-  for (const directory of ['scripts/clinical', 'docs/generated']) {
-    if (existsSync(directory)) for (const name of readdirSync(directory).sort()) {
-      if (name.startsWith('medsim-medical-cases-review.')) continue;
-      requested.push(`${directory}/${name}`);
-    }
-  }
   return [...new Set(requested.filter(existsSync))].sort();
 }
 

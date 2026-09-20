@@ -1,11 +1,10 @@
 import type { FaceAccessory, FaceMood } from '../components/primitives';
 import type { PatientCase } from '../game/types';
 import type { ClinicId } from '../game/clinic';
-import { CLINIC_LABELS } from '../game/clinic';
-import { POLYCLINIC_CASES } from './polyclinicPatients';
-import { caseVersionFor, isAssignableCase, reviewStatusForCase } from '../clinical/cases';
-import { isCuratedCaseId } from '../clinical/curation';
-import type { CaseReviewStatus, LearnerLevel, TrainingMode } from '../clinical/types';
+import { CLINIC_LABELS } from '../game/clinic.ts';
+import { CLINICAL_CASE_BY_ID, isAssignableCase } from '../clinical/cases.ts';
+import type { CaseReviewStatus, ClinicalCase, LearnerLevel, TrainingMode } from '../clinical/types';
+import { POLYCLINIC_CASES } from './polyclinicPatients.ts';
 
 /** Cute-cartoon face descriptor for the case library. Derived deterministically
  *  from the underlying `PatientCase` so the same patient always renders the
@@ -95,7 +94,8 @@ function tagsFor(p: PatientCase, clinic: ClinicId): string[] {
   return out;
 }
 
-function toCase(p: PatientCase, clinic: ClinicId): Case {
+function toCase(p: PatientCase, clinicalCase: ClinicalCase): Case {
+  const clinic = clinicalCase.specialtyId;
   return {
     id: p.id,
     name: p.name,
@@ -103,32 +103,33 @@ function toCase(p: PatientCase, clinic: ClinicId): Case {
     sex: p.gender,
     complaint: p.chiefComplaint,
     tags: tagsFor(p, clinic),
-    guideline: reviewStatusForCase(p.id) === 'source-verified-formative' ? 'Educational case · Source-backed formative case' : 'Not assignable',
+    guideline: clinicalCase.reviewStatus === 'source-verified-formative' ? 'Educational case · Source-backed formative case' : 'Not assignable',
     skin: pickSkin(p),
     hair: pickHair(p),
     mood: pickMood(p),
     // Pre-submission catalogue data must not reveal the ground-truth diagnosis.
     cond: 'Clinical reasoning case',
     clinic,
-    reviewStatus: reviewStatusForCase(p.id),
-    caseVersion: caseVersionFor(p.id),
-    difficulty: 'intermediate',
-    learnerLevel: 'undergraduate-clinical-years',
+    reviewStatus: clinicalCase.reviewStatus,
+    caseVersion: clinicalCase.caseVersion,
+    difficulty: clinicalCase.difficulty,
+    learnerLevel: clinicalCase.targetLearnerLevel,
   };
 }
 
-// ── Build the library deterministically from POLYCLINIC_CASES ────────
+// ── Build the library deterministically from the canonical 72-case source ──
 
 const BY_ID = new Map<string, { p: PatientCase; clinic: ClinicId }>();
 const ALL_CASES_RAW: Case[] = [];
 
 for (const [clinic, list] of Object.entries(POLYCLINIC_CASES) as Array<[ClinicId, PatientCase[]]>) {
-  if (clinic === 'all-specialties') continue; // skip the synthetic mixed bucket
+  if (clinic === 'all-specialties') continue;
   for (const p of list) {
-    if (!isCuratedCaseId(p.id)) continue;
-    if (BY_ID.has(p.id)) continue;
+    const clinicalCase = CLINICAL_CASE_BY_ID.get(p.id);
+    if (!clinicalCase || BY_ID.has(p.id)) continue;
+    if (clinicalCase.specialtyId !== clinic) throw new Error(`Canonical specialty mismatch: ${p.id}`);
     BY_ID.set(p.id, { p, clinic });
-    ALL_CASES_RAW.push(toCase(p, clinic));
+    ALL_CASES_RAW.push(toCase(p, clinicalCase));
   }
 }
 

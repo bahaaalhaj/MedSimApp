@@ -1,9 +1,16 @@
 {
+  "_generated": {
+    "notice": "AUTO-GENERATED. DO NOT EDIT.",
+    "sourceFile": "src/clinical/cases.ts",
+    "generatorCommand": "npm run clinical:generate",
+    "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+    "semanticChecksum": "sha256:90de848bd954f8e03456608a187677f3a6a320c8f153118060366dea889be82b"
+  },
   "exportMetadata": {
     "project_name": "MedSim",
-    "export_generated_at": "2026-09-10T20:48:19.727Z",
-    "git_commit": "ac5fe203d40ea169560d6521170854e34fcbfda0",
-    "working_tree_status": "dirty (25 paths)",
+    "export_generated_at": "1970-01-01T00:00:00.000Z",
+    "git_commit": "not-embedded-in-reproducible-export",
+    "working_tree_status": "not-embedded-in-reproducible-export",
     "total_unique_case_versions": 312,
     "unique_clinical_concepts": 240,
     "duplicate_representations": 72,
@@ -29,21 +36,17 @@
     "source_files_scanned": [
       "docs/clinical-case-governance.md",
       "docs/clinical-review-checklist.md",
-      "docs/generated/case-reference-matrix.csv",
-      "docs/generated/clinical-references.md",
-      "docs/generated/curation-manifest.json",
-      "docs/generated/investigation-manifest.server.json",
       "docs/legacy-case-migration.md",
       "docs/reference-policy.md",
-      "scripts/clinical/audit.ts",
       "scripts/clinical/export-curation.ts",
       "scripts/clinical/export-investigation-manifest.ts",
+      "scripts/clinical/export-local-ai-manifest.ts",
       "scripts/clinical/export-review-model.ts",
       "scripts/clinical/export-review.ts",
+      "scripts/clinical/generate.ts",
+      "scripts/clinical/generated-artifacts.ts",
+      "scripts/clinical/generation-metadata.ts",
       "scripts/clinical/references.ts",
-      "scripts/clinical/validate-investigations.ts",
-      "scripts/clinical/validate.ts",
-      "scripts/clinical/verify-curation.ts",
       "src/agents/debriefRequest.ts",
       "src/agents/deterministicEvaluation.ts",
       "src/clinical/cases.ts",
@@ -72,7 +75,12 @@
       "No case is currently approved-formative, and no genuine clinician review evidence is recorded.",
       "Clinical plausibility and medical validity require independent qualified-clinician review.",
       "src/data/patients.ts was requested for inspection but does not exist in the current repository."
-    ]
+    ],
+    "auto_generated_notice": "AUTO-GENERATED. DO NOT EDIT.",
+    "canonical_source_file": "src/clinical/cases.ts",
+    "generator_command": "npm run clinical:generate",
+    "canonical_source_checksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+    "semantic_checksum": "sha256:3fdeaa0be3d244e1d6809f082af378d2735f15a93d45ae7536d2d254ccb25a70"
   },
   "cases": [
     {

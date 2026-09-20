@@ -1,16 +1,16 @@
 # /loop 30m — Keep Thinking log
 
-Invoke via `/loop 30m /keep-thinking`. Each tick reads `docs/evolution.md` and proposes ONE sharpening tweak — then waits for approval. Don't batch multiple suggestions.
+Invoke via `/loop 30m /keep-thinking`. Each tick reads `docs/archive/evolution.md` and proposes ONE sharpening tweak — then waits for approval. Don't batch multiple suggestions.
 
 Direct aim at the "Keep Thinking" $5k prize, which rewards idea evolution, not idea quantity.
 
 ## Every tick, do this
 
-1. Read `docs/evolution.md` end-to-end. Note the latest entry's date.
+1. Read `docs/archive/evolution.md` end-to-end. Note the latest entry's date.
 2. Read `spec.md` "Success criteria" section.
 3. Read the last 10 commits: `git log --oneline -10`.
 4. Ask yourself ONE question from the list below — pick whichever hasn't been recently interrogated.
-5. Write a single proposed entry to `docs/evolution.md` as a comment at the bottom (do not commit). Message the user: "New evolution candidate in docs/evolution.md — keep, refine, or discard?"
+5. Write a single proposed entry to `docs/archive/evolution.md` as a comment at the bottom (do not commit). Message the user: "New evolution candidate in docs/archive/evolution.md — keep, refine, or discard?"
 
 ## Rotation of questions
 
@@ -23,7 +23,7 @@ Direct aim at the "Keep Thinking" $5k prize, which rewards idea evolution, not i
 
 ## What the proposed entry should look like
 
-Follow the template already in `docs/evolution.md`:
+Follow the template already in `docs/archive/evolution.md`:
 
 ```
 ## YYYY-MM-DD — <one-line change>
@@ -40,6 +40,6 @@ It's a PROPOSAL — not a decision. The user will keep it, refine it, or discard
 ## Don'ts
 
 - Don't propose a new feature. This loop is about reflection on what's already in motion, not greenfield ideas.
-- Don't edit any file other than `docs/evolution.md`.
+- Don't edit any file other than `docs/archive/evolution.md`.
 - Don't run the tool or the dev server — this loop does not touch code.
 - Don't write two entries in one tick. One sharpening per 30 minutes.

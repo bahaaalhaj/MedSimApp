@@ -1,19 +1,13 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { CLINICAL_CASES } from '../../src/clinical/cases.ts';
+import { GENERATED_PATHS, writeGeneratedTextArtifacts } from './generated-artifacts.ts';
 
-const outputPath = path.resolve('docs/generated/investigation-manifest.server.json');
-const payload = {
-  schemaVersion: '1.0.0',
-  generatedAt: new Date().toISOString(),
-  intendedUse: 'server-only-answer-key',
-  cases: CLINICAL_CASES.map((clinicalCase) => ({
-    caseId: clinicalCase.caseId,
-    caseVersion: clinicalCase.caseVersion,
-    investigations: clinicalCase.investigations,
-  })),
-};
+export async function exportInvestigationManifest(): Promise<void> {
+  await writeGeneratedTextArtifacts(['investigations']);
+  console.log(`Wrote ${CLINICAL_CASES.length} cases to ${GENERATED_PATHS.investigations}`);
+}
 
-fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-fs.writeFileSync(outputPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-console.log(`Wrote ${CLINICAL_CASES.length} cases to ${outputPath}`);
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  await exportInvestigationManifest();
+}

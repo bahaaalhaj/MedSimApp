@@ -1,14 +1,28 @@
-import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { unzipSync, zipSync, type Zippable } from 'fflate';
 import { buildExportModel, SHEET_COLUMNS, stableStringify, type ExportModel, type Row, type SheetName } from './export-review-model.ts';
+import {
+  CANONICAL_CLINICAL_CHECKSUM,
+  GENERATED_PATHS,
+  type ReviewArtifactChecksums,
+} from './generated-artifacts.ts';
+import {
+  CANONICAL_CLINICAL_SOURCE,
+  CLINICAL_GENERATOR_COMMAND,
+  GENERATED_NOTICE,
+  REPRODUCIBLE_GENERATED_AT,
+  generatedMetadata,
+  jsonSemanticSha256,
+  semanticSha256,
+} from './generation-metadata.ts';
 
 const OUTPUT_DIR = resolve('docs/generated');
-const XLSX_PATH = join(OUTPUT_DIR, 'medsim-medical-cases-review.xlsx');
-const JSON_PATH = join(OUTPUT_DIR, 'medsim-medical-cases-review.json');
+const XLSX_PATH = GENERATED_PATHS.reviewXlsx;
+const JSON_PATH = GENERATED_PATHS.reviewJson;
 const EXPECTED_SHEETS = [
   'Case_Index','Patient_Profile','Vital_Signs','History_Questions','Physical_Examination','Investigations',
   'Investigation_Catalogue','Case_Investigation_Roles','Investigation_Results','Investigation_Diff_Links',
@@ -22,21 +36,11 @@ const TEAL = '#075E5B';
 const LIGHT_TEAL = '#DCEFED';
 const FONT = 'Arial';
 const MAX_EXCEL_CELL = 32_767;
-
-function git(args: string[], fallback: string): string {
-  try {
-    return execFileSync('git', args, { encoding: 'utf8' }).trim() || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function workingTreeStatus(): string {
-  const status = git(['status', '--short'], 'clean');
-  if (status === 'clean') return status;
-  const filtered = status.split(/\r?\n/).filter((line) => !/docs\/generated\/medsim-medical-cases-review\.(xlsx|json)(\.inspect\.ndjson)?$/.test(line.trim()));
-  return filtered.length ? `dirty (${filtered.length} paths)` : 'clean';
-}
+const REPRODUCIBLE_REVIEW_OPTIONS = {
+  generatedAt: REPRODUCIBLE_GENERATED_AT,
+  gitCommit: 'not-embedded-in-reproducible-export',
+  workingTreeStatus: 'not-embedded-in-reproducible-export',
+};
 
 async function loadArtifactTool(): Promise<any> {
   try {
@@ -182,6 +186,48 @@ export function validateExportModel(model: ExportModel): void {
   if (failures.length) throw new Error(`Export model validation failed:\n- ${[...new Set(failures)].join('\n- ')}`);
 }
 
+function reviewClinicalPayload(model: ExportModel) {
+  return {
+    cases: model.cases,
+    references: model.references,
+    reviewRecords: model.reviewRecords,
+    legacyMappings: model.legacyMappings,
+    issues: model.issues,
+  };
+}
+
+export function reviewArtifactChecksums(model: ExportModel): ReviewArtifactChecksums {
+  return {
+    jsonSemanticChecksum: jsonSemanticSha256(reviewClinicalPayload(model)),
+    workbookSemanticChecksum: semanticSha256({
+      sheets: model.sheets,
+      specialtyStatusRows: model.specialtyStatusRows,
+    }),
+  };
+}
+
+export function buildReproducibleReviewModel(): ExportModel {
+  const model = buildExportModel(REPRODUCIBLE_REVIEW_OPTIONS);
+  const checksums = reviewArtifactChecksums(model);
+  Object.assign(model.exportMetadata, {
+    auto_generated_notice: GENERATED_NOTICE,
+    canonical_source_file: CANONICAL_CLINICAL_SOURCE,
+    generator_command: CLINICAL_GENERATOR_COMMAND,
+    canonical_source_checksum: `sha256:${CANONICAL_CLINICAL_CHECKSUM}`,
+    semantic_checksum: `sha256:${checksums.workbookSemanticChecksum}`,
+  });
+  return model;
+}
+
+export function reviewJsonString(model: ExportModel): string {
+  const checksums = reviewArtifactChecksums(model);
+  return `${JSON.stringify({
+    _generated: generatedMetadata(CANONICAL_CLINICAL_CHECKSUM, checksums.jsonSemanticChecksum),
+    exportMetadata: model.exportMetadata,
+    ...reviewClinicalPayload(model),
+  }, null, 2)}\n`;
+}
+
 async function createWorkbook(model: ExportModel, artifact: any): Promise<any> {
   const workbook = artifact.Workbook.create();
   for (const sheetName of EXPECTED_SHEETS) workbook.worksheets.add(sheetName);
@@ -211,7 +257,9 @@ async function createWorkbook(model: ExportModel, artifact: any): Promise<any> {
     'total_canonical_cases','total_approved_formative','total_clinical_review','total_legacy_unreviewed','total_draft','total_retired',
     'specialty_count','reference_count','rubric_criterion_count','investigation_row_count','medication_row_count','issue_count_by_severity',
     'source_files_scanned','export_script_version','limitations',
+    'auto_generated_notice','canonical_source_file','generator_command','canonical_source_checksum','semantic_checksum',
   ];
+  const metadataLastColumn = columnName(metadataHeaders.length - 1);
   const metadataMatrix = [metadataHeaders, metadataHeaders.map((header) => {
     const value = model.exportMetadata[header];
     return cellValue(typeof value === 'object' ? JSON.stringify(value) : value as Row[string]);
@@ -222,9 +270,9 @@ async function createWorkbook(model: ExportModel, artifact: any): Promise<any> {
   metadataTable.style = 'TableStyleMedium2';
   metadataTable.showFilterButton = true;
   summary.getRange('B5').format.numberFormat = 'yyyy-mm-dd hh:mm:ss';
-  summary.getRange('A4:U4').format = { fill: TEAL, font: { name: FONT, size: 10, bold: true, color: '#FFFFFF' }, horizontalAlignment: 'center', verticalAlignment: 'center', wrapText: true };
-  summary.getRange('A4:U4').format.rowHeight = 32;
-  summary.getRange('A5:U5').format.wrapText = true;
+  summary.getRange(`A4:${metadataLastColumn}4`).format = { fill: TEAL, font: { name: FONT, size: 10, bold: true, color: '#FFFFFF' }, horizontalAlignment: 'center', verticalAlignment: 'center', wrapText: true };
+  summary.getRange(`A4:${metadataLastColumn}4`).format.rowHeight = 32;
+  summary.getRange(`A5:${metadataLastColumn}5`).format.wrapText = true;
   const specialtyHeaders = ['specialty_id','specialty_name','review_status','representation_count'];
   const specialtyMatrix = matrixFor(specialtyHeaders, model.specialtyStatusRows);
   summary.getRangeByIndexes(7, 0, specialtyMatrix.length, specialtyHeaders.length).values = specialtyMatrix;
@@ -240,13 +288,14 @@ async function createWorkbook(model: ExportModel, artifact: any): Promise<any> {
   summary.getRange('A6:U7').format.fill = '#FFFFFF';
   summary.getRange('A6').values = [['Specialty by review status (representation counts)']];
   summary.getRange('A6').format.font = { name: FONT, size: 12, bold: true, color: TEAL };
-  summary.getRange('A1:U50').format.font.name = FONT;
-  summary.getRange('A1:U50').format.verticalAlignment = 'top';
-  summary.getRange('A:U').format.columnWidth = 23;
+  summary.getRange(`A1:${metadataLastColumn}50`).format.font.name = FONT;
+  summary.getRange(`A1:${metadataLastColumn}50`).format.verticalAlignment = 'top';
+  summary.getRange(`A:${metadataLastColumn}`).format.columnWidth = 23;
   summary.getRange('A:A').format.columnWidth = 42;
   summary.getRange('B:B').format.columnWidth = 31;
   summary.getRange('D:D').format.columnWidth = 34;
   summary.getRange('R:U').format.columnWidth = 44;
+  summary.getRange('V:Z').format.columnWidth = 38;
   summary.tabColor = TEAL;
   workbook.recalculate();
   return workbook;
@@ -271,6 +320,11 @@ async function validateSavedWorkbook(path: string, model: ExportModel, artifact:
       if (!finalRow.some((value: unknown) => value !== null && value !== '')) throw new Error(`${sheetName} final expected row is empty after reopening.`);
       const followingRow = sheet.getRange(`A${expectedRows + 1}:${lastColumn}${expectedRows + 1}`).values[0];
       if (followingRow.some((value: unknown) => value !== null && value !== '')) throw new Error(`${sheetName} contains unexpected rows after ${expectedRows}.`);
+    } else {
+      const savedChecksum = sheet.getRange('Z5').values[0][0];
+      if (savedChecksum !== model.exportMetadata.semantic_checksum) {
+        throw new Error('Export_Summary semantic checksum does not match the canonical review model.');
+      }
     }
     const preview = await workbook.render({ sheetName, range: sheetName === 'Export_Summary' ? 'A1:H18' : `A1:${columnName(Math.min((SHEET_COLUMNS[sheetName as SheetName]?.length ?? 8) - 1, 7))}${Math.min((model.sheets[sheetName as SheetName]?.length ?? 12) + 1, 13)}`, scale: 1, format: 'png' });
     const previewBytes = new Uint8Array(await preview.arrayBuffer());
@@ -284,36 +338,79 @@ async function validateSavedWorkbook(path: string, model: ExportModel, artifact:
   if (errors.ndjson && /"match"/.test(errors.ndjson)) throw new Error(`Formula error detected: ${errors.ndjson.slice(0, 2000)}`);
 }
 
+async function normalizeXlsxContainer(path: string): Promise<void> {
+  const unpacked = unzipSync(await readFile(path));
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  const relationshipPaths = Object.keys(unpacked).filter((name) => name.endsWith('.rels')).sort();
+  for (const relationshipPath of relationshipPaths) {
+    let relationships = decoder.decode(unpacked[relationshipPath]);
+    const tags = [...relationships.matchAll(/<Relationship\b[^>]*\bId="([^"]+)"[^>]*\/>/g)]
+      .map((match) => ({ id: match[1], semanticTag: match[0].replace(/\sId="[^"]+"/, '') }))
+      .sort((left, right) => left.semanticTag.localeCompare(right.semanticTag));
+    const marker = '/_rels/';
+    const markerIndex = relationshipPath.lastIndexOf(marker);
+    const sourcePath = relationshipPath === '_rels/.rels' || markerIndex < 0
+      ? null
+      : `${relationshipPath.slice(0, markerIndex)}/${relationshipPath.slice(markerIndex + marker.length, -'.rels'.length)}`;
+    let source = sourcePath && unpacked[sourcePath] ? decoder.decode(unpacked[sourcePath]) : null;
+    tags.forEach(({ id }, index) => {
+      const stableId = `rId${index + 1}`;
+      relationships = relationships.replaceAll(`"${id}"`, `"${stableId}"`);
+      if (source !== null) source = source.replaceAll(`"${id}"`, `"${stableId}"`);
+    });
+    unpacked[relationshipPath] = encoder.encode(relationships);
+    if (sourcePath && source !== null) unpacked[sourcePath] = encoder.encode(source);
+  }
+  const reproducibleFiles: Zippable = {};
+  const fixedTimestamp = new Date('1980-01-01T00:00:00.000Z');
+  for (const name of Object.keys(unpacked).sort()) {
+    reproducibleFiles[name] = [unpacked[name], { level: 6, mtime: fixedTimestamp }];
+  }
+  await writeFile(path, zipSync(reproducibleFiles, { level: 6, mtime: fixedTimestamp }));
+}
+
 export async function exportClinicalReview(): Promise<{ model: ExportModel; xlsxPath: string; jsonPath: string }> {
-  const model = buildExportModel({
-    generatedAt: new Date().toISOString(),
-    gitCommit: git(['rev-parse', 'HEAD'], 'unavailable'),
-    workingTreeStatus: workingTreeStatus(),
-  });
+  const model = buildReproducibleReviewModel();
   validateExportModel(model);
-  const repeat = buildExportModel({ ...model.exportMetadata, generatedAt: String(model.exportMetadata.export_generated_at), gitCommit: String(model.exportMetadata.git_commit), workingTreeStatus: String(model.exportMetadata.working_tree_status) } as any);
+  const repeat = buildReproducibleReviewModel();
   if (stableStringify(model) !== stableStringify(repeat)) throw new Error('Two unchanged model builds were not semantically identical.');
   await mkdir(OUTPUT_DIR, { recursive: true });
-  const jsonPayload = {
-    exportMetadata: model.exportMetadata,
-    cases: model.cases,
-    references: model.references,
-    reviewRecords: model.reviewRecords,
-    legacyMappings: model.legacyMappings,
-    issues: model.issues,
-  };
-  await writeFile(JSON_PATH, `${JSON.stringify(jsonPayload, null, 2)}\n`, 'utf8');
+  await writeFile(JSON_PATH, reviewJsonString(model), 'utf8');
   JSON.parse(await readFile(JSON_PATH, 'utf8'));
   const artifact = await loadArtifactTool();
   console.log('Creating formatted XLSX workbook...');
   const workbook = await createWorkbook(model, artifact);
   const output = await artifact.SpreadsheetFile.exportXlsx(workbook);
   await output.save(XLSX_PATH);
+  await normalizeXlsxContainer(XLSX_PATH);
   const artifactInspectSidecar = `${XLSX_PATH}.inspect.ndjson`;
   if (existsSync(artifactInspectSidecar)) await unlink(artifactInspectSidecar);
   console.log(`Reopening and checking all ${EXPECTED_SHEETS.length} worksheets...`);
   await validateSavedWorkbook(XLSX_PATH, model, artifact);
   return { model, xlsxPath: XLSX_PATH, jsonPath: JSON_PATH };
+}
+
+export async function verifyClinicalReviewArtifacts(): Promise<string[]> {
+  const model = buildReproducibleReviewModel();
+  validateExportModel(model);
+  const stale: string[] = [];
+  try {
+    if (await readFile(JSON_PATH, 'utf8') !== reviewJsonString(model)) stale.push(JSON_PATH);
+  } catch {
+    stale.push(JSON_PATH);
+  }
+  if (!existsSync(XLSX_PATH)) {
+    stale.push(XLSX_PATH);
+  } else {
+    try {
+      const artifact = await loadArtifactTool();
+      await validateSavedWorkbook(XLSX_PATH, model, artifact);
+    } catch {
+      stale.push(XLSX_PATH);
+    }
+  }
+  return stale;
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : '';

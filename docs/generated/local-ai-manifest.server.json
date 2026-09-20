@@ -1,4 +1,11 @@
 {
+  "_generated": {
+    "notice": "AUTO-GENERATED. DO NOT EDIT.",
+    "sourceFile": "src/clinical/cases.ts",
+    "generatorCommand": "npm run clinical:generate",
+    "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+    "semanticChecksum": "sha256:e72f06384ea0fcb26a964d045e3ce9855578d06262306d7794c94a752368be45"
+  },
   "schemaVersion": "1.0.0",
   "intendedUse": "server-only-local-ai-context",
   "cases": [
