@@ -42,7 +42,10 @@ test('background music is a single long-lived controller that ducks for patient 
 
 test('actual Finish consultation controls call immediate idempotent finalization', () => {
   const encounter = read('src/components/EncounterScreen.tsx');
-  const overlay = read('src/components/ExamineOverlay.tsx');
+  const overlay = [
+    read('src/components/ExamineOverlay.tsx'),
+    read('src/components/examine/PrescriptionTab.tsx'),
+  ].join('\n');
   assert.match(encounter, /onClick=\{\(e\) => \{[\s\S]*endConsultation\(\)/);
   assert.match(overlay, /onClick=\{onFinish\}[\s\S]*Finish consultation/);
   assert.match(encounter, /if \(finishingRef\.current\) return/);

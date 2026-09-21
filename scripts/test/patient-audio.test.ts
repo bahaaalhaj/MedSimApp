@@ -120,7 +120,7 @@ test('Examine has click and guarded E access and records attempt-bound actions',
   assert.match(encounter, /aria-label="Examine patient"/);
   assert.match(encounter, /e\.key !== 'e' && e\.key !== 'E'/);
   assert.match(encounter, /tagName === 'INPUT'[\s\S]*tagName === 'TEXTAREA'[\s\S]*isContentEditable/);
-  assert.match(overlay, /recordExaminationAction\(action\.id\)/);
+  assert.match(overlay, /onRecordAction=\{\(actionId\) => store\.recordExaminationAction\(actionId\)\}/);
   assert.match(storeSource, /actionId, performedAt, attemptId: p\.investigationAttemptId \?\? p\.encounterAttemptId/);
   assert.match(storeSource, /recordExamination\(attemptId, actionId, performedAt\)/);
 });

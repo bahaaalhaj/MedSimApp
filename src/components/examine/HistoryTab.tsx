@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { store, POLYCLINIC_BED_INDEX } from '../../game/store';
+import { POLYCLINIC_BED_INDEX } from '../../game/store';
 import { getExistingConversation } from '../../voice/conversationStore';
 import type { ActivePatient } from '../../game/types';
 
 /** Predefined-history controls; the overlay keeps tab selection and closing state. */
-export function HistoryTab({ patient }: { patient: ActivePatient }) {
+export function HistoryTab({ patient, onQuestionAccepted }: { patient: ActivePatient; onQuestionAccepted: (questionId: string) => void }) {
   const clinicalCase = patient.case;
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [questionError, setQuestionError] = useState('');
@@ -29,7 +29,7 @@ export function HistoryTab({ patient }: { patient: ActivePatient }) {
         setSubmittingId(question.id);
         const accepted = await conversation.sendTextMessage(question.question, 'predefined', question.id);
         if (!accepted) setQuestionError(conversation.getLastResponseError() || 'The local patient response failed. Please retry the question.');
-        else store.askPolyclinicQuestion(question.id);
+        else onQuestionAccepted(question.id);
         setSubmittingId(null);
       }}>{submittingId === question.id ? 'Patient is responding…' : question.question}</button>)}
       {questionError && <div role="alert" style={{ color: 'var(--rose-deep)', fontWeight: 700 }}>{questionError}</div>}
