@@ -42,7 +42,7 @@ test('hosted defaults reject paid and dynamic-router model selection', () => {
 });
 
 test('server owns prompts and bounds local context and output', () => {
-  const server = read('backend/server.py');
+  const server = read('backend/medsim_backend/services/patient_dialogue_service.py');
   const provider = read('backend/local_llm.py');
   const client = read('src/voice/localPatient.ts');
   const browserPersona = read('src/voice/patientPersona.ts');
@@ -70,4 +70,22 @@ test('server-only local AI manifest has all curated cases', () => {
   const manifest = JSON.parse(read('docs/generated/local-ai-manifest.server.json')) as { cases: unknown[] };
   assert.equal(manifest.cases.length, 72);
   assert.match(read('vite.config.ts'), /docs\/generated\/\*\.server\.json/);
+});
+
+test('learner runtime manifest and production imports contain no hidden clinical truth', () => {
+  const learner = JSON.parse(read('src/generated/learner-case-manifest.json')) as unknown;
+  const serialized = JSON.stringify(learner);
+  for (const key of [
+    'answer', 'relevant', 'correctDiagnosisId', 'assessmentRubric', 'criticalFailureRules',
+    'medicationExpectations', 'allowedReferenceIds', 'structuredResult', 'resultSnapshot',
+  ]) assert.doesNotMatch(serialized, new RegExp(`"${key}"`));
+
+  const runtime = [
+    read('src/data/cases.ts'), read('src/game/store.ts'), read('src/components/ExamineOverlay.tsx'),
+    read('src/components/DebriefScreen.tsx'), read('src/agents/debriefRequest.ts'),
+    read('src/agents/useLocalDebrief.ts'), read('src/voice/conversationStore.ts'),
+  ].join('\n');
+  assert.doesNotMatch(runtime, /from ['"]\.\.\/(?:clinical\/cases|clinical\/variants|data\/polyclinicPatients|data\/autoRubric|clinical\/prescriptionValidation)/);
+  assert.doesNotMatch(runtime, /buildConservativeDeterministicEvaluation/);
+  assert.match(read('src/clinical/investigationApi.ts'), /evidenceVersion: 2/);
 });

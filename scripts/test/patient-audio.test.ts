@@ -17,8 +17,13 @@ test('browser conversation has no doctor audio capture or publication path', () 
 });
 
 test('typed and predefined questions use the text-first patient turn', () => {
-  const overlay = read('src/components/ExamineOverlay.tsx');
-  assert.match(overlay, /sendTextMessage\(q\.question, 'predefined', q\.id\)/);
+  const overlay = [
+    read('src/components/ExamineOverlay.tsx'),
+    read('src/components/examine/HistoryTab.tsx'),
+    read('src/components/examine/ExaminationTab.tsx'),
+    read('src/components/examine/ChatTab.tsx'),
+  ].join('\n');
+  assert.match(overlay, /sendTextMessage\((q|question)\.question, 'predefined', (q|question)\.id\)/);
   assert.match(overlay, /sendTextMessage\(text, 'typed'\)/);
   assert.doesNotMatch(overlay, /patient could not respond/i);
   assert.match(overlay, /getLastResponseError/);
@@ -49,7 +54,7 @@ test('adult and pediatric Kokoro speaker policies remain deterministic', () => {
   assert.match(wiring, /isPediatric\(patientCase\)[\s\S]*parentGenderFor\(patientCase\)[\s\S]*patientCase\.gender/);
 });
 
-test('encounter transcript survives in state and reaches debrief request in order', () => {
+test('encounter transcript survives in state but is not resubmitted as evaluation authority', () => {
   const clinicalCase: PatientCase = {
     id: 'transcript-test', name: 'Test Patient', age: 40, gender: 'F', severity: 'stable',
     arrivalBlurb: 'Comfortable', chiefComplaint: 'Pain',
@@ -63,16 +68,16 @@ test('encounter transcript survives in state and reaches debrief request in orde
     { id: '2', role: 'patient' as const, content: 'Three days ago.', timestampIso: new Date(now + 1).toISOString(), questionSource: null, caseId: clinicalCase.id, caseVersion: 'v-test', attemptId: 'attempt-1' },
   ];
   const patient = {
-    case: clinicalCase, bedIndex: -10, status: 'in-bed', askedQuestionIds: [], transcript,
+    case: clinicalCase, bedIndex: -10, status: 'in-bed', askedQuestionIds: [], transcript, examinationActions: [],
     encounterAttemptId: 'attempt-1', orderedTestIds: [], testOrderedAt: {}, completedTestIds: [],
     investigationAttemptId: null, investigationAttemptStatus: 'ready', investigationCatalogue: [], investigationOrders: [],
     givenTreatmentIds: [], submittedDiagnosisId: null, arrivedAt: now, deadlineMs: now + 1000,
     caseVersion: 'v-test', rubricVersion: 'r-test', variantSeed: 'seed', prescriptions: [],
   } as const;
   const request = buildDebriefRequest(clinicalCase, patient as never, now + 1000);
-  assert.deepEqual(request.encounter_log.transcript.map((entry) => entry.content), ['When did it start?', 'Three days ago.']);
-  assert.equal(request.encounter_log.transcript[0].question_source, 'typed');
-  assert.equal(request.encounter_log.transcript[0].attempt_id, 'attempt-1');
+  assert.equal(patient.transcript.length, 2);
+  assert.equal('transcript' in request.encounter_log, false);
+  assert.equal(request.case_id, 'transcript-test');
 });
 
 test('patient audio uses Web Audio buffers without DOM audio or object URLs', () => {
@@ -107,13 +112,17 @@ test('removed cloud speech providers and transport are absent from runtime manif
 
 test('Examine has click and guarded E access and records attempt-bound actions', () => {
   const encounter = read('src/components/EncounterScreen.tsx');
-  const overlay = read('src/components/ExamineOverlay.tsx');
+  const overlay = [
+    read('src/components/ExamineOverlay.tsx'),
+    read('src/components/examine/ExaminationTab.tsx'),
+  ].join('\n');
   const storeSource = read('src/game/store.ts');
   assert.match(encounter, /aria-label="Examine patient"/);
   assert.match(encounter, /e\.key !== 'e' && e\.key !== 'E'/);
   assert.match(encounter, /tagName === 'INPUT'[\s\S]*tagName === 'TEXTAREA'[\s\S]*isContentEditable/);
   assert.match(overlay, /recordExaminationAction\(action\.id\)/);
-  assert.match(storeSource, /performedAt: Date\.now\(\), attemptId: p\.investigationAttemptId \?\? p\.encounterAttemptId/);
+  assert.match(storeSource, /actionId, performedAt, attemptId: p\.investigationAttemptId \?\? p\.encounterAttemptId/);
+  assert.match(storeSource, /recordExamination\(attemptId, actionId, performedAt\)/);
 });
 
 test('patient audio is ordered and every accepted turn has replayable state', () => {

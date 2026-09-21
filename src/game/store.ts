@@ -4,7 +4,7 @@ import type {
   AvatarStyle,
   EndConfirmChecks,
   GameState,
-  PatientCase,
+  LearnerPatientCase,
   RoomLayout,
   Screen,
   Tweaks,
@@ -13,13 +13,19 @@ import type { ClinicId } from './clinic';
 import { DEFAULT_CLINIC } from './clinic';
 import type { PaletteName } from '../styles/palettes';
 import type { Case as MedSimCase } from '../data/cases';
-import { getAssignableCases, getCase, getCaseClinic, getPatientCase } from '../data/cases';
+import { getAssignableCases, getCase, getCaseClinic, getCaseVersion, getPatientCase, getRubricVersion } from '../data/cases';
 import { clearAllConversationStorage, ensureAudioContext } from '../voice/conversationStore';
 import type { EncounterTranscriptEntry } from './types';
-import { caseVersionFor, CLINICAL_CASE_BY_ID } from '../clinical/cases';
-import { generateControlledVariant } from '../clinical/variants';
 import type { TrainingMode } from '../clinical/types';
-import { createInvestigationAttempt, getInvestigationResult, orderInvestigation } from '../clinical/investigationApi';
+import {
+  createInvestigationAttempt,
+  getInvestigationResult,
+  orderInvestigation,
+  recordCompletion,
+  recordExamination,
+  recordPrescription,
+  submitDiagnosis,
+} from '../clinical/investigationApi';
 
 const ONBOARDED_KEY = 'medsim:onboarded';
 
@@ -56,11 +62,33 @@ const DEFAULT_TWEAKS: Tweaks = {
  *  catalogue (shouldn't happen — the cartoon library is derived FROM the
  *  catalogue), fall back to a minimal stub built from the cartoon shape so
  *  the voice agent + 3D scene still get something to render. */
-function toPatientCase(c: MedSimCase, variantSeed: string): PatientCase {
+function seeded(seedText: string): () => number {
+  let seed = 2166136261 >>> 0;
+  for (let index = 0; index < seedText.length; index++) {
+    seed ^= seedText.charCodeAt(index);
+    seed = Math.imul(seed, 16777619) >>> 0;
+  }
+  return () => {
+    seed = (seed + 0x6d2b79f5) >>> 0;
+    let value = seed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function toPatientCase(c: MedSimCase, variantSeed: string): LearnerPatientCase {
   const real = getPatientCase(c.id);
   if (real) {
-    const variant = generateControlledVariant(c.id, variantSeed);
-    return variant ? { ...real, name: variant.displayName, age: variant.age, chiefComplaint: variant.complaint } : real;
+    const policy = real.variantPolicy;
+    if (!policy) return real;
+    const random = seeded(`${c.id}:${getCaseVersion(c.id)}:${variantSeed}`);
+    const pick = <T,>(items: T[]) => items[Math.floor(random() * items.length)];
+    const name = pick(policy.allowedDisplayNames);
+    const age = policy.ageRange.min + Math.floor(random() * (policy.ageRange.max - policy.ageRange.min + 1));
+    const chiefComplaint = pick(policy.allowedComplaintPhrasings);
+    if (policy.difficultyOptions?.length) pick(policy.difficultyOptions);
+    return { ...real, name, age, chiefComplaint };
   }
   const isRedFlag = c.tags.some((t) => t.toLowerCase().includes('red flag'));
   return {
@@ -73,11 +101,8 @@ function toPatientCase(c: MedSimCase, variantSeed: string): PatientCase {
     chiefComplaint: c.complaint,
     vitals: { hr: 88, bp: '162/96', spo2: 98, temp: 36.7, rr: 16 },
     anamnesis: [],
-    testResults: [],
-    correctDiagnosisId: '',
-    acceptableTreatmentIds: [],
-    criticalTreatmentIds: [],
     diagnosisOptions: [],
+    diagnosisLabels: {},
   };
 }
 
@@ -99,7 +124,6 @@ function hasEncounterActivity(p: ActivePatient): boolean {
 
 function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): ActivePatient {
   const now = Date.now();
-  const canonical = CLINICAL_CASE_BY_ID.get(c.id);
   return {
     case: toPatientCase(c, variantSeed),
     bedIndex: POLYCLINIC_BED_INDEX,
@@ -119,8 +143,8 @@ function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): 
     submittedDiagnosisId: null,
     arrivedAt: now,
     deadlineMs: now + 8 * 60 * 1000,
-    caseVersion: caseVersionFor(c.id),
-    rubricVersion: canonical?.rubricVersion ?? 'legacy-auto',
+    caseVersion: getCaseVersion(c.id),
+    rubricVersion: getRubricVersion(c.id),
     variantSeed,
   };
 }
@@ -271,10 +295,16 @@ class Store {
   };
 
   // ── per-screen state ──────────────────────────
-  toggleEndConfirm = (key: keyof EndConfirmChecks) =>
-    this.set({
-      endConfirm: { ...this.state.endConfirm, [key]: !this.state.endConfirm[key] },
-    });
+  toggleEndConfirm = (key: keyof EndConfirmChecks) => {
+    const endConfirm = { ...this.state.endConfirm, [key]: !this.state.endConfirm[key] };
+    this.set({ endConfirm });
+    const attemptId = this.state.polyclinic.patient?.investigationAttemptId;
+    if (attemptId) void recordCompletion(attemptId, {
+      summaryCompleted: endConfirm.sum,
+      safetyNettingCompleted: endConfirm.safe,
+      ideasConcernsExpectationsCompleted: endConfirm.ice,
+    }).catch(() => undefined);
+  };
 
   /** Library card click: pin the polyclinic to the case's specialty so the
    *  next-patient flow walks the same roster, then jump to the brief. */
@@ -334,18 +364,34 @@ class Store {
       return { ...p, askedQuestionIds: [...p.askedQuestionIds, qid] };
     });
 
+  authorizePolyclinicAnswer = (qid: string, answer: string, relevant: boolean) =>
+    this.updatePolyclinicPatient((p) => ({
+      ...p,
+      askedQuestionIds: p.askedQuestionIds.includes(qid) ? p.askedQuestionIds : [...p.askedQuestionIds, qid],
+      case: {
+        ...p.case,
+        anamnesis: p.case.anamnesis.map((item) => item.id === qid ? { ...item, answer, relevant } : item),
+      },
+    }));
+
   appendTranscriptEntry = (entry: EncounterTranscriptEntry) =>
     this.updatePolyclinicPatient((p) => {
       if (p.case.id !== entry.caseId || p.transcript.some((item) => item.id === entry.id)) return p;
       return { ...p, transcript: [...p.transcript, entry] };
     });
 
-  recordExaminationAction = (actionId: string) =>
-    this.updatePolyclinicPatient((p) => p.examinationActions.some((item) => item.actionId === actionId)
-      ? p
-      : { ...p, examinationActions: [...p.examinationActions, {
-        actionId, performedAt: Date.now(), attemptId: p.investigationAttemptId ?? p.encounterAttemptId,
-      }] });
+  recordExaminationAction = (actionId: string) => {
+    const patient = this.state.polyclinic.patient;
+    if (!patient || patient.examinationActions.some((item) => item.actionId === actionId)) return;
+    const performedAt = Date.now();
+    this.updatePolyclinicPatient((p) => ({ ...p, examinationActions: [...p.examinationActions, {
+      actionId, performedAt, attemptId: p.investigationAttemptId ?? p.encounterAttemptId,
+    }] }));
+    void (async () => {
+      const attemptId = patient.investigationAttemptId ?? await this.initializeInvestigationAttempt();
+      if (attemptId) await recordExamination(attemptId, actionId, performedAt);
+    })().catch(() => undefined);
+  };
 
   initializeInvestigationAttempt = async () => {
     const patient = this.state.polyclinic.patient;
@@ -420,20 +466,32 @@ class Store {
 
   /** Diagnose tab: lock in a diagnosis. Once submitted, options become
    *  disabled and the prescription tab unlocks. */
-  submitPolyclinicDiagnosis = (dxId: string) =>
-    this.updatePolyclinicPatient((p) =>
-      p.submittedDiagnosisId ? p : { ...p, submittedDiagnosisId: dxId },
-    );
+  submitPolyclinicDiagnosis = (dxId: string) => {
+    const patient = this.state.polyclinic.patient;
+    if (!patient || patient.submittedDiagnosisId) return;
+    this.updatePolyclinicPatient((p) => ({ ...p, submittedDiagnosisId: dxId }));
+    void (async () => {
+      const attemptId = patient.investigationAttemptId ?? await this.initializeInvestigationAttempt();
+      if (!attemptId) return;
+      const result = await submitDiagnosis(attemptId, dxId);
+      this.updatePolyclinicPatient((p) => p.submittedDiagnosisId !== dxId ? p : {
+        ...p,
+        diagnosisResult: { correctDiagnosisId: result.correctDiagnosisId, diagnosisWasCorrect: result.diagnosisWasCorrect },
+      });
+    })().catch(() => undefined);
+  };
 
   /** Rx tab: append a prescription line to the patient's record. */
-  addPolyclinicPrescription = (rx: { medicationId: string; dose: string; duration: string }) =>
-    this.updatePolyclinicPatient((p) => ({
-      ...p,
-      prescriptions: [
-        ...(p.prescriptions ?? []),
-        { ...rx, prescribedAt: Date.now() },
-      ],
-    }));
+  addPolyclinicPrescription = (rx: { medicationId: string; dose: string; duration: string }) => {
+    const patient = this.state.polyclinic.patient;
+    if (!patient) return;
+    const prescription = { ...rx, prescribedAt: Date.now() };
+    this.updatePolyclinicPatient((p) => ({ ...p, prescriptions: [...(p.prescriptions ?? []), prescription] }));
+    void (async () => {
+      const attemptId = patient.investigationAttemptId ?? await this.initializeInvestigationAttempt();
+      if (attemptId) await recordPrescription(attemptId, prescription);
+    })().catch(() => undefined);
+  };
 }
 
 export const store = new Store();

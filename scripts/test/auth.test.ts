@@ -43,7 +43,8 @@ test('patient selection uses only the outpatient catalogue', () => {
   const cases = read('src/data/cases.ts');
   const store = read('src/game/store.ts');
   const library = read('src/components/CaseLibraryScreen.tsx');
-  assert.match(cases, /POLYCLINIC_CASES/);
+  assert.match(cases, /learner-case-manifest\.json/);
+  assert.doesNotMatch(cases, /POLYCLINIC_CASES|polyclinicPatients/);
   assert.doesNotMatch(cases, /PATIENT_CASES|data\/patients/);
   assert.match(store, /getAssignableCases\(this\.state\.trainingMode\)/);
   assert.match(store, /assignable\.filter\(\(c\) => c\.clinic === clinic\)/);

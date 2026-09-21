@@ -1,5 +1,23 @@
 import type { CaseEvaluationInput, CriterionResult, VerdictBand } from './evaluationSchema';
-import type { DebriefRequest } from './debriefRequest';
+import type { CaseRubric } from '../game/types';
+
+interface DebriefRequest {
+  case_id: string;
+  critical_criterion_ids: string[];
+  rubric: CaseRubric;
+  encounter_log: {
+    history_questions_asked: Array<{ id: string; question: string }>;
+    examinations_performed: Array<{ action_id: string }>;
+    tests_ordered: Array<{ test_id: string; result_shown_to_trainee: string | null }>;
+    submitted_diagnosis_id: string | null;
+    diagnosis_was_correct: boolean | null;
+    safety_netting_checks: {
+      summary_completed: boolean;
+      safety_netting_completed: boolean;
+      ideas_concerns_expectations_completed: boolean;
+    } | null;
+  };
+}
 
 const CREDIT = { met: 1, 'partially-met': 0.5, missed: 0 } as const;
 

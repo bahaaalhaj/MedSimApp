@@ -1,14 +1,10 @@
 import type { FaceAccessory, FaceMood } from '../components/primitives';
-import type { PatientCase } from '../game/types';
+import type { LearnerPatientCase } from '../game/types';
 import type { ClinicId } from '../game/clinic';
 import { CLINIC_LABELS } from '../game/clinic.ts';
-import { CLINICAL_CASE_BY_ID, isAssignableCase } from '../clinical/cases.ts';
-import type { CaseReviewStatus, ClinicalCase, LearnerLevel, TrainingMode } from '../clinical/types';
-import { POLYCLINIC_CASES } from './polyclinicPatients.ts';
+import type { CaseReviewStatus, LearnerLevel, TrainingMode } from '../clinical/types';
+import learnerManifest from '../generated/learner-case-manifest.json' with { type: 'json' };
 
-/** Cute-cartoon face descriptor for the case library. Derived deterministically
- *  from the underlying `PatientCase` so the same patient always renders the
- *  same face across screens. */
 export interface Case {
   id: string;
   name: string;
@@ -24,8 +20,6 @@ export interface Case {
   attempted?: boolean;
   score?: string;
   accessory?: FaceAccessory;
-  /** The clinic / specialty this patient belongs to, so the library can filter
-   *  by specialty as well as by condition. */
   clinic: ClinicId;
   reviewStatus: CaseReviewStatus;
   caseVersion: string;
@@ -33,32 +27,31 @@ export interface Case {
   learnerLevel: LearnerLevel;
 }
 
-// ── deterministic palette pickers ─────────────────────────────────────
-//
-// We derive the cartoon face from `id + age + gender` so faces stay stable
-// across reloads (no random Math.random() at module init).
+interface LearnerManifestCase {
+  caseId: string;
+  caseVersion: string;
+  rubricVersion: string;
+  specialtyId: ClinicId;
+  displayName: string;
+  age: number;
+  gender: 'M' | 'F';
+  severity: LearnerPatientCase['severity'];
+  arrivalBlurb: string;
+  publicComplaint: string;
+  vitalSigns: LearnerPatientCase['vitals'];
+  historyQuestions: Array<{ id: string; question: string }>;
+  diagnosisOptions: Array<{ diagnosisId: string; label: string }>;
+  difficulty: Case['difficulty'];
+  learnerLevel: LearnerLevel;
+  reviewStatus: CaseReviewStatus;
+  variantPolicy?: LearnerPatientCase['variantPolicy'];
+}
 
-const SKIN_TONES = [
-  '#FFE0BD', // pale cream
-  '#FFD8B5', // light peach
-  '#FFD0B0', // warm beige
-  '#E8B68F', // tan
-  '#D89B6E', // medium
-  '#B47148', // deep tan
-  '#7B4F2E', // brown
-  '#4A2E1C', // dark brown
-];
+const records = learnerManifest.cases as LearnerManifestCase[];
+if (records.length !== 72) throw new Error('Learner case manifest must contain exactly 72 assignable cases');
 
-const HAIR_TONES = [
-  '#1F1410', // black
-  '#2B1810', // dark brown
-  '#3B2A1F', // brown
-  '#5A3A22', // chestnut
-  '#A8855E', // light brown
-  '#D9B380', // dirty blonde
-  '#E5DACE', // grey
-  '#9F9F9F', // silver
-];
+const SKIN_TONES = ['#FFE0BD', '#FFD8B5', '#FFD0B0', '#E8B68F', '#D89B6E', '#B47148', '#7B4F2E', '#4A2E1C'];
+const HAIR_TONES = ['#1F1410', '#2B1810', '#3B2A1F', '#5A3A22', '#A8855E', '#D9B380', '#E5DACE', '#9F9F9F'];
 
 function hash(s: string): number {
   let h = 0;
@@ -66,27 +59,25 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
-function pickSkin(p: PatientCase): string {
+function pickSkin(p: LearnerPatientCase): string {
   return SKIN_TONES[hash(p.id + 'skin') % SKIN_TONES.length];
 }
 
-function pickHair(p: PatientCase): string {
-  // Older patients lean grey/silver.
+function pickHair(p: LearnerPatientCase): string {
   if (p.age >= 65) return HAIR_TONES[6 + (hash(p.id) % 2)];
   return HAIR_TONES[hash(p.id + 'hair') % 6];
 }
 
-function pickMood(p: PatientCase): FaceMood {
+function pickMood(p: LearnerPatientCase): FaceMood {
   if (p.severity === 'critical') return 'sad';
   if (p.severity === 'urgent') return 'sick';
-  // Mild anxiety hint based on chief complaint keywords.
   const cc = p.chiefComplaint.toLowerCase();
   if (/(pain|chest|headache|bleed)/.test(cc)) return 'worried';
   if (/(fever|cough|nausea|vomit|sore)/.test(cc)) return 'sick';
   return 'neutral';
 }
 
-function tagsFor(p: PatientCase, clinic: ClinicId): string[] {
+function tagsFor(p: LearnerPatientCase, clinic: ClinicId): string[] {
   const out: string[] = [];
   if (p.severity === 'critical') out.push('red flag');
   else if (p.severity === 'urgent') out.push('urgent');
@@ -94,81 +85,79 @@ function tagsFor(p: PatientCase, clinic: ClinicId): string[] {
   return out;
 }
 
-function toCase(p: PatientCase, clinicalCase: ClinicalCase): Case {
-  const clinic = clinicalCase.specialtyId;
-  return {
-    id: p.id,
-    name: p.name,
-    age: p.age,
-    sex: p.gender,
-    complaint: p.chiefComplaint,
-    tags: tagsFor(p, clinic),
-    guideline: clinicalCase.reviewStatus === 'source-verified-formative' ? 'Educational case · Source-backed formative case' : 'Not assignable',
-    skin: pickSkin(p),
-    hair: pickHair(p),
-    mood: pickMood(p),
-    // Pre-submission catalogue data must not reveal the ground-truth diagnosis.
-    cond: 'Clinical reasoning case',
-    clinic,
-    reviewStatus: clinicalCase.reviewStatus,
-    caseVersion: clinicalCase.caseVersion,
-    difficulty: clinicalCase.difficulty,
-    learnerLevel: clinicalCase.targetLearnerLevel,
+const PATIENT_BY_ID = new Map<string, LearnerPatientCase>();
+const META_BY_ID = new Map(records.map((record) => [record.caseId, record]));
+
+export const CASES: Case[] = records.map((record) => {
+  const patient: LearnerPatientCase = {
+    id: record.caseId,
+    name: record.displayName,
+    age: record.age,
+    gender: record.gender,
+    severity: record.severity,
+    arrivalBlurb: record.arrivalBlurb,
+    chiefComplaint: record.publicComplaint,
+    vitals: record.vitalSigns,
+    anamnesis: record.historyQuestions,
+    diagnosisOptions: record.diagnosisOptions.map((item) => item.diagnosisId),
+    diagnosisLabels: Object.fromEntries(record.diagnosisOptions.map((item) => [item.diagnosisId, item.label])),
+    variantPolicy: record.variantPolicy,
   };
+  PATIENT_BY_ID.set(record.caseId, patient);
+  return {
+    id: record.caseId,
+    name: record.displayName,
+    age: record.age,
+    sex: record.gender,
+    complaint: record.publicComplaint,
+    tags: tagsFor(patient, record.specialtyId),
+    guideline: record.reviewStatus === 'source-verified-formative' ? 'Educational case · Source-backed formative case' : 'Not assignable',
+    skin: pickSkin(patient),
+    hair: pickHair(patient),
+    mood: pickMood(patient),
+    cond: 'Clinical reasoning case',
+    clinic: record.specialtyId,
+    reviewStatus: record.reviewStatus,
+    caseVersion: record.caseVersion,
+    difficulty: record.difficulty,
+    learnerLevel: record.learnerLevel,
+  };
+});
+
+export function getAssignableCases(_mode: TrainingMode): Case[] {
+  return CASES.filter((c) => c.reviewStatus === 'source-verified-formative');
 }
 
-// ── Build the library deterministically from the canonical 72-case source ──
-
-const BY_ID = new Map<string, { p: PatientCase; clinic: ClinicId }>();
-const ALL_CASES_RAW: Case[] = [];
-
-for (const [clinic, list] of Object.entries(POLYCLINIC_CASES) as Array<[ClinicId, PatientCase[]]>) {
-  if (clinic === 'all-specialties') continue;
-  for (const p of list) {
-    const clinicalCase = CLINICAL_CASE_BY_ID.get(p.id);
-    if (!clinicalCase || BY_ID.has(p.id)) continue;
-    if (clinicalCase.specialtyId !== clinic) throw new Error(`Canonical specialty mismatch: ${p.id}`);
-    BY_ID.set(p.id, { p, clinic });
-    ALL_CASES_RAW.push(toCase(p, clinicalCase));
-  }
-}
-
-export const CASES: Case[] = ALL_CASES_RAW;
-
-export function getAssignableCases(mode: TrainingMode): Case[] {
-  return CASES.filter((c) => isAssignableCase(c.id, mode));
-}
-
-/** All distinct condition labels in the catalogue, plus a couple of fixed
- *  filter chips ('All', 'Red-flag only'). */
 const conditionSet = new Set(CASES.map((c) => c.cond));
 export const CONDITION_FILTERS: string[] = ['All', ...Array.from(conditionSet).slice(0, 8), 'Red-flag only'];
-
-/** Stable colour per condition for chips and ribbons — picks from the
- *  cozy-cartoon palette using a hash. */
 const PALETTE_VARS = ['var(--rose)', 'var(--peach)', 'var(--mint)', 'var(--sky)', 'var(--butter)'];
-function colourFor(label: string): string {
-  return PALETTE_VARS[hash(label) % PALETTE_VARS.length];
-}
 export const CONDITION_COLORS: Record<string, string> = Object.fromEntries(
-  Array.from(conditionSet).map((c) => [c, colourFor(c)]),
+  Array.from(conditionSet).map((label) => [label, PALETTE_VARS[hash(label) % PALETTE_VARS.length]]),
 );
 
-/** Lookup by id — used by every screen that needs the current case. */
 export function getCase(id: string): Case {
   const found = CASES.find((c) => c.id === id);
   if (found) return found;
   throw new Error(`Unknown case id: ${id}`);
 }
 
-/** Look up the underlying medical PatientCase (anamnesis, vitals,
- *  diagnosis options, test results, etc.) — used by the encounter /
- *  brief / debrief screens that need more than the cartoon face. */
-export function getPatientCase(id: string): PatientCase | undefined {
-  return BY_ID.get(id)?.p;
+export function getPatientCase(id: string): LearnerPatientCase | undefined {
+  return PATIENT_BY_ID.get(id);
 }
 
-/** Which clinic does this case belong to? */
 export function getCaseClinic(id: string): ClinicId | undefined {
-  return BY_ID.get(id)?.clinic;
+  return META_BY_ID.get(id)?.specialtyId;
+}
+
+export function getCaseVersion(id: string): string {
+  return META_BY_ID.get(id)?.caseVersion ?? 'legacy-1';
+}
+
+export function getRubricVersion(id: string): string {
+  return META_BY_ID.get(id)?.rubricVersion ?? 'legacy-auto';
+}
+
+export function getDiagnosisLabel(caseId: string, diagnosisId: string): string {
+  return PATIENT_BY_ID.get(caseId)?.diagnosisLabels[diagnosisId]
+    ?? diagnosisId.replace(/-/g, ' ').replace(/\b\w/g, (value) => value.toUpperCase());
 }

@@ -13,15 +13,17 @@ from typing import Any
 _MANIFEST_PATH = Path(__file__).resolve().parents[1] / "docs" / "generated" / "local-ai-manifest.server.json"
 
 
-def _load_cases() -> dict[str, dict[str, Any]]:
+def _load_manifest() -> dict[str, Any]:
     payload = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
     cases = payload.get("cases", [])
     if len(cases) != 72:
         raise RuntimeError("local AI manifest must contain exactly 72 cases")
-    return {item["caseId"]: item for item in cases}
+    return payload
 
 
-LOCAL_AI_CASES = _load_cases()
+_LOCAL_AI_MANIFEST = _load_manifest()
+LOCAL_AI_CASES = {item["caseId"]: item for item in _LOCAL_AI_MANIFEST["cases"]}
+LOCAL_AI_REFERENCES = {item["referenceId"]: item for item in _LOCAL_AI_MANIFEST.get("references", [])}
 
 
 def public_profile(case: dict[str, Any], supplied: dict[str, Any] | None) -> dict[str, Any]:

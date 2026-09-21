@@ -21,6 +21,7 @@ const displayPath = (path: string): string => relative(process.cwd(), path).repl
 function expectedTextArtifacts(reviewChecksums = reviewArtifactChecksums(buildReproducibleReviewModel())): Record<string, string> {
   const generated = buildGeneratedTextArtifacts();
   return {
+    [GENERATED_PATHS.learnerCases]: generated.learnerCases,
     [GENERATED_PATHS.curation]: generated.curation,
     [GENERATED_PATHS.investigations]: generated.investigations,
     [GENERATED_PATHS.localAi]: generated.localAi,

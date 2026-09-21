@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Doodle, TopBar } from './primitives';
+import { DomainRing } from './debrief/DomainRing';
 import { store, useGameState } from '../game/store';
-import { getPatientCase } from '../data/cases';
+import { getDiagnosisLabel, getPatientCase } from '../data/cases';
 import { TESTS } from '../data/tests';
 import { TREATMENTS } from '../data/treatments';
 import { getRecommendation } from '../data/guidelines';
 import { useLocalDebrief } from '../agents/useLocalDebrief';
 import { buildDebriefRequest, summariseRequest } from '../agents/debriefRequest';
 import { saveEvalHistory, getEvalHistory, type EvalHistoryEntry } from '../data/evalHistory';
-import { POLYCLINIC_DIAGNOSIS_LABELS } from '../data/polyclinicPatients';
 import type {
   CaseEvaluationInput,
   CriterionResult,
-  DomainScore,
   VerdictBand,
 } from '../agents/evaluationSchema';
-import type { ActivePatient, PatientCase } from '../game/types';
-import { CLINICAL_CASE_BY_ID, toPostSubmissionReview } from '../clinical/cases';
+import type { ActivePatient, LearnerPatientCase } from '../game/types';
 
 // ── verdict / colour mapping ───────────────────────────────────────
 
@@ -44,81 +42,7 @@ const GLOBAL_DEEP: Record<VerdictBand, string> = {
   'clear-fail': 'var(--rose-deep)',
 };
 
-const RING_COLOR: Record<VerdictBand, string> = {
-  excellent: 'var(--mint-deep)',
-  good: 'var(--mint-deep)',
-  satisfactory: 'var(--butter-deep)',
-  borderline: 'var(--peach-deep)',
-  'clear-fail': 'var(--rose-deep)',
-};
-
 // ── DomainRing — adapted to take real data + verdict ──────────────
-
-interface DomainRingProps {
-  label: string;
-  score: DomainScore;
-}
-
-function DomainRing({ label, score }: DomainRingProps) {
-  const pct = score.max > 0 ? score.raw / score.max : 0;
-  const r = 32;
-  const c = 2 * Math.PI * r;
-  const color = RING_COLOR[score.verdict];
-  const qualitative =
-    score.verdict === 'excellent' || score.verdict === 'good' ? 'on target' :
-    score.verdict === 'satisfactory' ? 'fair' :
-    'work needed';
-  return (
-    <div
-      style={{
-        background: 'white',
-        border: '3px solid var(--line)',
-        borderRadius: 16,
-        padding: 14,
-        boxShadow: 'var(--plush-tiny)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-      }}
-    >
-      <svg width="84" height="84" viewBox="0 0 84 84">
-        <circle cx="42" cy="42" r={r} fill="none" stroke="var(--cream)" strokeWidth="10" />
-        <circle
-          cx="42"
-          cy="42"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${c * pct} ${c}`}
-          transform="rotate(-90 42 42)"
-        />
-        <text
-          x="42"
-          y="48"
-          textAnchor="middle"
-          fontFamily="Nunito"
-          fontWeight="900"
-          fontSize="16"
-          fill="var(--ink)"
-        >
-          {formatScore(score.raw)}/{score.max}
-        </text>
-      </svg>
-      <div>
-        <div style={{ fontWeight: 900, fontSize: 14, lineHeight: 1.1 }}>{label}</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-2)', marginTop: 2 }}>
-          {qualitative}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatScore(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
 
 // ── Criterion — adapted to take CriterionResult + resolved cite ────
 
@@ -253,7 +177,7 @@ function buildCite(guidelineRef: string | null | undefined): Cite | undefined {
 
 // ── Action chips — derived from the encounter ─────────────────────
 
-function ActionChips({ patient, c }: { patient: ActivePatient; c: PatientCase }) {
+function ActionChips({ patient, c }: { patient: ActivePatient; c: LearnerPatientCase }) {
   const testById = new Map(TESTS.map((t) => [t.id, t]));
   const treatmentById = new Map(TREATMENTS.map((t) => [t.id, t]));
   const chips: Array<{ key: string; label: string; tone: 'butter' | 'peach' | 'mint' | 'sky' | 'plain' }> = [];
@@ -263,7 +187,8 @@ function ActionChips({ patient, c }: { patient: ActivePatient; c: PatientCase })
   }
   for (const tid of patient.givenTreatmentIds) {
     const name = treatmentById.get(tid)?.name ?? tid;
-    const tone = c.criticalTreatmentIds.includes(tid) ? 'mint' : 'peach';
+    const legacyCritical = (c as LearnerPatientCase & { criticalTreatmentIds?: string[] }).criticalTreatmentIds ?? [];
+    const tone = legacyCritical.includes(tid) ? 'mint' : 'peach';
     const icon = treatmentById.get(tid)?.category === 'medication' ? '\uD83D\uDC8A' :
       treatmentById.get(tid)?.category === 'disposition' ? '\u2197' : '\uD83E\uDE7A';
     chips.push({ key: `tx-${tid}`, label: `${icon} ${name}`, tone });
@@ -517,7 +442,7 @@ export function DebriefScreen() {
   // the walk-out animation. Fall back to a still-seated patient (rare:
   // the screen was opened directly without ending the encounter).
   const patient = reviewed?.patientSnapshot ?? state.lastEncounter ?? state.polyclinic.patient;
-  const c = useMemo<PatientCase | null>(() => {
+  const c = useMemo<LearnerPatientCase | null>(() => {
     return patient?.case ?? (state.selectedCaseId ? getPatientCase(state.selectedCaseId) : null) ?? null;
   }, [patient, state.selectedCaseId]);
 
@@ -541,13 +466,13 @@ export function DebriefScreen() {
     if (savedRef.current) return;
     if (!evaluation || !patient || !c) return;
     savedRef.current = true;
-    const dxId = patient.submittedDiagnosisId ?? c.correctDiagnosisId;
+    const dxId = patient.submittedDiagnosisId ?? evaluation.diagnosis_result?.correct_diagnosis_id ?? '';
     void saveEvalHistory({
       caseId: c.id,
       caseName: c.name,
       caseAge: c.age,
       caseGender: c.gender,
-      diagnosisLabel: POLYCLINIC_DIAGNOSIS_LABELS[dxId] ?? dxId,
+      diagnosisLabel: dxId ? getDiagnosisLabel(c.id, dxId) : 'Diagnosis not submitted',
       verdict: evaluation.global_rating,
       evaluation,
       patientSnapshot: patient,
@@ -643,7 +568,7 @@ function truncate(s: string, n: number): string {
 interface BodyProps {
   evaluation: CaseEvaluationInput;
   patient: ActivePatient;
-  c: PatientCase;
+  c: LearnerPatientCase;
 }
 
 function EvaluationBody({ evaluation, patient, c }: BodyProps) {
@@ -651,15 +576,10 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
   const dgItems = evaluation.criteria.filter((x) => x.domain === 'data_gathering');
   const cmItems = evaluation.criteria.filter((x) => x.domain === 'clinical_management');
   const ipItems = evaluation.criteria.filter((x) => x.domain === 'interpersonal');
-  const rubric = buildDebriefRequest(c, patient).rubric;
   const labelByCriterionId = new Map<string, string>();
-  for (const cr of rubric.data_gathering) labelByCriterionId.set(cr.criterion_id, cr.label);
-  for (const cr of rubric.clinical_management) labelByCriterionId.set(cr.criterion_id, cr.label);
-  for (const cr of rubric.interpersonal) labelByCriterionId.set(cr.criterion_id, cr.label);
   const elapsedSec = patient.arrivedAt ? Math.round((Date.now() - patient.arrivedAt) / 1000) : 0;
   const elapsedLabel = `${Math.floor(elapsedSec / 60)} min ${elapsedSec % 60} sec`;
-  const canonical = CLINICAL_CASE_BY_ID.get(c.id);
-  const postSubmission = canonical ? toPostSubmissionReview(canonical) : null;
+  const postSubmission = evaluation.post_submission;
 
   return (
     <>
@@ -815,7 +735,7 @@ function EvaluationBody({ evaluation, patient, c }: BodyProps) {
         <div className="plush" style={{ padding: 16, marginBottom: 22 }}>
           <SectionLabel>CASE VERSION &amp; SOURCES</SectionLabel>
           <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>
-            Case {postSubmission.caseId} v{postSubmission.caseVersion} · rubric v{postSubmission.rubricVersion} · Educational case · Source-backed formative case
+            Case {evaluation.case_id} v{patient.caseVersion} · rubric v{patient.rubricVersion} · Educational case · Source-backed formative case
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {postSubmission.references.map((reference) => (

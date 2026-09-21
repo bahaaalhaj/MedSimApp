@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { caseEvaluationInput, type CaseEvaluationInput } from './evaluationSchema';
 import type { DebriefRequest } from './debriefRequest';
-import { buildConservativeDeterministicEvaluation } from './deterministicEvaluation';
+import { recordCompletion, recordExamination, recordPrescription, submitDiagnosis } from '../clinical/investigationApi';
 
 export type DebriefStatus = 'idle' | 'starting' | 'streaming' | 'got-evaluation' | 'error' | 'aborted';
 
@@ -36,27 +36,27 @@ export function useLocalDebrief(
       try {
         if (!request.investigation_attempt_id) throw new Error('This encounter has no server attempt. Return to the encounter and retry.');
         setStatus('streaming');
+        const attemptId = request.investigation_attempt_id;
+        await Promise.all([
+          ...request.encounter_log.examinations_performed.map((item) => recordExamination(attemptId, item.action_id, item.performed_at)),
+          ...request.encounter_log.prescriptions.map((item) => recordPrescription(attemptId, {
+            medicationId: item.medication_id, dose: item.dose, duration: item.duration, prescribedAt: item.prescribed_at,
+          })),
+          ...(request.encounter_log.submitted_diagnosis_id ? [submitDiagnosis(attemptId, request.encounter_log.submitted_diagnosis_id)] : []),
+          ...(request.encounter_log.safety_netting_checks ? [recordCompletion(attemptId, {
+            summaryCompleted: request.encounter_log.safety_netting_checks.summary_completed,
+            safetyNettingCompleted: request.encounter_log.safety_netting_checks.safety_netting_completed,
+            ideasConcernsExpectationsCompleted: request.encounter_log.safety_netting_checks.ideas_concerns_expectations_completed,
+          })] : []),
+        ]);
         const response = await fetch('/api/local-ai/evaluate', {
           method: 'POST', credentials: 'include', signal: controller.signal,
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            attemptId: request.investigation_attempt_id,
+            attemptId,
             caseId: request.case_id,
             caseVersion: request.case_version,
             variantSeed: request.variant_seed,
-            askedQuestionIds: request.encounter_log.history_questions_asked.map((item) => item.id),
-            treatmentIds: request.encounter_log.treatments_given.map((item) => item.treatment_id),
-            prescriptions: request.encounter_log.prescriptions.map((item) => ({ medicationId: item.medication_id, dose: item.dose, duration: item.duration })),
-            submittedDiagnosisId: request.encounter_log.submitted_diagnosis_id,
-            transcript: request.encounter_log.transcript.map((item) => ({
-              role: item.role, content: item.content, timestampIso: item.timestamp_iso, questionSource: item.question_source, attemptId: item.attempt_id,
-            })),
-            examinations: request.encounter_log.examinations_performed.map((item) => ({ actionId: item.action_id, performedAt: item.performed_at, attemptId: item.attempt_id })),
-            completionChecks: request.encounter_log.safety_netting_checks ? {
-              summaryCompleted: request.encounter_log.safety_netting_checks.summary_completed,
-              safetyNettingCompleted: request.encounter_log.safety_netting_checks.safety_netting_completed,
-              ideasConcernsExpectationsCompleted: request.encounter_log.safety_netting_checks.ideas_concerns_expectations_completed,
-            } : null,
           }),
         });
         if (!response.ok) {
@@ -75,10 +75,9 @@ export function useLocalDebrief(
           return;
         }
         if (!cancelled) {
-          const category = timedOut ? 'evaluation-timeout' : 'evaluation-unavailable';
-          setEvaluation(buildConservativeDeterministicEvaluation(request, category));
-          setStatus('got-evaluation');
-          setError(null);
+          setEvaluation(null);
+          setStatus('error');
+          setError(timedOut ? 'Evaluation request timed out.' : cause instanceof Error ? cause.message : 'Evaluation is unavailable.');
         }
       } finally {
         window.clearTimeout(timeout);

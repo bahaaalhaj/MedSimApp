@@ -4,10 +4,870 @@
     "sourceFile": "src/clinical/cases.ts",
     "generatorCommand": "npm run clinical:generate",
     "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
-    "semanticChecksum": "sha256:e72f06384ea0fcb26a964d045e3ce9855578d06262306d7794c94a752368be45"
+    "semanticChecksum": "sha256:11d6d795fe7006ec7cb69b68c450b208f1265ce7dfc37e89c2c0c5b7fbc94056"
   },
   "schemaVersion": "1.0.0",
   "intendedUse": "server-only-local-ai-context",
+  "references": [
+    {
+      "referenceId": "BSACI-RHINITIS",
+      "organization": "BSACI",
+      "title": "Rhinitis guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.bsaci.org/guidelines/bsaci-guidelines/rhinitis/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "EAACI-URTICARIA",
+      "organization": "EAACI/GA²LEN/EuroGuiDerm/APAAACI",
+      "title": "International urticaria guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://onlinelibrary.wiley.com/doi/10.1111/all.15090",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG245",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG245",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng245",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG126",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG126",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg126",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG196",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG196",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng196",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG106",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG106",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng106",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "BTS-NODULE",
+      "organization": "British Thoracic Society",
+      "title": "Pulmonary nodules guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.brit-thoracic.org.uk/quality-improvement/guidelines/pulmonary-nodules/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "BTS-PLEURAL",
+      "organization": "British Thoracic Society",
+      "title": "Pleural disease guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.brit-thoracic.org.uk/quality-improvement/guidelines/pleural-disease/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG147",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG147",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg147",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG153",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG153",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg153",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG198",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG198",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng198",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG14",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG14",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng14",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG145",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG145",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng145",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "PCOS-2023",
+      "organization": "Monash University/International PCOS Network",
+      "title": "2023 international evidence-based PCOS guideline",
+      "publicationYear": 2023,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.monash.edu/medicine/mchri/pcos/guideline",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG84",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG84",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng84",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "AAO-BPPV",
+      "organization": "AAO-HNSF",
+      "title": "Clinical Practice Guideline: BPPV (Update)",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.entnet.org/quality-practice/quality-products/clinical-practice-guidelines/bppv/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG98",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG98",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng98",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG184",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG184",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg184",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG20",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG20",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng20",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG129",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG129",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng129",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "HERNIASURGE",
+      "organization": "HerniaSurge Group",
+      "title": "International guidelines for groin hernia management",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://doi.org/10.1007/s10029-017-1668-x",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG188",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG188",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg188",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "ASCRS-FISSURE",
+      "organization": "American Society of Colon and Rectal Surgeons",
+      "title": "Anal fissure clinical practice guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://fascrs.org/ascrs/media/files/2023-Anal-Fissures-CPG.pdf",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "ASH-ITP",
+      "organization": "American Society of Hematology",
+      "title": "ASH guideline for immune thrombocytopenia",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://ashpublications.org/bloodadvances/article/3/23/3829/428877",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "BSG-IDA",
+      "organization": "British Society of Gastroenterology",
+      "title": "Iron deficiency anaemia guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://gut.bmj.com/content/70/11/2030",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG239",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG239",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng239",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG33",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG33",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng33",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG95",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG95",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng95",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG141",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG141",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng141",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG136",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG136",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng136",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG28",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG28",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng28",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG250",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG250",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng250",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG203",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG203",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng203",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG118",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG118",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng118",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG148",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG148",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng148",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG150",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG150",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg150",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-BELLS",
+      "organization": "NICE CKS",
+      "title": "Bell’s palsy",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://cks.nice.org.uk/topics/bells-palsy/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG71",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG71",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng71",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG59",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG59",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng59",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NPH-GUIDELINE",
+      "organization": "Japanese Society of Normal Pressure Hydrocephalus",
+      "title": "Idiopathic normal pressure hydrocephalus guidelines, third edition",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://doi.org/10.1111/cen3.12759",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG126",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG126",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng126",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG88",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG88",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng88",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG73",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG73",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng73",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG122",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG122",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng122",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG101",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG101",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng101",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG151",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG151",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng151",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG81",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG81",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng81",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG77",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG77",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng77",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG242",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG242",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng242",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "BESS-SHOULDER",
+      "organization": "British Elbow and Shoulder Society",
+      "title": "Frozen shoulder patient care pathway",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://bess.ac.uk/standards-guidelines/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "BASK-MENISCUS",
+      "organization": "British Association for Surgery of the Knee",
+      "title": "Meniscal surgery guideline",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://baskonline.com/professional/clinical-guidelines",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-ANKLE",
+      "organization": "NICE CKS",
+      "title": "Sprains and strains",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://cks.nice.org.uk/topics/sprains-strains/",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG91",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG91",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng91",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG160",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG160",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng143",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG236",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG236",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng236",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG146",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG146",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg146",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG222",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG222",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng222",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG113",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG113",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg113",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG115",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG115",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg115",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG115",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG115",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng115",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG202",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG202",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng202",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG100",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG100",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng100",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG219",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG219",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng219",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-NG65",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance NG65",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/ng65",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "NICE-CG97",
+      "organization": "National Institute for Health and Care Excellence",
+      "title": "NICE guidance CG97",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "United Kingdom",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://www.nice.org.uk/guidance/cg97",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    },
+    {
+      "referenceId": "EAU-UROTRAUMA",
+      "organization": "European Association of Urology",
+      "title": "Paediatric urology: acute scrotum and testicular torsion",
+      "publicationYear": 2026,
+      "version": "Live publisher version at access date; recommendation-level reconciliation remains required",
+      "region": "International",
+      "sourceType": "clinical-practice-guideline",
+      "url": "https://uroweb.org/guidelines/paediatric-urology/chapter/the-guideline",
+      "accessedAt": "2026-09-10",
+      "verificationStatus": "source-verified",
+      "notes": "Publisher target and applicability were source-checked for formative provenance. This is not clinician approval; exact prescribing details remain non-scoreable pending BNF and local-formulary review."
+    }
+  ],
   "cases": [
     {
       "caseId": "allergy-001",
@@ -24,32 +884,38 @@
           {
             "id": "season",
             "question": "Seasonal?",
-            "answer": "Spring."
+            "answer": "Spring.",
+            "relevant": true
           },
           {
             "id": "eye",
             "question": "Eye symptoms?",
-            "answer": "Itchy, watery."
+            "answer": "Itchy, watery.",
+            "relevant": true
           },
           {
             "id": "pets",
             "question": "Pets?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family atopy?",
-            "answer": "Mother asthma."
+            "answer": "Mother asthma.",
+            "relevant": true
           },
           {
             "id": "wheeze",
             "question": "Wheeze?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -182,6 +1048,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "allergic-rhinitis-seasonal",
+          "label": "Seasonal Allergic Rhinitis"
+        }
       }
     },
     {
@@ -199,32 +1071,38 @@
           {
             "id": "duration",
             "question": "Duration?",
-            "answer": "4 months."
+            "answer": "4 months.",
+            "relevant": true
           },
           {
             "id": "trigger",
             "question": "Trigger?",
-            "answer": "None identified."
+            "answer": "None identified.",
+            "relevant": true
           },
           {
             "id": "lesions",
             "question": "Lesions?",
-            "answer": "Wheals, <24 h."
+            "answer": "Wheals, <24 h.",
+            "relevant": true
           },
           {
             "id": "angio",
             "question": "Swelling?",
-            "answer": "Occasional lip."
+            "answer": "Occasional lip.",
+            "relevant": true
           },
           {
             "id": "thyroid",
             "question": "Thyroid?",
-            "answer": "Hashimoto's."
+            "answer": "Hashimoto's.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -357,6 +1235,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "chronic-urticaria",
+          "label": "Chronic Urticaria (Idiopathic)"
+        }
       }
     },
     {
@@ -374,32 +1258,38 @@
           {
             "id": "pets",
             "question": "Pets?",
-            "answer": "Two cats."
+            "answer": "Two cats.",
+            "relevant": true
           },
           {
             "id": "symptoms",
             "question": "When worse?",
-            "answer": "Home."
+            "answer": "Home.",
+            "relevant": true
           },
           {
             "id": "season",
             "question": "Seasonal?",
-            "answer": "Perennial."
+            "answer": "Perennial.",
+            "relevant": true
           },
           {
             "id": "rhinitis",
             "question": "Rhinitis?",
-            "answer": "Constant."
+            "answer": "Constant.",
+            "relevant": true
           },
           {
             "id": "eczema",
             "question": "Eczema?",
-            "answer": "Mild."
+            "answer": "Mild.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -532,6 +1422,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "asthma-allergic",
+          "label": "Allergic Asthma"
+        }
       }
     },
     {
@@ -549,32 +1445,38 @@
           {
             "id": "trigger",
             "question": "What triggers the pain?",
-            "answer": "Walking uphill or climbing stairs."
+            "answer": "Walking uphill or climbing stairs.",
+            "relevant": true
           },
           {
             "id": "relief",
             "question": "What relieves it?",
-            "answer": "2-3 minutes of rest."
+            "answer": "2-3 minutes of rest.",
+            "relevant": true
           },
           {
             "id": "duration",
             "question": "How long does each episode last?",
-            "answer": "A few minutes."
+            "answer": "A few minutes.",
+            "relevant": true
           },
           {
             "id": "hx",
             "question": "Medical history?",
-            "answer": "Hypertension, high cholesterol."
+            "answer": "Hypertension, high cholesterol.",
+            "relevant": true
           },
           {
             "id": "smoking",
             "question": "Smoking?",
-            "answer": "Quit 5 years ago."
+            "answer": "Quit 5 years ago.",
+            "relevant": true
           },
           {
             "id": "diet",
             "question": "Recent meals?",
-            "answer": "Normal."
+            "answer": "Normal.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -707,6 +1609,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "stable-angina",
+          "label": "Stable Angina"
+        }
       }
     },
     {
@@ -724,32 +1632,38 @@
           {
             "id": "episodes",
             "question": "How often do these occur?",
-            "answer": "A few times per month."
+            "answer": "A few times per month.",
+            "relevant": true
           },
           {
             "id": "trigger",
             "question": "Any trigger?",
-            "answer": "Sometimes after coffee."
+            "answer": "Sometimes after coffee.",
+            "relevant": true
           },
           {
             "id": "sync",
             "question": "Any fainting?",
-            "answer": "No, just lightheaded."
+            "answer": "No, just lightheaded.",
+            "relevant": true
           },
           {
             "id": "hx",
             "question": "Medical history?",
-            "answer": "Hypertension."
+            "answer": "Hypertension.",
+            "relevant": true
           },
           {
             "id": "alcohol",
             "question": "Alcohol?",
-            "answer": "Occasional wine."
+            "answer": "Occasional wine.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -882,6 +1796,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "paroxysmal-afib",
+          "label": "Paroxysmal Atrial Fibrillation"
+        }
       }
     },
     {
@@ -899,32 +1819,38 @@
           {
             "id": "onset",
             "question": "How long?",
-            "answer": "Progressive over 3 months."
+            "answer": "Progressive over 3 months.",
+            "relevant": true
           },
           {
             "id": "orthopnea",
             "question": "Need extra pillows at night?",
-            "answer": "Three pillows now."
+            "answer": "Three pillows now.",
+            "relevant": true
           },
           {
             "id": "pnd",
             "question": "Wake up gasping?",
-            "answer": "Twice a week."
+            "answer": "Twice a week.",
+            "relevant": true
           },
           {
             "id": "hx",
             "question": "History?",
-            "answer": "Prior MI 4 years ago."
+            "answer": "Prior MI 4 years ago.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight changes?",
-            "answer": "Up 4 kg in 2 weeks."
+            "answer": "Up 4 kg in 2 weeks.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -1057,6 +1983,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "chf-nyha2",
+          "label": "Heart Failure (NYHA II)"
+        }
       }
     },
     {
@@ -1074,32 +2006,38 @@
           {
             "id": "smoking",
             "question": "Smoking history?",
-            "answer": "30 pack-years, quit 2 years ago."
+            "answer": "30 pack-years, quit 2 years ago.",
+            "relevant": true
           },
           {
             "id": "sx",
             "question": "Any cough or weight loss?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "hemoptysis",
             "question": "Any blood in sputum?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family cancer history?",
-            "answer": "Mother had lung cancer."
+            "answer": "Mother had lung cancer.",
+            "relevant": true
           },
           {
             "id": "exposure",
             "question": "Asbestos or radon exposure?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -1232,6 +2170,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "pulmonary-nodule-incidental",
+          "label": "Incidental Pulmonary Nodule"
+        }
       }
     },
     {
@@ -1249,32 +2193,38 @@
           {
             "id": "episodes",
             "question": "How many pneumothoraces?",
-            "answer": "This is my second on the right side."
+            "answer": "This is my second on the right side.",
+            "relevant": true
           },
           {
             "id": "tube",
             "question": "Did you need a chest tube?",
-            "answer": "Yes, removed 10 days ago."
+            "answer": "Yes, removed 10 days ago.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Any residual pain?",
-            "answer": "Mild ache only."
+            "answer": "Mild ache only.",
+            "relevant": true
           },
           {
             "id": "smoking",
             "question": "Smoking?",
-            "answer": "Half a pack daily."
+            "answer": "Half a pack daily.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history of pneumothorax?",
-            "answer": "Brother had one."
+            "answer": "Brother had one.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel or flying soon?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -1407,6 +2357,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "pneumothorax",
+          "label": "Pneumothorax"
+        }
       }
     },
     {
@@ -1424,32 +2380,38 @@
           {
             "id": "distance",
             "question": "How far can you walk?",
-            "answer": "About 100 meters before I have to stop."
+            "answer": "About 100 meters before I have to stop.",
+            "relevant": true
           },
           {
             "id": "relief",
             "question": "What relieves it?",
-            "answer": "A few minutes of standing still."
+            "answer": "A few minutes of standing still.",
+            "relevant": true
           },
           {
             "id": "rest-pain",
             "question": "Pain at rest?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "wounds",
             "question": "Any foot wounds?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "smoking",
             "question": "Smoking?",
-            "answer": "One pack a day for 50 years."
+            "answer": "One pack a day for 50 years.",
+            "relevant": true
           },
           {
             "id": "hx",
             "question": "Diabetes or HTN?",
-            "answer": "Both."
+            "answer": "Both.",
+            "relevant": true
           }
         ],
         "variantPolicy": {
@@ -1582,6 +2544,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "peripheral-arterial-disease",
+          "label": "Peripheral Arterial Disease"
+        }
       }
     },
     {
@@ -1599,32 +2567,38 @@
           {
             "id": "location",
             "question": "Where?",
-            "answer": "Elbows, knees, scalp."
+            "answer": "Elbows, knees, scalp.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history?",
-            "answer": "Father had similar."
+            "answer": "Father had similar.",
+            "relevant": true
           },
           {
             "id": "joint",
             "question": "Joint pain?",
-            "answer": "Occasional finger stiffness."
+            "answer": "Occasional finger stiffness.",
+            "relevant": true
           },
           {
             "id": "nails",
             "question": "Nail changes?",
-            "answer": "Pitting on several nails."
+            "answer": "Pitting on several nails.",
+            "relevant": true
           },
           {
             "id": "scale",
             "question": "What do patches look like?",
-            "answer": "Red with thick silver scale."
+            "answer": "Red with thick silver scale.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -1757,6 +2731,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "plaque-psoriasis",
+          "label": "Plaque Psoriasis"
+        }
       }
     },
     {
@@ -1774,32 +2754,38 @@
           {
             "id": "distribution",
             "question": "Where?",
-            "answer": "Forehead, cheeks, chin, back."
+            "answer": "Forehead, cheeks, chin, back.",
+            "relevant": true
           },
           {
             "id": "type",
             "question": "What type?",
-            "answer": "Blackheads, whiteheads, some painful cysts."
+            "answer": "Blackheads, whiteheads, some painful cysts.",
+            "relevant": true
           },
           {
             "id": "otc",
             "question": "Tried anything?",
-            "answer": "Benzoyl peroxide, limited help."
+            "answer": "Benzoyl peroxide, limited help.",
+            "relevant": true
           },
           {
             "id": "scars",
             "question": "Scarring?",
-            "answer": "Some pitting."
+            "answer": "Some pitting.",
+            "relevant": true
           },
           {
             "id": "period",
             "question": "Girls: menstrual relation?",
-            "answer": "N/A."
+            "answer": "N/A.",
+            "relevant": false
           },
           {
             "id": "diet",
             "question": "Diet?",
-            "answer": "Normal."
+            "answer": "Normal.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -1932,6 +2918,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "acne-vulgaris",
+          "label": "Acne Vulgaris"
+        }
       }
     },
     {
@@ -1949,32 +2941,38 @@
           {
             "id": "change",
             "question": "How has it changed?",
-            "answer": "Darker with irregular edges, grew to 8mm."
+            "answer": "Darker with irregular edges, grew to 8mm.",
+            "relevant": true
           },
           {
             "id": "bleeding",
             "question": "Bleeding?",
-            "answer": "Slight bleeding once."
+            "answer": "Slight bleeding once.",
+            "relevant": true
           },
           {
             "id": "sun",
             "question": "Sun exposure?",
-            "answer": "Construction worker, lots of sun."
+            "answer": "Construction worker, lots of sun.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family melanoma?",
-            "answer": "Aunt had melanoma."
+            "answer": "Aunt had melanoma.",
+            "relevant": true
           },
           {
             "id": "others",
             "question": "Other changing moles?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -2115,6 +3113,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "melanoma-suspicious",
+          "label": "Suspicious Melanoma"
+        }
       }
     },
     {
@@ -2132,32 +3136,38 @@
           {
             "id": "onset",
             "question": "How long?",
-            "answer": "6 months, getting worse."
+            "answer": "6 months, getting worse.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "Gained 5 kg despite less eating."
+            "answer": "Gained 5 kg despite less eating.",
+            "relevant": true
           },
           {
             "id": "constipation",
             "question": "Bowel?",
-            "answer": "Constipated."
+            "answer": "Constipated.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family thyroid?",
-            "answer": "Mother has Hashimoto's."
+            "answer": "Mother has Hashimoto's.",
+            "relevant": true
           },
           {
             "id": "menses",
             "question": "Periods?",
-            "answer": "Heavier."
+            "answer": "Heavier.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -2290,6 +3300,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "hypothyroidism-hashimoto",
+          "label": "Hashimoto's Hypothyroidism"
+        }
       }
     },
     {
@@ -2307,32 +3323,38 @@
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "Lost 6 kg in 2 months."
+            "answer": "Lost 6 kg in 2 months.",
+            "relevant": true
           },
           {
             "id": "heat",
             "question": "Heat intolerance?",
-            "answer": "Always hot, sweaty."
+            "answer": "Always hot, sweaty.",
+            "relevant": true
           },
           {
             "id": "eyes",
             "question": "Eye changes?",
-            "answer": "Protruding, gritty."
+            "answer": "Protruding, gritty.",
+            "relevant": true
           },
           {
             "id": "anxiety",
             "question": "Anxious?",
-            "answer": "Very."
+            "answer": "Very.",
+            "relevant": true
           },
           {
             "id": "bowel",
             "question": "Bowels?",
-            "answer": "Frequent loose stools."
+            "answer": "Frequent loose stools.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -2473,6 +3495,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "graves-disease",
+          "label": "Graves' Disease"
+        }
       }
     },
     {
@@ -2490,32 +3518,38 @@
           {
             "id": "menses",
             "question": "Periods?",
-            "answer": "2-3 per year."
+            "answer": "2-3 per year.",
+            "relevant": true
           },
           {
             "id": "hair",
             "question": "Excess hair?",
-            "answer": "Chin and upper lip."
+            "answer": "Chin and upper lip.",
+            "relevant": true
           },
           {
             "id": "acne",
             "question": "Acne?",
-            "answer": "Persistent on jawline."
+            "answer": "Persistent on jawline.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "Gained 10 kg in 2 years."
+            "answer": "Gained 10 kg in 2 years.",
+            "relevant": true
           },
           {
             "id": "fertility",
             "question": "Trying to conceive?",
-            "answer": "Yes, no luck in a year."
+            "answer": "Yes, no luck in a year.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -2648,6 +3682,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "pcos",
+          "label": "Polycystic Ovary Syndrome"
+        }
       }
     },
     {
@@ -2665,32 +3705,38 @@
           {
             "id": "cough",
             "question": "Cough?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "exudate",
             "question": "White patches?",
-            "answer": "Yes, tonsils."
+            "answer": "Yes, tonsils.",
+            "relevant": true
           },
           {
             "id": "nodes",
             "question": "Neck lymph nodes?",
-            "answer": "Tender."
+            "answer": "Tender.",
+            "relevant": true
           },
           {
             "id": "contacts",
             "question": "Contacts ill?",
-            "answer": "Sister had strep."
+            "answer": "Sister had strep.",
+            "relevant": true
           },
           {
             "id": "rash",
             "question": "Rash?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -2823,6 +3869,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "tonsillitis-strep",
+          "label": "Streptococcal Tonsillitis"
+        }
       }
     },
     {
@@ -2840,32 +3892,38 @@
           {
             "id": "trigger",
             "question": "Trigger?",
-            "answer": "Position."
+            "answer": "Position.",
+            "relevant": true
           },
           {
             "id": "duration",
             "question": "How long each?",
-            "answer": "Seconds."
+            "answer": "Seconds.",
+            "relevant": true
           },
           {
             "id": "hearing",
             "question": "Hearing?",
-            "answer": "Normal."
+            "answer": "Normal.",
+            "relevant": true
           },
           {
             "id": "tinnitus",
             "question": "Tinnitus?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "neuro",
             "question": "Neuro symptoms?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -2998,6 +4056,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "benign-positional-vertigo",
+          "label": "Benign Paroxysmal Positional Vertigo"
+        }
       }
     },
     {
@@ -3015,32 +4079,38 @@
           {
             "id": "onset",
             "question": "Onset?",
-            "answer": "Sudden, hours ago."
+            "answer": "Sudden, hours ago.",
+            "relevant": true
           },
           {
             "id": "tinnitus",
             "question": "Tinnitus?",
-            "answer": "Loud."
+            "answer": "Loud.",
+            "relevant": true
           },
           {
             "id": "vertigo",
             "question": "Vertigo?",
-            "answer": "Mild."
+            "answer": "Mild.",
+            "relevant": true
           },
           {
             "id": "noise",
             "question": "Noise exposure?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "uri",
             "question": "Recent illness?",
-            "answer": "Mild cold last week."
+            "answer": "Mild cold last week.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -3181,6 +4251,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "sudden-sensorineural-hearing-loss",
+          "label": "Sudden Sensorineural Hearing Loss"
+        }
       }
     },
     {
@@ -3198,32 +4274,38 @@
           {
             "id": "duration",
             "question": "How long?",
-            "answer": "8 months."
+            "answer": "8 months.",
+            "relevant": true
           },
           {
             "id": "position",
             "question": "Worse lying down?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "diet",
             "question": "Trigger foods?",
-            "answer": "Coffee, tomato."
+            "answer": "Coffee, tomato.",
+            "relevant": true
           },
           {
             "id": "dysphagia",
             "question": "Swallowing?",
-            "answer": "Occasional food sticks."
+            "answer": "Occasional food sticks.",
+            "relevant": true
           },
           {
             "id": "weight-loss",
             "question": "Weight loss?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -3356,6 +4438,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "gerd",
+          "label": "Gastroesophageal Reflux Disease"
+        }
       }
     },
     {
@@ -3373,32 +4461,38 @@
           {
             "id": "trigger",
             "question": "Trigger foods?",
-            "answer": "Bread, pasta make it worse."
+            "answer": "Bread, pasta make it worse.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "Lost 7 kg."
+            "answer": "Lost 7 kg.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history?",
-            "answer": "Sister has celiac."
+            "answer": "Sister has celiac.",
+            "relevant": true
           },
           {
             "id": "rash",
             "question": "Rash?",
-            "answer": "Itchy blisters on elbows."
+            "answer": "Itchy blisters on elbows.",
+            "relevant": true
           },
           {
             "id": "anemia",
             "question": "Anemia history?",
-            "answer": "Told I was anemic."
+            "answer": "Told I was anemic.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -3531,6 +4625,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "celiac-disease",
+          "label": "Celiac Disease"
+        }
       }
     },
     {
@@ -3548,32 +4648,38 @@
           {
             "id": "onset",
             "question": "How long?",
-            "answer": "4 months."
+            "answer": "4 months.",
+            "relevant": true
           },
           {
             "id": "blood",
             "question": "Blood in stool?",
-            "answer": "Intermittent."
+            "answer": "Intermittent.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "Lost 5 kg."
+            "answer": "Lost 5 kg.",
+            "relevant": true
           },
           {
             "id": "mouth",
             "question": "Mouth ulcers?",
-            "answer": "Yes, recurrent."
+            "answer": "Yes, recurrent.",
+            "relevant": true
           },
           {
             "id": "fistula",
             "question": "Any abscesses?",
-            "answer": "Perianal fistula drained last year."
+            "answer": "Perianal fistula drained last year.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -3714,6 +4820,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "crohns-disease",
+          "label": "Crohn's Disease"
+        }
       }
     },
     {
@@ -3731,32 +4843,38 @@
           {
             "id": "onset",
             "question": "Onset?",
-            "answer": "6 months."
+            "answer": "6 months.",
+            "relevant": true
           },
           {
             "id": "reducible",
             "question": "Goes back in?",
-            "answer": "Yes with pushing."
+            "answer": "Yes with pushing.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "Ache with lifting."
+            "answer": "Ache with lifting.",
+            "relevant": true
           },
           {
             "id": "nausea",
             "question": "Nausea?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "obstruction",
             "question": "Bowel?",
-            "answer": "Normal."
+            "answer": "Normal.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -3889,6 +5007,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "inguinal-hernia-reducible",
+          "label": "Reducible Inguinal Hernia"
+        }
       }
     },
     {
@@ -3906,32 +5030,38 @@
           {
             "id": "trigger",
             "question": "Trigger?",
-            "answer": "Fatty foods."
+            "answer": "Fatty foods.",
+            "relevant": true
           },
           {
             "id": "radiation",
             "question": "Radiation?",
-            "answer": "Right shoulder."
+            "answer": "Right shoulder.",
+            "relevant": true
           },
           {
             "id": "nausea",
             "question": "Nausea?",
-            "answer": "With episodes."
+            "answer": "With episodes.",
+            "relevant": true
           },
           {
             "id": "jaundice",
             "question": "Jaundice?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "fever",
             "question": "Fever?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -4064,6 +5194,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "gallstones-cholelithiasis",
+          "label": "Cholelithiasis"
+        }
       }
     },
     {
@@ -4081,32 +5217,38 @@
           {
             "id": "constipation",
             "question": "Constipation?",
-            "answer": "Severe."
+            "answer": "Severe.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "Sharp, during and after BM."
+            "answer": "Sharp, during and after BM.",
+            "relevant": true
           },
           {
             "id": "blood",
             "question": "Blood?",
-            "answer": "Bright on paper."
+            "answer": "Bright on paper.",
+            "relevant": true
           },
           {
             "id": "spasm",
             "question": "Spasm?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "prior",
             "question": "Prior?",
-            "answer": "One episode year ago."
+            "answer": "One episode year ago.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -4239,6 +5381,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "anal-fissure",
+          "label": "Anal Fissure"
+        }
       }
     },
     {
@@ -4256,32 +5404,38 @@
           {
             "id": "bruise",
             "question": "Bruising?",
-            "answer": "Many without trauma."
+            "answer": "Many without trauma.",
+            "relevant": true
           },
           {
             "id": "gums",
             "question": "Gum bleeding?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "menses",
             "question": "Heavy periods?",
-            "answer": "Very heavy recently."
+            "answer": "Very heavy recently.",
+            "relevant": true
           },
           {
             "id": "infection",
             "question": "Recent infection?",
-            "answer": "Flu 2 weeks ago."
+            "answer": "Flu 2 weeks ago.",
+            "relevant": true
           },
           {
             "id": "meds",
             "question": "Medications?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -4414,6 +5568,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "itp",
+          "label": "Immune Thrombocytopenic Purpura"
+        }
       }
     },
     {
@@ -4431,32 +5591,38 @@
           {
             "id": "menses",
             "question": "Periods?",
-            "answer": "Very heavy."
+            "answer": "Very heavy.",
+            "relevant": true
           },
           {
             "id": "diet",
             "question": "Diet?",
-            "answer": "Low meat."
+            "answer": "Low meat.",
+            "relevant": true
           },
           {
             "id": "pica",
             "question": "Pica?",
-            "answer": "Crave ice."
+            "answer": "Crave ice.",
+            "relevant": true
           },
           {
             "id": "gi",
             "question": "GI bleeding?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "meds",
             "question": "Supplements?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -4589,6 +5755,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "iron-deficiency",
+          "label": "Iron Deficiency"
+        }
       }
     },
     {
@@ -4606,32 +5778,38 @@
           {
             "id": "gastritis",
             "question": "Stomach issues?",
-            "answer": "Chronic atrophic gastritis."
+            "answer": "Chronic atrophic gastritis.",
+            "relevant": true
           },
           {
             "id": "diet",
             "question": "Diet?",
-            "answer": "Mixed."
+            "answer": "Mixed.",
+            "relevant": true
           },
           {
             "id": "neuro",
             "question": "Numbness?",
-            "answer": "Feet."
+            "answer": "Feet.",
+            "relevant": true
           },
           {
             "id": "memory",
             "question": "Memory?",
-            "answer": "Slipping."
+            "answer": "Slipping.",
+            "relevant": true
           },
           {
             "id": "tongue",
             "question": "Sore tongue?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -4764,6 +5942,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "b12-pernicious",
+          "label": "Pernicious Anemia"
+        }
       }
     },
     {
@@ -4781,32 +5965,38 @@
           {
             "id": "exposure",
             "question": "TB contacts?",
-            "answer": "Worked in shelter."
+            "answer": "Worked in shelter.",
+            "relevant": true
           },
           {
             "id": "sx",
             "question": "Cough, weight loss?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "hiv",
             "question": "HIV?",
-            "answer": "Negative."
+            "answer": "Negative.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "prior",
             "question": "Prior treatment?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "bcg",
             "question": "BCG vaccine?",
-            "answer": "Yes as child."
+            "answer": "Yes as child.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -4939,6 +6129,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "latent-tb",
+          "label": "Latent Tuberculosis"
+        }
       }
     },
     {
@@ -4956,32 +6152,38 @@
           {
             "id": "tick",
             "question": "Tick bite?",
-            "answer": "Removed tick 10 days ago."
+            "answer": "Removed tick 10 days ago.",
+            "relevant": true
           },
           {
             "id": "rash",
             "question": "Describe?",
-            "answer": "Red ring with clearing center."
+            "answer": "Red ring with clearing center.",
+            "relevant": true
           },
           {
             "id": "joints",
             "question": "Joints?",
-            "answer": "Knees ache."
+            "answer": "Knees ache.",
+            "relevant": true
           },
           {
             "id": "headache",
             "question": "Headache?",
-            "answer": "Mild."
+            "answer": "Mild.",
+            "relevant": true
           },
           {
             "id": "fever",
             "question": "Fever?",
-            "answer": "Low-grade."
+            "answer": "Low-grade.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "Forest camping."
+            "answer": "Forest camping.",
+            "relevant": true
           }
         ],
         "variantPolicy": {
@@ -5114,6 +6316,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "lyme-disease",
+          "label": "Lyme Disease"
+        }
       }
     },
     {
@@ -5131,32 +6339,38 @@
           {
             "id": "trauma",
             "question": "Trauma?",
-            "answer": "Scratched 4 days ago."
+            "answer": "Scratched 4 days ago.",
+            "relevant": true
           },
           {
             "id": "redness",
             "question": "Redness?",
-            "answer": "Expanding."
+            "answer": "Expanding.",
+            "relevant": true
           },
           {
             "id": "fever",
             "question": "Fever?",
-            "answer": "Mild."
+            "answer": "Mild.",
+            "relevant": true
           },
           {
             "id": "pulses",
             "question": "Swelling?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "dm",
             "question": "Diabetes?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -5289,6 +6503,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "cellulitis-non-limb-threatening",
+          "label": "Cellulitis"
+        }
       }
     },
     {
@@ -5306,32 +6526,38 @@
           {
             "id": "readings",
             "question": "What readings have you had?",
-            "answer": "Around 150/95 on three occasions."
+            "answer": "Around 150/95 on three occasions.",
+            "relevant": true
           },
           {
             "id": "symptoms",
             "question": "Any headaches, vision changes?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history of hypertension?",
-            "answer": "Yes, both parents."
+            "answer": "Yes, both parents.",
+            "relevant": true
           },
           {
             "id": "salt",
             "question": "Salt intake?",
-            "answer": "I add salt to everything."
+            "answer": "I add salt to everything.",
+            "relevant": true
           },
           {
             "id": "exercise",
             "question": "Do you exercise?",
-            "answer": "Rarely."
+            "answer": "Rarely.",
+            "relevant": true
           },
           {
             "id": "cough",
             "question": "Any cough?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -5464,6 +6690,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "essential-hypertension",
+          "label": "Essential Hypertension"
+        }
       }
     },
     {
@@ -5481,32 +6713,38 @@
           {
             "id": "onset",
             "question": "When did this start?",
-            "answer": "About 2 months ago."
+            "answer": "About 2 months ago.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Any weight changes?",
-            "answer": "Lost 5 kg unintentionally."
+            "answer": "Lost 5 kg unintentionally.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history of diabetes?",
-            "answer": "Mother and brother have type 2."
+            "answer": "Mother and brother have type 2.",
+            "relevant": true
           },
           {
             "id": "vision",
             "question": "Any vision changes?",
-            "answer": "Blurry at times."
+            "answer": "Blurry at times.",
+            "relevant": true
           },
           {
             "id": "infections",
             "question": "Any recent infections?",
-            "answer": "Recurrent yeast infections."
+            "answer": "Recurrent yeast infections.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Recent travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -5639,6 +6877,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "type2-diabetes",
+          "label": "Type 2 Diabetes Mellitus"
+        }
       }
     },
     {
@@ -5656,32 +6900,38 @@
           {
             "id": "onset",
             "question": "When did it start?",
-            "answer": "5 days ago with chills."
+            "answer": "5 days ago with chills.",
+            "relevant": true
           },
           {
             "id": "sputum",
             "question": "What does the phlegm look like?",
-            "answer": "Yellow-green."
+            "answer": "Yellow-green.",
+            "relevant": true
           },
           {
             "id": "chest",
             "question": "Any chest pain?",
-            "answer": "Sharp pain with deep breath on right side."
+            "answer": "Sharp pain with deep breath on right side.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Recent travel or sick contacts?",
-            "answer": "Colleague had similar illness."
+            "answer": "Colleague had similar illness.",
+            "relevant": true
           },
           {
             "id": "smoking",
             "question": "Do you smoke?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "diet",
             "question": "Appetite?",
-            "answer": "Decreased."
+            "answer": "Decreased.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -5814,6 +7064,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        }
       }
     },
     {
@@ -5831,32 +7087,38 @@
           {
             "id": "hx",
             "question": "Medical history?",
-            "answer": "HTN, DM, 12 years."
+            "answer": "HTN, DM, 12 years.",
+            "relevant": true
           },
           {
             "id": "meds",
             "question": "NSAIDs?",
-            "answer": "Avoided."
+            "answer": "Avoided.",
+            "relevant": true
           },
           {
             "id": "urine",
             "question": "Urine changes?",
-            "answer": "Foamy sometimes."
+            "answer": "Foamy sometimes.",
+            "relevant": true
           },
           {
             "id": "edema",
             "question": "Swelling?",
-            "answer": "Mild ankle."
+            "answer": "Mild ankle.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family kidney disease?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -5989,6 +7251,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "ckd-stage3a",
+          "label": "CKD Stage 3a"
+        }
       }
     },
     {
@@ -6006,32 +7274,38 @@
           {
             "id": "prior",
             "question": "Prior stones?",
-            "answer": "2 previous."
+            "answer": "2 previous.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "10/10, colicky, radiates to groin."
+            "answer": "10/10, colicky, radiates to groin.",
+            "relevant": true
           },
           {
             "id": "nausea",
             "question": "Nausea?",
-            "answer": "Vomited twice."
+            "answer": "Vomited twice.",
+            "relevant": true
           },
           {
             "id": "blood",
             "question": "Blood in urine?",
-            "answer": "Pink."
+            "answer": "Pink.",
+            "relevant": true
           },
           {
             "id": "fever",
             "question": "Fever?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -6172,6 +7446,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "nephrolithiasis-recurrent",
+          "label": "Recurrent Nephrolithiasis"
+        }
       }
     },
     {
@@ -6189,32 +7469,38 @@
           {
             "id": "vomit",
             "question": "Vomiting?",
-            "answer": "3 days nonstop."
+            "answer": "3 days nonstop.",
+            "relevant": true
           },
           {
             "id": "fluid",
             "question": "Fluids?",
-            "answer": "Minimal."
+            "answer": "Minimal.",
+            "relevant": true
           },
           {
             "id": "urine",
             "question": "Urine output?",
-            "answer": "Small and dark."
+            "answer": "Small and dark.",
+            "relevant": true
           },
           {
             "id": "meds",
             "question": "NSAIDs?",
-            "answer": "Taking daily."
+            "answer": "Taking daily.",
+            "relevant": true
           },
           {
             "id": "hx",
             "question": "History?",
-            "answer": "HTN only."
+            "answer": "HTN only.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -6355,6 +7641,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "aki-pre-renal",
+          "label": "Pre-renal Acute Kidney Injury"
+        }
       }
     },
     {
@@ -6372,32 +7664,38 @@
           {
             "id": "onset",
             "question": "How often?",
-            "answer": "2-3 times a month for years."
+            "answer": "2-3 times a month for years.",
+            "relevant": true
           },
           {
             "id": "side",
             "question": "Side?",
-            "answer": "Usually left side, throbbing."
+            "answer": "Usually left side, throbbing.",
+            "relevant": true
           },
           {
             "id": "trigger",
             "question": "Triggers?",
-            "answer": "Menses, lack of sleep."
+            "answer": "Menses, lack of sleep.",
+            "relevant": true
           },
           {
             "id": "aura",
             "question": "Visual changes before?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "nausea",
             "question": "Nausea?",
-            "answer": "Always."
+            "answer": "Always.",
+            "relevant": true
           },
           {
             "id": "trauma",
             "question": "Head trauma?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -6530,6 +7828,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "migraine-without-aura",
+          "label": "Migraine without Aura"
+        }
       }
     },
     {
@@ -6547,32 +7851,38 @@
           {
             "id": "onset",
             "question": "When did it start?",
-            "answer": "Noticed on waking today."
+            "answer": "Noticed on waking today.",
+            "relevant": true
           },
           {
             "id": "forehead",
             "question": "Can you wrinkle forehead?",
-            "answer": "No, that side is flat."
+            "answer": "No, that side is flat.",
+            "relevant": true
           },
           {
             "id": "ear-pain",
             "question": "Ear pain?",
-            "answer": "Mild behind the ear yesterday."
+            "answer": "Mild behind the ear yesterday.",
+            "relevant": true
           },
           {
             "id": "weakness",
             "question": "Arm/leg weakness?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "taste",
             "question": "Taste changes?",
-            "answer": "Metallic on that side."
+            "answer": "Metallic on that side.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -6713,6 +8023,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "bells-palsy",
+          "label": "Bell's Palsy"
+        }
       }
     },
     {
@@ -6730,32 +8046,38 @@
           {
             "id": "tremor",
             "question": "When is tremor worst?",
-            "answer": "At rest, improves with movement."
+            "answer": "At rest, improves with movement.",
+            "relevant": true
           },
           {
             "id": "gait",
             "question": "Walking changes?",
-            "answer": "Shuffling, less arm swing."
+            "answer": "Shuffling, less arm swing.",
+            "relevant": true
           },
           {
             "id": "rigidity",
             "question": "Stiffness?",
-            "answer": "Yes, getting up from a chair is hard."
+            "answer": "Yes, getting up from a chair is hard.",
+            "relevant": true
           },
           {
             "id": "smell",
             "question": "Changes in smell?",
-            "answer": "Reduced for a year."
+            "answer": "Reduced for a year.",
+            "relevant": true
           },
           {
             "id": "sleep",
             "question": "Sleep?",
-            "answer": "Acting out dreams."
+            "answer": "Acting out dreams.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -6888,6 +8210,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "idiopathic-parkinsons-early",
+          "label": "Early Idiopathic Parkinson's Disease"
+        }
       }
     },
     {
@@ -6905,37 +8233,44 @@
           {
             "id": "onset",
             "question": "When did this start?",
-            "answer": "About 4 months ago, gradual."
+            "answer": "About 4 months ago, gradual.",
+            "relevant": true
           },
           {
             "id": "distribution",
             "question": "Where does it radiate?",
-            "answer": "Down lateral arm into the thumb and index finger."
+            "answer": "Down lateral arm into the thumb and index finger.",
+            "relevant": true
           },
           {
             "id": "numbness",
             "question": "Numbness?",
-            "answer": "Tingling in the thumb."
+            "answer": "Tingling in the thumb.",
+            "relevant": true
           },
           {
             "id": "weakness",
             "question": "Weakness?",
-            "answer": "Mild biceps weakness on the right."
+            "answer": "Mild biceps weakness on the right.",
+            "relevant": true
           },
           {
             "id": "conservative",
             "question": "What have you tried?",
-            "answer": "Physical therapy and NSAIDs for 8 weeks, minimal benefit."
+            "answer": "Physical therapy and NSAIDs for 8 weeks, minimal benefit.",
+            "relevant": true
           },
           {
             "id": "gait",
             "question": "Any balance trouble or leg symptoms?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -7068,6 +8403,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "cervical-disc-herniation",
+          "label": "Cervical Disc Herniation"
+        }
       }
     },
     {
@@ -7085,37 +8426,44 @@
           {
             "id": "pattern",
             "question": "When does it occur?",
-            "answer": "Walking more than a block, both legs ache and tingle."
+            "answer": "Walking more than a block, both legs ache and tingle.",
+            "relevant": true
           },
           {
             "id": "relief",
             "question": "What helps?",
-            "answer": "Sitting down or leaning forward on a cart."
+            "answer": "Sitting down or leaning forward on a cart.",
+            "relevant": true
           },
           {
             "id": "duration",
             "question": "How long has this been going on?",
-            "answer": "Two years, slowly worsening."
+            "answer": "Two years, slowly worsening.",
+            "relevant": true
           },
           {
             "id": "back",
             "question": "Back pain?",
-            "answer": "Some, but the leg symptoms are worse."
+            "answer": "Some, but the leg symptoms are worse.",
+            "relevant": true
           },
           {
             "id": "vascular",
             "question": "Any history of claudication or PAD?",
-            "answer": "Pulses are normal per my doctor."
+            "answer": "Pulses are normal per my doctor.",
+            "relevant": true
           },
           {
             "id": "bladder",
             "question": "Bladder/bowel changes?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -7248,6 +8596,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "lumbar-spinal-stenosis",
+          "label": "Lumbar Spinal Stenosis"
+        }
       }
     },
     {
@@ -7265,37 +8619,44 @@
           {
             "id": "gait",
             "question": "Tell me about your walking?",
-            "answer": "Feet feel stuck to the floor, takes effort to start."
+            "answer": "Feet feel stuck to the floor, takes effort to start.",
+            "relevant": true
           },
           {
             "id": "urinary",
             "question": "Bladder issues?",
-            "answer": "Frequent urgency, occasional leaks."
+            "answer": "Frequent urgency, occasional leaks.",
+            "relevant": true
           },
           {
             "id": "cognition",
             "question": "Memory?",
-            "answer": "Slow thinking and forgetfulness over the past year."
+            "answer": "Slow thinking and forgetfulness over the past year.",
+            "relevant": true
           },
           {
             "id": "tremor",
             "question": "Tremor?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "falls",
             "question": "Falls?",
-            "answer": "Two in the last 6 months."
+            "answer": "Two in the last 6 months.",
+            "relevant": true
           },
           {
             "id": "history",
             "question": "Any prior brain issues?",
-            "answer": "No bleeds or strokes."
+            "answer": "No bleeds or strokes.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -7428,6 +8789,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "normal-pressure-hydrocephalus",
+          "label": "Normal Pressure Hydrocephalus"
+        }
       }
     },
     {
@@ -7445,32 +8812,38 @@
           {
             "id": "lmp",
             "question": "LMP?",
-            "answer": "7 weeks ago."
+            "answer": "7 weeks ago.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "Severe unilateral."
+            "answer": "Severe unilateral.",
+            "relevant": true
           },
           {
             "id": "bleed",
             "question": "Bleeding?",
-            "answer": "Spotting."
+            "answer": "Spotting.",
+            "relevant": true
           },
           {
             "id": "shoulder",
             "question": "Shoulder pain?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "sti",
             "question": "Prior PID?",
-            "answer": "Yes, treated."
+            "answer": "Yes, treated.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -7611,6 +8984,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "ectopic-pregnancy",
+          "label": "Ectopic Pregnancy"
+        }
       }
     },
     {
@@ -7628,32 +9007,38 @@
           {
             "id": "flow",
             "question": "How heavy?",
-            "answer": "Soaking pad hourly."
+            "answer": "Soaking pad hourly.",
+            "relevant": true
           },
           {
             "id": "duration",
             "question": "Duration?",
-            "answer": "10 days."
+            "answer": "10 days.",
+            "relevant": true
           },
           {
             "id": "clots",
             "question": "Clots?",
-            "answer": "Large."
+            "answer": "Large.",
+            "relevant": true
           },
           {
             "id": "fatigue",
             "question": "Fatigue?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "Stable."
+            "answer": "Stable.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -7786,6 +9171,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "menorrhagia-fibroids",
+          "label": "Menorrhagia (Fibroids)"
+        }
       }
     },
     {
@@ -7803,32 +9194,38 @@
           {
             "id": "dysmenorrhea",
             "question": "Pain?",
-            "answer": "Severe with periods."
+            "answer": "Severe with periods.",
+            "relevant": true
           },
           {
             "id": "dyspareunia",
             "question": "Pain with sex?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "dyschezia",
             "question": "Pain with BM?",
-            "answer": "Around menses."
+            "answer": "Around menses.",
+            "relevant": true
           },
           {
             "id": "fertility",
             "question": "Trying?",
-            "answer": "2 years."
+            "answer": "2 years.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family?",
-            "answer": "Sister endometriosis."
+            "answer": "Sister endometriosis.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -7961,6 +9358,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "endometriosis",
+          "label": "Endometriosis"
+        }
       }
     },
     {
@@ -7978,32 +9381,38 @@
           {
             "id": "smoking",
             "question": "Smoking history?",
-            "answer": "50 pack-years, still smoking."
+            "answer": "50 pack-years, still smoking.",
+            "relevant": true
           },
           {
             "id": "cough",
             "question": "Cough character?",
-            "answer": "Dry, sometimes blood-tinged sputum."
+            "answer": "Dry, sometimes blood-tinged sputum.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight loss?",
-            "answer": "8 kg in 3 months, no diet change."
+            "answer": "8 kg in 3 months, no diet change.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Chest or shoulder pain?",
-            "answer": "Dull right shoulder ache."
+            "answer": "Dull right shoulder ache.",
+            "relevant": true
           },
           {
             "id": "occupation",
             "question": "Asbestos or dust exposure?",
-            "answer": "Worked in shipyards in my 20s."
+            "answer": "Worked in shipyards in my 20s.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Recent travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -8144,6 +9553,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "lung-cancer",
+          "label": "Lung Cancer"
+        }
       }
     },
     {
@@ -8161,32 +9576,38 @@
           {
             "id": "lump",
             "question": "When did you find the lump?",
-            "answer": "3 months ago, left breast upper outer."
+            "answer": "3 months ago, left breast upper outer.",
+            "relevant": true
           },
           {
             "id": "biopsy",
             "question": "Biopsy result?",
-            "answer": "Invasive ductal carcinoma, ER/PR positive, HER2 negative."
+            "answer": "Invasive ductal carcinoma, ER/PR positive, HER2 negative.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history?",
-            "answer": "Mother breast cancer at 52, maternal aunt ovarian cancer."
+            "answer": "Mother breast cancer at 52, maternal aunt ovarian cancer.",
+            "relevant": true
           },
           {
             "id": "menses",
             "question": "Menstrual history?",
-            "answer": "Menarche at 11, still menstruating."
+            "answer": "Menarche at 11, still menstruating.",
+            "relevant": true
           },
           {
             "id": "children",
             "question": "Pregnancies?",
-            "answer": "No children."
+            "answer": "No children.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -8319,6 +9740,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "breast-cancer",
+          "label": "Breast Cancer"
+        }
       }
     },
     {
@@ -8336,32 +9763,38 @@
           {
             "id": "symptoms",
             "question": "Bowel changes?",
-            "answer": "Looser stools, occasional blood for 4 months."
+            "answer": "Looser stools, occasional blood for 4 months.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight loss?",
-            "answer": "6 kg in 5 months."
+            "answer": "6 kg in 5 months.",
+            "relevant": true
           },
           {
             "id": "biopsy",
             "question": "Biopsy?",
-            "answer": "Adenocarcinoma of the sigmoid colon."
+            "answer": "Adenocarcinoma of the sigmoid colon.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history?",
-            "answer": "Father colon cancer at 70."
+            "answer": "Father colon cancer at 70.",
+            "relevant": true
           },
           {
             "id": "fatigue",
             "question": "Fatigue?",
-            "answer": "More tired than usual."
+            "answer": "More tired than usual.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -8502,6 +9935,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "colorectal-cancer",
+          "label": "Colorectal Cancer"
+        }
       }
     },
     {
@@ -8519,32 +9958,38 @@
           {
             "id": "sx",
             "question": "Symptoms?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family?",
-            "answer": "Mother glaucoma."
+            "answer": "Mother glaucoma.",
+            "relevant": true
           },
           {
             "id": "vision",
             "question": "Vision?",
-            "answer": "Normal central, slightly fuzzy edges."
+            "answer": "Normal central, slightly fuzzy edges.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Eye pain?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "ethnicity",
             "question": "Ethnicity risk?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": false
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -8677,6 +10122,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "primary-open-angle-glaucoma",
+          "label": "Primary Open-angle Glaucoma"
+        }
       }
     },
     {
@@ -8694,32 +10145,38 @@
           {
             "id": "progression",
             "question": "Progression?",
-            "answer": "Gradual."
+            "answer": "Gradual.",
+            "relevant": true
           },
           {
             "id": "glare",
             "question": "Glare?",
-            "answer": "Severe at night."
+            "answer": "Severe at night.",
+            "relevant": true
           },
           {
             "id": "dm",
             "question": "DM?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "redness",
             "question": "Redness?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -8852,6 +10309,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "cataract-nuclear",
+          "label": "Nuclear Cataract"
+        }
       }
     },
     {
@@ -8869,32 +10332,38 @@
           {
             "id": "dm",
             "question": "DM duration?",
-            "answer": "15 years."
+            "answer": "15 years.",
+            "relevant": true
           },
           {
             "id": "control",
             "question": "A1C?",
-            "answer": "8.4."
+            "answer": "8.4.",
+            "relevant": true
           },
           {
             "id": "floaters",
             "question": "Floaters?",
-            "answer": "Some."
+            "answer": "Some.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "htn",
             "question": "HTN?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -9027,6 +10496,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "diabetic-retinopathy-np",
+          "label": "Non-proliferative Diabetic Retinopathy"
+        }
       }
     },
     {
@@ -9044,32 +10519,38 @@
           {
             "id": "onset",
             "question": "Onset?",
-            "answer": "Gradual 6 months."
+            "answer": "Gradual 6 months.",
+            "relevant": true
           },
           {
             "id": "trauma",
             "question": "Trauma?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "dm",
             "question": "DM?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "range",
             "question": "Range?",
-            "answer": "Can't reach behind."
+            "answer": "Can't reach behind.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain?",
-            "answer": "Nightly."
+            "answer": "Nightly.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -9202,6 +10683,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "frozen-shoulder",
+          "label": "Adhesive Capsulitis (Frozen Shoulder)"
+        }
       }
     },
     {
@@ -9219,32 +10706,38 @@
           {
             "id": "injury",
             "question": "Injury?",
-            "answer": "Twisting pivot."
+            "answer": "Twisting pivot.",
+            "relevant": true
           },
           {
             "id": "locking",
             "question": "Locking?",
-            "answer": "Sometimes catches."
+            "answer": "Sometimes catches.",
+            "relevant": true
           },
           {
             "id": "swelling",
             "question": "Swelling?",
-            "answer": "Mild."
+            "answer": "Mild.",
+            "relevant": true
           },
           {
             "id": "instability",
             "question": "Giving way?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "prior",
             "question": "Prior knee?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -9377,6 +10870,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "meniscal-tear",
+          "label": "Meniscal Tear"
+        }
       }
     },
     {
@@ -9394,32 +10893,38 @@
           {
             "id": "mechanism",
             "question": "How?",
-            "answer": "Rolled outward."
+            "answer": "Rolled outward.",
+            "relevant": true
           },
           {
             "id": "swelling",
             "question": "Swelling?",
-            "answer": "Moderate."
+            "answer": "Moderate.",
+            "relevant": true
           },
           {
             "id": "bear",
             "question": "Bear weight?",
-            "answer": "Limited."
+            "answer": "Limited.",
+            "relevant": true
           },
           {
             "id": "prior",
             "question": "Prior sprain?",
-            "answer": "Once."
+            "answer": "Once.",
+            "relevant": true
           },
           {
             "id": "pop",
             "question": "Pop?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -9552,6 +11057,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "ankle-sprain-gr2",
+          "label": "Grade II Ankle Sprain"
+        }
       }
     },
     {
@@ -9569,32 +11080,38 @@
           {
             "id": "uri",
             "question": "URI?",
-            "answer": "Cold last week."
+            "answer": "Cold last week.",
+            "relevant": true
           },
           {
             "id": "sleep",
             "question": "Sleep?",
-            "answer": "Wakes crying."
+            "answer": "Wakes crying.",
+            "relevant": true
           },
           {
             "id": "appetite",
             "question": "Appetite?",
-            "answer": "Poor."
+            "answer": "Poor.",
+            "relevant": true
           },
           {
             "id": "vomit",
             "question": "Vomiting?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "daycare",
             "question": "Daycare?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -9727,6 +11244,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "acute-otitis-media-child",
+          "label": "Pediatric Acute Otitis Media"
+        }
       }
     },
     {
@@ -9744,32 +11267,38 @@
           {
             "id": "hx",
             "question": "Asthma?",
-            "answer": "Known asthma."
+            "answer": "Known asthma.",
+            "relevant": true
           },
           {
             "id": "trigger",
             "question": "Trigger?",
-            "answer": "Cold, then URI."
+            "answer": "Cold, then URI.",
+            "relevant": true
           },
           {
             "id": "inhaler",
             "question": "Inhaler?",
-            "answer": "Used many times, little help."
+            "answer": "Used many times, little help.",
+            "relevant": true
           },
           {
             "id": "fever",
             "question": "Fever?",
-            "answer": "Low."
+            "answer": "Low.",
+            "relevant": true
           },
           {
             "id": "daycare",
             "question": "School?",
-            "answer": "Multiple sick contacts."
+            "answer": "Multiple sick contacts.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -9910,6 +11439,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "pediatric-asthma-exacerbation",
+          "label": "Pediatric Asthma Exacerbation"
+        }
       }
     },
     {
@@ -9927,32 +11462,38 @@
           {
             "id": "duration",
             "question": "Duration?",
-            "answer": "2 minutes."
+            "answer": "2 minutes.",
+            "relevant": true
           },
           {
             "id": "character",
             "question": "Type?",
-            "answer": "Generalized."
+            "answer": "Generalized.",
+            "relevant": true
           },
           {
             "id": "postictal",
             "question": "After?",
-            "answer": "Drowsy 10 min, now alert."
+            "answer": "Drowsy 10 min, now alert.",
+            "relevant": true
           },
           {
             "id": "first",
             "question": "First?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family?",
-            "answer": "Cousin febrile seizures."
+            "answer": "Cousin febrile seizures.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -10093,6 +11634,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "febrile-seizure",
+          "label": "Simple Febrile Seizure"
+        }
       }
     },
     {
@@ -10110,32 +11657,38 @@
           {
             "id": "event",
             "question": "Index event?",
-            "answer": "Left MCA ischemic stroke 8 weeks ago."
+            "answer": "Left MCA ischemic stroke 8 weeks ago.",
+            "relevant": true
           },
           {
             "id": "deficit",
             "question": "Current deficit?",
-            "answer": "Right hemiparesis, arm worse than leg."
+            "answer": "Right hemiparesis, arm worse than leg.",
+            "relevant": true
           },
           {
             "id": "speech",
             "question": "Speech?",
-            "answer": "Mild expressive aphasia, improving."
+            "answer": "Mild expressive aphasia, improving.",
+            "relevant": true
           },
           {
             "id": "tone",
             "question": "Spasticity?",
-            "answer": "Increasing tone in right elbow and wrist."
+            "answer": "Increasing tone in right elbow and wrist.",
+            "relevant": true
           },
           {
             "id": "falls",
             "question": "Falls?",
-            "answer": "Two near-falls at home."
+            "answer": "Two near-falls at home.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -10268,6 +11821,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "ischemic-stroke",
+          "label": "Ischemic Stroke"
+        }
       }
     },
     {
@@ -10285,32 +11844,38 @@
           {
             "id": "pattern",
             "question": "Pattern?",
-            "answer": "Worse standing/walking, relieved by sitting."
+            "answer": "Worse standing/walking, relieved by sitting.",
+            "relevant": true
           },
           {
             "id": "flex",
             "question": "Forward flex?",
-            "answer": "Easier pushing a cart."
+            "answer": "Easier pushing a cart.",
+            "relevant": true
           },
           {
             "id": "numbness",
             "question": "Numbness?",
-            "answer": "Both calves after walking."
+            "answer": "Both calves after walking.",
+            "relevant": true
           },
           {
             "id": "pulses",
             "question": "Pulses?",
-            "answer": "Strong dorsalis pedis bilaterally."
+            "answer": "Strong dorsalis pedis bilaterally.",
+            "relevant": true
           },
           {
             "id": "bladder",
             "question": "Bladder?",
-            "answer": "Normal."
+            "answer": "Normal.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -10443,6 +12008,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "spinal-stenosis",
+          "label": "Spinal Stenosis"
+        }
       }
     },
     {
@@ -10460,32 +12031,38 @@
           {
             "id": "onset",
             "question": "Onset?",
-            "answer": "Lifting groceries 2 weeks ago."
+            "answer": "Lifting groceries 2 weeks ago.",
+            "relevant": true
           },
           {
             "id": "meds",
             "question": "Steroids?",
-            "answer": "Long-term inhaled steroids for asthma."
+            "answer": "Long-term inhaled steroids for asthma.",
+            "relevant": true
           },
           {
             "id": "menopause",
             "question": "Menopause?",
-            "answer": "Age 49, never on HRT."
+            "answer": "Age 49, never on HRT.",
+            "relevant": true
           },
           {
             "id": "height",
             "question": "Height loss?",
-            "answer": "Lost about 2 inches."
+            "answer": "Lost about 2 inches.",
+            "relevant": true
           },
           {
             "id": "neuro",
             "question": "Leg weakness?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -10618,6 +12195,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "vertebral-compression-fracture",
+          "label": "Vertebral Compression Fracture"
+        }
       }
     },
     {
@@ -10635,32 +12218,38 @@
           {
             "id": "duration",
             "question": "How long?",
-            "answer": "3 months."
+            "answer": "3 months.",
+            "relevant": true
           },
           {
             "id": "sleep",
             "question": "Sleep?",
-            "answer": "Early waking."
+            "answer": "Early waking.",
+            "relevant": true
           },
           {
             "id": "appetite",
             "question": "Appetite?",
-            "answer": "Poor, lost 3 kg."
+            "answer": "Poor, lost 3 kg.",
+            "relevant": true
           },
           {
             "id": "suicide",
             "question": "Suicidal thoughts?",
-            "answer": "Fleeting."
+            "answer": "Fleeting.",
+            "relevant": true
           },
           {
             "id": "energy",
             "question": "Energy?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -10793,6 +12382,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "mdd-moderate",
+          "label": "Major Depressive Disorder (Moderate)"
+        }
       }
     },
     {
@@ -10810,32 +12405,38 @@
           {
             "id": "worry",
             "question": "Worry?",
-            "answer": "All domains."
+            "answer": "All domains.",
+            "relevant": true
           },
           {
             "id": "sleep",
             "question": "Sleep?",
-            "answer": "Racing mind."
+            "answer": "Racing mind.",
+            "relevant": true
           },
           {
             "id": "tension",
             "question": "Muscle tension?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "irritable",
             "question": "Irritable?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "panic",
             "question": "Panic attacks?",
-            "answer": "Rare."
+            "answer": "Rare.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -10968,6 +12569,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "generalized-anxiety",
+          "label": "Generalized Anxiety Disorder"
+        }
       }
     },
     {
@@ -10985,32 +12592,38 @@
           {
             "id": "amount",
             "question": "How much?",
-            "answer": "8-10 drinks/day."
+            "answer": "8-10 drinks/day.",
+            "relevant": true
           },
           {
             "id": "withdrawal",
             "question": "Shakes?",
-            "answer": "Mornings."
+            "answer": "Mornings.",
+            "relevant": true
           },
           {
             "id": "tried",
             "question": "Tried to stop?",
-            "answer": "Failed."
+            "answer": "Failed.",
+            "relevant": true
           },
           {
             "id": "social",
             "question": "Problems?",
-            "answer": "Job, marriage, DUIs."
+            "answer": "Job, marriage, DUIs.",
+            "relevant": true
           },
           {
             "id": "tolerance",
             "question": "Tolerance?",
-            "answer": "Increasing."
+            "answer": "Increasing.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -11143,6 +12756,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "alcohol-use-disorder",
+          "label": "Alcohol Use Disorder"
+        }
       }
     },
     {
@@ -11160,32 +12779,38 @@
           {
             "id": "onset",
             "question": "Since when?",
-            "answer": "Since childhood."
+            "answer": "Since childhood.",
+            "relevant": true
           },
           {
             "id": "trigger",
             "question": "Triggers?",
-            "answer": "Pollen, cold air, exercise."
+            "answer": "Pollen, cold air, exercise.",
+            "relevant": true
           },
           {
             "id": "inhaler",
             "question": "Using inhaler?",
-            "answer": "Rescue inhaler 4-5 times/week."
+            "answer": "Rescue inhaler 4-5 times/week.",
+            "relevant": true
           },
           {
             "id": "night",
             "question": "Nighttime symptoms?",
-            "answer": "3 nights/week."
+            "answer": "3 nights/week.",
+            "relevant": true
           },
           {
             "id": "allergies",
             "question": "Allergies?",
-            "answer": "Seasonal."
+            "answer": "Seasonal.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -11318,6 +12943,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "asthma-chronic",
+          "label": "Chronic Asthma"
+        }
       }
     },
     {
@@ -11335,32 +12966,38 @@
           {
             "id": "smoking",
             "question": "Smoking?",
-            "answer": "40 pack-year history, still smokes."
+            "answer": "40 pack-year history, still smokes.",
+            "relevant": true
           },
           {
             "id": "cough",
             "question": "Cough?",
-            "answer": "Daily, productive, morning."
+            "answer": "Daily, productive, morning.",
+            "relevant": true
           },
           {
             "id": "dyspnea",
             "question": "Dyspnea?",
-            "answer": "Walking up one flight."
+            "answer": "Walking up one flight.",
+            "relevant": true
           },
           {
             "id": "exacerbation",
             "question": "Hospitalizations?",
-            "answer": "Twice last year."
+            "answer": "Twice last year.",
+            "relevant": true
           },
           {
             "id": "wheeze",
             "question": "Wheeze?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -11493,6 +13130,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "copd-gold2",
+          "label": "COPD (GOLD 2)"
+        }
       }
     },
     {
@@ -11510,32 +13153,38 @@
           {
             "id": "snoring",
             "question": "Loud snoring?",
-            "answer": "Yes, wife complains."
+            "answer": "Yes, wife complains.",
+            "relevant": true
           },
           {
             "id": "witnessed",
             "question": "Witnessed apneas?",
-            "answer": "Yes, she notices gasping."
+            "answer": "Yes, she notices gasping.",
+            "relevant": true
           },
           {
             "id": "sleep",
             "question": "Daytime sleepiness?",
-            "answer": "Fall asleep in meetings."
+            "answer": "Fall asleep in meetings.",
+            "relevant": true
           },
           {
             "id": "weight",
             "question": "Weight?",
-            "answer": "BMI 34."
+            "answer": "BMI 34.",
+            "relevant": true
           },
           {
             "id": "neck",
             "question": "Neck size?",
-            "answer": "44 cm."
+            "answer": "44 cm.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -11668,6 +13317,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "obstructive-sleep-apnea",
+          "label": "Obstructive Sleep Apnea"
+        }
       }
     },
     {
@@ -11685,32 +13340,38 @@
           {
             "id": "stiffness",
             "question": "Morning stiffness?",
-            "answer": "2 hours."
+            "answer": "2 hours.",
+            "relevant": true
           },
           {
             "id": "joints",
             "question": "Which joints?",
-            "answer": "MCPs, PIPs bilaterally."
+            "answer": "MCPs, PIPs bilaterally.",
+            "relevant": true
           },
           {
             "id": "duration",
             "question": "How long?",
-            "answer": "4 months."
+            "answer": "4 months.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family history?",
-            "answer": "Mother RA."
+            "answer": "Mother RA.",
+            "relevant": true
           },
           {
             "id": "fatigue",
             "question": "Fatigue?",
-            "answer": "Significant."
+            "answer": "Significant.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -11843,6 +13504,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "rheumatoid-arthritis-early",
+          "label": "Early Rheumatoid Arthritis"
+        }
       }
     },
     {
@@ -11860,32 +13527,38 @@
           {
             "id": "onset",
             "question": "When?",
-            "answer": "Woke up with it."
+            "answer": "Woke up with it.",
+            "relevant": true
           },
           {
             "id": "trigger",
             "question": "Trigger?",
-            "answer": "Big dinner, alcohol."
+            "answer": "Big dinner, alcohol.",
+            "relevant": true
           },
           {
             "id": "prior",
             "question": "Similar before?",
-            "answer": "2 attacks this year."
+            "answer": "2 attacks this year.",
+            "relevant": true
           },
           {
             "id": "joint",
             "question": "Joint?",
-            "answer": "Great toe MTP."
+            "answer": "Great toe MTP.",
+            "relevant": true
           },
           {
             "id": "trauma",
             "question": "Trauma?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -12026,6 +13699,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "gout",
+          "label": "Gout"
+        }
       }
     },
     {
@@ -12043,32 +13722,38 @@
           {
             "id": "stiffness",
             "question": "Morning stiffness?",
-            "answer": ">1 hour."
+            "answer": ">1 hour.",
+            "relevant": true
           },
           {
             "id": "relief",
             "question": "Relief?",
-            "answer": "Movement helps."
+            "answer": "Movement helps.",
+            "relevant": true
           },
           {
             "id": "family",
             "question": "Family?",
-            "answer": "Uncle AS."
+            "answer": "Uncle AS.",
+            "relevant": true
           },
           {
             "id": "eye",
             "question": "Eye inflammation?",
-            "answer": "Uveitis once."
+            "answer": "Uveitis once.",
+            "relevant": true
           },
           {
             "id": "gi",
             "question": "GI symptoms?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -12201,6 +13886,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "ankylosing-spondylitis",
+          "label": "Ankylosing Spondylitis"
+        }
       }
     },
     {
@@ -12218,32 +13909,38 @@
           {
             "id": "stream",
             "question": "Stream?",
-            "answer": "Weak, dribbling."
+            "answer": "Weak, dribbling.",
+            "relevant": true
           },
           {
             "id": "nocturia",
             "question": "Nocturia?",
-            "answer": "3x/night."
+            "answer": "3x/night.",
+            "relevant": true
           },
           {
             "id": "hesitancy",
             "question": "Hesitancy?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "blood",
             "question": "Blood?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "meds",
             "question": "Meds?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -12376,6 +14073,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "bph-moderate",
+          "label": "Benign Prostatic Hyperplasia (Moderate)"
+        }
       }
     },
     {
@@ -12393,32 +14096,38 @@
           {
             "id": "prior",
             "question": "Prior stones?",
-            "answer": "Yes, 2 years ago."
+            "answer": "Yes, 2 years ago.",
+            "relevant": true
           },
           {
             "id": "pain",
             "question": "Pain character?",
-            "answer": "Colicky."
+            "answer": "Colicky.",
+            "relevant": true
           },
           {
             "id": "nausea",
             "question": "Nausea?",
-            "answer": "Vomiting."
+            "answer": "Vomiting.",
+            "relevant": true
           },
           {
             "id": "blood",
             "question": "Hematuria?",
-            "answer": "Pink."
+            "answer": "Pink.",
+            "relevant": true
           },
           {
             "id": "fluid",
             "question": "Fluids?",
-            "answer": "Low."
+            "answer": "Low.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -12559,6 +14268,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "kidney-stone-5mm",
+          "label": "Ureteral Stone (5 mm)"
+        }
       }
     },
     {
@@ -12576,32 +14291,38 @@
           {
             "id": "onset",
             "question": "When?",
-            "answer": "12 hours ago."
+            "answer": "12 hours ago.",
+            "relevant": true
           },
           {
             "id": "trauma",
             "question": "Trauma?",
-            "answer": "None."
+            "answer": "None.",
+            "relevant": true
           },
           {
             "id": "nausea",
             "question": "Nausea?",
-            "answer": "Yes."
+            "answer": "Yes.",
+            "relevant": true
           },
           {
             "id": "prior",
             "question": "Prior episodes?",
-            "answer": "Had self-resolving pain."
+            "answer": "Had self-resolving pain.",
+            "relevant": true
           },
           {
             "id": "std",
             "question": "STI risk?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": true
           },
           {
             "id": "travel",
             "question": "Travel?",
-            "answer": "No."
+            "answer": "No.",
+            "relevant": false
           }
         ],
         "variantPolicy": {
@@ -12742,6 +14463,12 @@
             ]
           }
         ]
+      },
+      "postSubmission": {
+        "correctDiagnosis": {
+          "diagnosisId": "testicular-torsion-subacute",
+          "label": "Subacute Testicular Torsion"
+        }
       }
     }
   ]

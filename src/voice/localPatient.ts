@@ -12,6 +12,8 @@ export interface PatientStreamChunk {
   matchConfidence?: number;
   intentId?: string | null;
   matchedSource?: string | null;
+  answerShownToTrainee?: string | null;
+  relevantPerCase?: boolean | null;
 }
 
 export class LocalPatientError extends Error {
@@ -63,7 +65,7 @@ export async function* streamLocalPatient(
       buffer = buffer.slice(separator + 2);
       const encoded = frame.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n');
       if (!encoded) continue;
-      let event: { text?: string; done?: boolean; error?: string; category?: string; retryable?: boolean; provenance?: PatientResponseProvenance; actualModel?: string | null; matchConfidence?: number; intentId?: string | null; matchedSource?: string | null };
+      let event: { text?: string; done?: boolean; error?: string; category?: string; retryable?: boolean; provenance?: PatientResponseProvenance; actualModel?: string | null; matchConfidence?: number; intentId?: string | null; matchedSource?: string | null; answerShownToTrainee?: string | null; relevantPerCase?: boolean | null };
       try { event = JSON.parse(encoded); } catch { continue; }
       if (event.error) {
         const category = ['missing-api-key', 'missing-model', 'configuration-invalid', 'paid-model-blocked', 'local-provider-disabled', 'model-starting', 'model-unavailable', 'free-capacity-unavailable', 'rate-limited', 'low-memory', 'response-timeout', 'invalid-request', 'request-in-progress'].includes(event.category ?? '')
@@ -72,7 +74,7 @@ export async function* streamLocalPatient(
         throw new LocalPatientError(event.error, category, event.retryable !== false);
       }
       if (event.done) {
-        yield { text: '', provenance: event.provenance, actualModel: event.actualModel, matchConfidence: event.matchConfidence, intentId: event.intentId, matchedSource: event.matchedSource };
+        yield { text: '', provenance: event.provenance, actualModel: event.actualModel, matchConfidence: event.matchConfidence, intentId: event.intentId, matchedSource: event.matchedSource, answerShownToTrainee: event.answerShownToTrainee, relevantPerCase: event.relevantPerCase };
         return;
       }
       if (typeof event.text === 'string') yield { text: event.text };

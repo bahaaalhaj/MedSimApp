@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CLINICAL_CASES, getServerPatientSource, toSafeCaseSummary } from '../../src/clinical/cases.ts';
+import { POLYCLINIC_CASES } from '../../src/data/polyclinicPatients.ts';
 import {
   CURATED_CASE_IDS,
   CURATED_CASE_IDS_BY_SPECIALTY,
@@ -20,6 +21,7 @@ import {
 
 export const GENERATED_OUTPUT_DIR = resolve('docs/generated');
 export const GENERATED_PATHS = {
+  learnerCases: resolve('src/generated/learner-case-manifest.json'),
   curation: resolve(GENERATED_OUTPUT_DIR, 'curation-manifest.json'),
   investigations: resolve(GENERATED_OUTPUT_DIR, 'investigation-manifest.server.json'),
   localAi: resolve(GENERATED_OUTPUT_DIR, 'local-ai-manifest.server.json'),
@@ -30,7 +32,7 @@ export const GENERATED_PATHS = {
   reviewXlsx: resolve(GENERATED_OUTPUT_DIR, 'medsim-medical-cases-review.xlsx'),
 } as const;
 
-export type GeneratedTextArtifactKey = 'curation' | 'investigations' | 'localAi' | 'referenceCsv' | 'referenceMarkdown';
+export type GeneratedTextArtifactKey = 'learnerCases' | 'curation' | 'investigations' | 'localAi' | 'referenceCsv' | 'referenceMarkdown';
 
 export const CANONICAL_CLINICAL_CHECKSUM = semanticSha256(CLINICAL_CASES);
 
@@ -70,10 +72,58 @@ export function buildInvestigationSemanticPayload() {
   };
 }
 
+export function buildLearnerCaseSemanticPayload() {
+  const canonicalById = new Map(CLINICAL_CASES.map((clinicalCase) => [clinicalCase.caseId, clinicalCase]));
+  const seen = new Set<string>();
+  const runtimeCases = Object.entries(POLYCLINIC_CASES).flatMap(([specialtyId, patients]) => {
+    if (specialtyId === 'all-specialties') return [];
+    return patients.flatMap((patient) => {
+      const clinicalCase = canonicalById.get(patient.id);
+      if (!clinicalCase || seen.has(patient.id)) return [];
+      seen.add(patient.id);
+      return [clinicalCase];
+    });
+  });
+  if (runtimeCases.length !== CLINICAL_CASES.length) throw new Error('Learner runtime case order does not cover the canonical cohort');
+  return {
+    schemaVersion: '1.0.0',
+    intendedUse: 'learner-safe-browser-runtime',
+    cases: runtimeCases.map((clinicalCase) => {
+      const patient = getServerPatientSource(clinicalCase.caseId);
+      if (!patient) throw new Error(`Missing patient case ${clinicalCase.caseId}`);
+      const labels = new Map(clinicalCase.differentialDiagnoses.map((item) => [item.diagnosisId, item.label]));
+      return {
+        caseId: clinicalCase.caseId,
+        caseVersion: clinicalCase.caseVersion,
+        rubricVersion: clinicalCase.rubricVersion,
+        specialtyId: clinicalCase.specialtyId,
+        displayName: patient.name,
+        age: patient.age,
+        gender: patient.gender,
+        severity: patient.severity,
+        arrivalBlurb: patient.arrivalBlurb,
+        publicComplaint: patient.chiefComplaint,
+        vitalSigns: patient.vitals,
+        historyQuestions: patient.anamnesis.map(({ id, question }) => ({ id, question })),
+        diagnosisOptions: patient.diagnosisOptions.map((diagnosisId) => ({
+          diagnosisId,
+          label: labels.get(diagnosisId) ?? diagnosisId.replace(/-/g, ' ').replace(/\b\w/g, (value) => value.toUpperCase()),
+        })),
+        difficulty: clinicalCase.difficulty,
+        learnerLevel: clinicalCase.targetLearnerLevel,
+        reviewStatus: clinicalCase.reviewStatus,
+        variantPolicy: clinicalCase.variantPolicy,
+      };
+    }),
+  };
+}
+
 export function buildLocalAiSemanticPayload() {
+  const usedReferenceIds = new Set(CLINICAL_CASES.flatMap((clinicalCase) => clinicalCase.references));
   return {
     schemaVersion: '1.0.0',
     intendedUse: 'server-only-local-ai-context',
+    references: [...CLINICAL_REFERENCE_BY_ID.values()].filter((reference) => usedReferenceIds.has(reference.referenceId)),
     cases: CLINICAL_CASES.map((clinicalCase) => {
       const patient = getServerPatientSource(clinicalCase.caseId);
       if (!patient) throw new Error(`Missing patient case ${clinicalCase.caseId}`);
@@ -88,7 +138,7 @@ export function buildLocalAiSemanticPayload() {
           severity: patient.severity,
           chiefComplaint: patient.chiefComplaint,
           arrivalBlurb: patient.arrivalBlurb,
-          history: patient.anamnesis.map(({ id, question, answer }) => ({ id, question, answer })),
+          history: patient.anamnesis.map(({ id, question, answer, relevant }) => ({ id, question, answer, relevant })),
           variantPolicy: clinicalCase.variantPolicy,
         },
         evaluation: {
@@ -108,6 +158,9 @@ export function buildLocalAiSemanticPayload() {
           medicationScoring: clinicalCase.medicationScoring,
           medicationExpectations: clinicalCase.medicationExpectations,
           criticalFailureRules: clinicalCase.criticalFailureRules,
+        },
+        postSubmission: {
+          correctDiagnosis: clinicalCase.correctDiagnosis,
         },
       };
     }),
@@ -155,6 +208,7 @@ function jsonArtifact(semanticPayload: Record<string, unknown>, includeGenerated
 
 export function buildGeneratedTextArtifacts(): Record<GeneratedTextArtifactKey, string> {
   return {
+    learnerCases: jsonArtifact(buildLearnerCaseSemanticPayload()),
     curation: jsonArtifact(buildCurationSemanticPayload(), true),
     investigations: jsonArtifact(buildInvestigationSemanticPayload(), true),
     localAi: jsonArtifact(buildLocalAiSemanticPayload()),
@@ -181,6 +235,7 @@ export interface ReviewArtifactChecksums {
 export function buildArtifactManifest(review: ReviewArtifactChecksums): string {
   const artifacts = buildGeneratedTextArtifacts();
   const records = [
+    { path: 'src/generated/learner-case-manifest.json', semanticChecksum: jsonSemanticSha256(buildLearnerCaseSemanticPayload()) },
     { path: 'docs/generated/curation-manifest.json', semanticChecksum: jsonSemanticSha256(buildCurationSemanticPayload()) },
     { path: 'docs/generated/investigation-manifest.server.json', semanticChecksum: jsonSemanticSha256(buildInvestigationSemanticPayload()) },
     { path: 'docs/generated/local-ai-manifest.server.json', semanticChecksum: jsonSemanticSha256(buildLocalAiSemanticPayload()) },

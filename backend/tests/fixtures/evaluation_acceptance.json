@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "1.0.0",
+  "fixtures": [
+    {
+      "name": "allergy-empty",
+      "caseId": "allergy-001",
+      "evidence": {
+        "asked_question_ids": [],
+        "transcript": [],
+        "examinations": [],
+        "treatments": [],
+        "prescriptions": [],
+        "submitted_diagnosis_id": null,
+        "completion_checks": null,
+        "investigation_authority": {
+          "essential_total": 0,
+          "essential_ordered": 0,
+          "relevant_ordered": 0,
+          "harmful_ordered": 0,
+          "results_released": 0
+        }
+      },
+      "serverOrders": [],
+      "expected": {
+        "domainScores": {
+          "data_gathering": { "raw": 0.0, "max": 65.0, "verdict": "clear-fail" },
+          "clinical_management": { "raw": 0.0, "max": 35.0, "verdict": "clear-fail" },
+          "interpersonal": { "raw": 0.0, "max": 0.0, "verdict": "clear-fail" }
+        },
+        "criterionVerdicts": [
+          { "criterionId": "allergy-001-r1", "weight": 20, "verdict": "missed" },
+          { "criterionId": "allergy-001-r2", "weight": 15, "verdict": "missed" },
+          { "criterionId": "allergy-001-r3", "weight": 15, "verdict": "missed" },
+          { "criterionId": "allergy-001-r4", "weight": 15, "verdict": "missed" },
+          { "criterionId": "allergy-001-r5", "weight": 15, "verdict": "missed" },
+          { "criterionId": "allergy-001-r6", "weight": 20, "verdict": "missed" }
+        ],
+        "globalRating": "clear-fail",
+        "safetyBreach": true
+      }
+    },
+    {
+      "name": "im-partial",
+      "caseId": "im-003",
+      "evidence": {
+        "asked_question_ids": ["readings", "symptoms"],
+        "transcript": [],
+        "examinations": [{ "actionId": "general-observation" }],
+        "treatments": [],
+        "prescriptions": [],
+        "submitted_diagnosis_id": "wrong",
+        "completion_checks": {
+          "summary_completed": true,
+          "safety_netting_completed": false,
+          "ideas_concerns_expectations_completed": false
+        },
+        "investigation_authority": {
+          "essential_total": 2,
+          "essential_ordered": 1,
+          "relevant_ordered": 1,
+          "harmful_ordered": 0,
+          "results_released": 1
+        }
+      },
+      "serverOrders": [{ "investigationId": "fixture-test" }],
+      "expected": {
+        "domainScores": {
+          "data_gathering": { "raw": 40.0, "max": 65.0, "verdict": "satisfactory" },
+          "clinical_management": { "raw": 0.0, "max": 35.0, "verdict": "clear-fail" },
+          "interpersonal": { "raw": 0.0, "max": 0.0, "verdict": "clear-fail" }
+        },
+        "criterionVerdicts": [
+          { "criterionId": "im-003-r1", "weight": 20, "verdict": "partially-met" },
+          { "criterionId": "im-003-r2", "weight": 15, "verdict": "met" },
+          { "criterionId": "im-003-r3", "weight": 15, "verdict": "partially-met" },
+          { "criterionId": "im-003-r4", "weight": 15, "verdict": "partially-met" },
+          { "criterionId": "im-003-r5", "weight": 15, "verdict": "missed" },
+          { "criterionId": "im-003-r6", "weight": 20, "verdict": "missed" }
+        ],
+        "globalRating": "clear-fail",
+        "safetyBreach": true
+      }
+    },
+    {
+      "name": "peds-complete",
+      "caseId": "peds-001",
+      "evidence": {
+        "asked_question_ids": ["uri", "sleep", "appetite", "vomit", "daycare", "travel"],
+        "transcript": [],
+        "examinations": [
+          { "actionId": "general-observation" },
+          { "actionId": "record-vital-signs" },
+          { "actionId": "focused-examination" }
+        ],
+        "treatments": [],
+        "prescriptions": [],
+        "submitted_diagnosis_id": "acute-otitis-media-child",
+        "completion_checks": {
+          "summary_completed": true,
+          "safety_netting_completed": true,
+          "ideas_concerns_expectations_completed": true
+        },
+        "investigation_authority": {
+          "essential_total": 1,
+          "essential_ordered": 1,
+          "relevant_ordered": 1,
+          "harmful_ordered": 0,
+          "results_released": 1
+        }
+      },
+      "serverOrders": [{ "investigationId": "fixture-test" }],
+      "expected": {
+        "domainScores": {
+          "data_gathering": { "raw": 65.0, "max": 65.0, "verdict": "excellent" },
+          "clinical_management": { "raw": 35.0, "max": 35.0, "verdict": "excellent" },
+          "interpersonal": { "raw": 0.0, "max": 0.0, "verdict": "clear-fail" }
+        },
+        "criterionVerdicts": [
+          { "criterionId": "peds-001-r1", "weight": 20, "verdict": "met" },
+          { "criterionId": "peds-001-r2", "weight": 15, "verdict": "met" },
+          { "criterionId": "peds-001-r3", "weight": 15, "verdict": "met" },
+          { "criterionId": "peds-001-r4", "weight": 15, "verdict": "met" },
+          { "criterionId": "peds-001-r5", "weight": 15, "verdict": "met" },
+          { "criterionId": "peds-001-r6", "weight": 20, "verdict": "met" }
+        ],
+        "globalRating": "excellent",
+        "safetyBreach": false
+      }
+    }
+  ]
+}

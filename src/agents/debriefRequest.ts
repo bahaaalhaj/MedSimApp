@@ -1,93 +1,17 @@
-// Builds encounter evidence for the local backend evaluation endpoint.
+// Learner-owned encounter evidence. Clinical truth is restored by the backend
+// from the owner-bound attempt rather than being serialized by the browser.
 
-import type {
-  ActivePatient,
-  CaseRubric,
-  PatientCase,
-  RubricCriterion,
-} from '../game/types.ts';
-import { getRubricFor } from '../data/autoRubric.ts';
-import {
-  GUIDELINES,
-  getGuideline,
-  type Guideline,
-  type GuidelineRecommendation,
-} from '../data/guidelines.ts';
-import { TESTS } from '../data/tests.ts';
-import { TREATMENTS } from '../data/treatments.ts';
-import { validateCaseSpecificPrescription, type CaseSpecificPrescriptionResult } from '../clinical/prescriptionValidation.ts';
-import { CLINICAL_CASE_BY_ID } from '../clinical/cases.ts';
-import { investigationResultText } from '../clinical/investigations.ts';
+import type { ActivePatient, LearnerPatientCase } from '../game/types.ts';
 
 export interface DebriefRequest {
   investigation_attempt_id: string | null;
   case_id: string;
   case_version: string;
-  rubric_version: string;
   variant_seed: string;
-  prescription_validation: CaseSpecificPrescriptionResult;
-  critical_criterion_ids: string[];
-  case_summary: {
-    chief_complaint: string;
-    correct_diagnosis_id: string;
-    diagnosis_options: string[];
-    severity: string;
-    age: number;
-    gender: 'M' | 'F';
-  };
-  rubric: CaseRubric;
-  /** Subset of GUIDELINES containing only entries cited by the rubric.
-   *  The agent is instructed to use ONLY recIds from this slice, so the
-   *  payload acts as both context and an allowlist. */
-  registry_slice: Array<{
-    id: string;
-    body: string;
-    year: number;
-    region: string;
-    title: string;
-    url: string;
-    recommendations: GuidelineRecommendation[];
-    notes?: string;
-  }>;
   encounter_log: {
-    arrived_at_iso: string;
-    ended_at_iso: string;
-    elapsed_seconds: number;
-    history_questions_asked: Array<{
-      id: string;
-      question: string;
-      answer_shown_to_trainee: string;
-      relevant_per_case: boolean;
-    }>;
-    tests_ordered: Array<{
-      test_id: string;
-      test_name: string;
-      ordered_at_seconds_from_arrival: number | null;
-      result_shown_to_trainee: string | null;
-      abnormal: boolean | null;
-    }>;
-    treatments_given: Array<{
-      treatment_id: string;
-      treatment_name: string;
-      was_critical: boolean;
-    }>;
-    examinations_performed: Array<{ action_id: string; performed_at: number; attempt_id: string }>;
-    prescriptions: Array<{
-      medication_id: string;
-      dose: string;
-      duration: string;
-    }>;
+    examinations_performed: Array<{ action_id: string; performed_at: number }>;
+    prescriptions: Array<{ medication_id: string; dose: string; duration: string; prescribed_at: number }>;
     submitted_diagnosis_id: string | null;
-    diagnosis_was_correct: boolean | null;
-    transcript: Array<{
-      role: 'trainee' | 'patient';
-      content: string;
-      timestamp_iso: string;
-      question_source: 'typed' | 'predefined' | null;
-      case_id: string;
-      case_version: string;
-      attempt_id: string;
-    }>;
     safety_netting_checks: {
       summary_completed: boolean;
       safety_netting_completed: boolean;
@@ -97,99 +21,27 @@ export interface DebriefRequest {
 }
 
 export function buildDebriefRequest(
-  c: PatientCase,
+  c: LearnerPatientCase,
   patient: ActivePatient,
-  endedAt: number = Date.now(),
+  _endedAt: number = Date.now(),
 ): DebriefRequest {
-  const canonical = CLINICAL_CASE_BY_ID.get(c.id);
-  const rubric = canonical ? canonicalRubric(canonical) : getRubricFor(c);
-  const registry_slice = collectRegistrySlice(rubric);
-
-  const askedById = new Map(c.anamnesis.map((q) => [q.id, q]));
-  const history_questions_asked = patient.askedQuestionIds
-    .map((id) => askedById.get(id))
-    .filter((q): q is NonNullable<typeof q> => Boolean(q))
-    .map((q) => ({
-      id: q.id,
-      question: q.question,
-      answer_shown_to_trainee: q.answer,
-      relevant_per_case: q.relevant,
-    }));
-
-  const testById = new Map(TESTS.map((t) => [t.id, t]));
-  const orderByTest = new Map(patient.investigationOrders.map((order) => [order.investigationId, order]));
-  const tests_ordered = patient.orderedTestIds.map((tid) => {
-    const t = testById.get(tid);
-    const snapshot = orderByTest.get(tid)?.resultSnapshot;
-    const orderedAt = patient.testOrderedAt[tid];
-    return {
-      test_id: tid,
-      test_name: snapshot?.name ?? t?.name ?? tid,
-      ordered_at_seconds_from_arrival:
-        typeof orderedAt === 'number'
-          ? Math.round((orderedAt - patient.arrivedAt) / 1000)
-          : null,
-      result_shown_to_trainee: snapshot ? investigationResultText(snapshot.structuredResult, snapshot.resultText) : null,
-      abnormal: snapshot?.abnormal ?? null,
-    };
-  });
-
-  const treatmentById = new Map(TREATMENTS.map((t) => [t.id, t]));
-  const criticalSet = new Set(c.criticalTreatmentIds);
-  const treatments_given = patient.givenTreatmentIds.map((tid) => ({
-    treatment_id: tid,
-    treatment_name: treatmentById.get(tid)?.name ?? tid,
-    was_critical: criticalSet.has(tid),
-  }));
-
-  const prescriptions = (patient.prescriptions ?? []).map((p) => ({
-    medication_id: p.medicationId,
-    dose: p.dose,
-    duration: p.duration,
-  }));
-  const transcript = patient.transcript.map((entry) => ({
-    role: entry.role,
-    content: entry.content,
-    timestamp_iso: entry.timestampIso,
-    question_source: entry.questionSource,
-    case_id: entry.caseId,
-    case_version: entry.caseVersion,
-    attempt_id: entry.attemptId,
-  }));
-
   return {
     investigation_attempt_id: patient.investigationAttemptId,
     case_id: c.id,
     case_version: patient.caseVersion,
-    rubric_version: patient.rubricVersion,
     variant_seed: patient.variantSeed,
-    prescription_validation: validateCaseSpecificPrescription(c.id, prescriptions),
-    critical_criterion_ids: canonical?.assessmentRubric.criteria.filter((criterion) => criterion.isCritical).map((criterion) => criterion.criterionId) ?? [],
-    case_summary: {
-      chief_complaint: c.chiefComplaint,
-      correct_diagnosis_id: c.correctDiagnosisId,
-      diagnosis_options: c.diagnosisOptions,
-      severity: c.severity,
-      age: c.age,
-      gender: c.gender,
-    },
-    rubric,
-    registry_slice,
     encounter_log: {
-      arrived_at_iso: new Date(patient.arrivedAt).toISOString(),
-      ended_at_iso: new Date(endedAt).toISOString(),
-      elapsed_seconds: Math.round((endedAt - patient.arrivedAt) / 1000),
-      history_questions_asked,
-      tests_ordered,
-      treatments_given,
-      examinations_performed: (patient.examinationActions ?? []).map((item) => ({ action_id: item.actionId, performed_at: item.performedAt, attempt_id: item.attemptId })),
-      prescriptions,
+      examinations_performed: patient.examinationActions.map((item) => ({
+        action_id: item.actionId,
+        performed_at: item.performedAt,
+      })),
+      prescriptions: (patient.prescriptions ?? []).map((item) => ({
+        medication_id: item.medicationId,
+        dose: item.dose,
+        duration: item.duration,
+        prescribed_at: item.prescribedAt,
+      })),
       submitted_diagnosis_id: patient.submittedDiagnosisId,
-      diagnosis_was_correct:
-        patient.submittedDiagnosisId === null
-          ? null
-          : patient.submittedDiagnosisId === c.correctDiagnosisId,
-      transcript,
       safety_netting_checks: patient.encounterChecks ? {
         summary_completed: patient.encounterChecks.sum,
         safety_netting_completed: patient.encounterChecks.safe,
@@ -199,91 +51,10 @@ export function buildDebriefRequest(
   };
 }
 
-function canonicalRubric(canonical: NonNullable<ReturnType<typeof CLINICAL_CASE_BY_ID.get>>): CaseRubric {
-  const mapped: Record<'data_gathering' | 'clinical_management' | 'interpersonal', RubricCriterion[]> = {
-    data_gathering: [], clinical_management: [], interpersonal: [],
-  };
-  for (const criterion of canonical.assessmentRubric.criteria) {
-    const domain = criterion.domain === 'communication'
-      ? 'interpersonal'
-      : ['history', 'examination', 'investigation'].includes(criterion.domain)
-        ? 'data_gathering'
-        : 'clinical_management';
-    mapped[domain].push({
-      criterion_id: criterion.criterionId,
-      label: criterion.description,
-      weight: criterion.weight,
-      framework: criterion.domain === 'communication' ? 'SEGUE' : 'PLAB2',
-      evidence: criterion.observableEvidence.join(' '),
-      source_domain: criterion.domain,
-    });
-  }
-  return { ...mapped, global_rating: 'borderline-regression' };
-}
-
-function collectRegistrySlice(rubric: CaseRubric): DebriefRequest['registry_slice'] {
-  const wanted = new Map<string, Set<string>>();
-  const allCriteria: RubricCriterion[] = [
-    ...rubric.data_gathering,
-    ...rubric.clinical_management,
-    ...rubric.interpersonal,
-  ];
-  for (const cr of allCriteria) {
-    if (!cr.guideline_ref) continue;
-    const [gid, rid] = cr.guideline_ref.split(':');
-    if (!gid || !rid) continue;
-    if (!wanted.has(gid)) wanted.set(gid, new Set());
-    wanted.get(gid)!.add(rid);
-  }
-  if (rubric.safety_netting?.guideline_ref) {
-    const [gid, rid] = rubric.safety_netting.guideline_ref.split(':');
-    if (gid && rid) {
-      if (!wanted.has(gid)) wanted.set(gid, new Set());
-      wanted.get(gid)!.add(rid);
-    }
-  }
-
-  const out: DebriefRequest['registry_slice'] = [];
-  for (const [gid, rids] of wanted) {
-    const g: Guideline | null = getGuideline(gid);
-    if (!g) continue;
-    const recs = g.recommendations.filter((r) => rids.has(r.recId));
-    if (recs.length === 0) continue;
-    out.push({
-      id: g.id,
-      body: g.body,
-      year: g.year,
-      region: g.region,
-      title: g.title,
-      url: g.url,
-      recommendations: recs,
-      notes: g.notes,
-    });
-  }
-  return out;
-}
-
-/** For dev tools / debug overlays. Lets the UI show "evaluating against
- *  N guidelines (M recs)" without re-walking the rubric. */
-export function summariseRequest(req: DebriefRequest): {
+export function summariseRequest(_request: DebriefRequest): {
   guideline_count: number;
   rec_count: number;
   criterion_count: number;
 } {
-  const rec_count = req.registry_slice.reduce((n, g) => n + g.recommendations.length, 0);
-  const criterion_count =
-    req.rubric.data_gathering.length +
-    req.rubric.clinical_management.length +
-    req.rubric.interpersonal.length;
-  return {
-    guideline_count: req.registry_slice.length,
-    rec_count,
-    criterion_count,
-  };
-}
-
-// Used by the smoke test to sanity-check that GUIDELINES is loaded; not
-// imported elsewhere in the runtime path.
-export function totalGuidelinesAvailable(): number {
-  return GUIDELINES.length;
+  return { guideline_count: 0, rec_count: 0, criterion_count: 6 };
 }

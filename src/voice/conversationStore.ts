@@ -1,8 +1,7 @@
 import { Conversation, type ConversationListeners } from './conversation';
 import { buildInitialLine, isPediatric, parentGenderFor } from './patientPersona';
-import type { PatientCase } from '../game/types';
+import type { LearnerPatientCase } from '../game/types';
 import { store as gameStore } from '../game/store';
-import { caseVersionFor } from '../clinical/cases';
 
 let sharedCtx: AudioContext | null = null;
 
@@ -38,7 +37,7 @@ export function getExistingConversation(bedIndex: number): Conversation | null {
 
 export function getOrCreatePatientConversation(
   bedIndex: number,
-  patientCase: PatientCase,
+  patientCase: LearnerPatientCase,
   listeners: ConversationListeners
 ): Conversation {
   const existing = store.get(bedIndex);
@@ -62,7 +61,7 @@ export function getOrCreatePatientConversation(
     speakerGender,
     isPediatric: isPediatric(patientCase),
     caseId: patientCase.id,
-    caseVersion: caseVersionFor(patientCase.id),
+    caseVersion: gameStore.getState().polyclinic.patient?.caseVersion ?? 'legacy-1',
     ensureAttempt: async () => {
       await gameStore.initializeInvestigationAttempt();
       return gameStore.getState().polyclinic.patient?.investigationAttemptId ?? null;
@@ -77,6 +76,9 @@ export function getOrCreatePatientConversation(
         caseVersion: active.caseVersion,
         attemptId: active.encounterAttemptId,
       });
+    },
+    onAuthorizedAnswer: (questionId, answer, relevant) => {
+      gameStore.authorizePolyclinicAnswer(questionId, answer, relevant);
     },
   });
   store.set(bedIndex, { conv, caseId: patientCase.id });

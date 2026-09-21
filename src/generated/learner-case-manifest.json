@@ -1,0 +1,6145 @@
+{
+  "_generated": {
+    "notice": "AUTO-GENERATED. DO NOT EDIT.",
+    "sourceFile": "src/clinical/cases.ts",
+    "generatorCommand": "npm run clinical:generate",
+    "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
+    "semanticChecksum": "sha256:915fbcea03a6b24c8e741bb3b7ad430aec232b28f0ed256bd3ef253c4760575c"
+  },
+  "schemaVersion": "1.0.0",
+  "intendedUse": "learner-safe-browser-runtime",
+  "cases": [
+    {
+      "caseId": "im-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "internal-medicine",
+      "displayName": "Michael Williams",
+      "age": 52,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for elevated BP readings at pharmacy.",
+      "publicComplaint": "My pharmacist said my blood pressure is too high. I feel fine.",
+      "vitalSigns": {
+        "hr": 84,
+        "bp": "156/96",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "readings",
+          "question": "What readings have you had?"
+        },
+        {
+          "id": "symptoms",
+          "question": "Any headaches, vision changes?"
+        },
+        {
+          "id": "family",
+          "question": "Family history of hypertension?"
+        },
+        {
+          "id": "salt",
+          "question": "Salt intake?"
+        },
+        {
+          "id": "exercise",
+          "question": "Do you exercise?"
+        },
+        {
+          "id": "cough",
+          "question": "Any cough?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "essential-hypertension",
+          "label": "Essential Hypertension"
+        },
+        {
+          "diagnosisId": "htn-uncontrolled",
+          "label": "Uncontrolled Hypertension"
+        },
+        {
+          "diagnosisId": "renal-artery-stenosis",
+          "label": "Renal Artery Stenosis"
+        },
+        {
+          "diagnosisId": "hyperparathyroidism-primary",
+          "label": "Primary Hyperparathyroidism"
+        },
+        {
+          "diagnosisId": "graves-disease",
+          "label": "Graves' Disease"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Michael Williams"
+        ],
+        "ageRange": {
+          "min": 52,
+          "max": 52
+        },
+        "allowedComplaintPhrasings": [
+          "My pharmacist said my blood pressure is too high. I feel fine."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "im-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "internal-medicine",
+      "displayName": "Patricia Brown",
+      "age": 58,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for polyuria and weight loss.",
+      "publicComplaint": "I'm thirsty all the time and urinating constantly.",
+      "vitalSigns": {
+        "hr": 88,
+        "bp": "134/82",
+        "spo2": 98,
+        "temp": 36.8,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "When did this start?"
+        },
+        {
+          "id": "weight",
+          "question": "Any weight changes?"
+        },
+        {
+          "id": "family",
+          "question": "Family history of diabetes?"
+        },
+        {
+          "id": "vision",
+          "question": "Any vision changes?"
+        },
+        {
+          "id": "infections",
+          "question": "Any recent infections?"
+        },
+        {
+          "id": "travel",
+          "question": "Recent travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "type2-diabetes",
+          "label": "Type 2 Diabetes Mellitus"
+        },
+        {
+          "diagnosisId": "type1-dm-new",
+          "label": "New-onset Type 1 Diabetes"
+        },
+        {
+          "diagnosisId": "type2-dm-uncontrolled",
+          "label": "Uncontrolled Type 2 Diabetes"
+        },
+        {
+          "diagnosisId": "hyperparathyroidism-primary",
+          "label": "Primary Hyperparathyroidism"
+        },
+        {
+          "diagnosisId": "gestational-dm",
+          "label": "Gestational Diabetes"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Patricia Brown"
+        ],
+        "ageRange": {
+          "min": 58,
+          "max": 58
+        },
+        "allowedComplaintPhrasings": [
+          "I'm thirsty all the time and urinating constantly."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "im-005",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "internal-medicine",
+      "displayName": "David Jones",
+      "age": 47,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with productive cough and fever.",
+      "publicComplaint": "I've had a cough with yellow phlegm and fever for 5 days.",
+      "vitalSigns": {
+        "hr": 96,
+        "bp": "122/76",
+        "spo2": 95,
+        "temp": 38.4,
+        "rr": 20
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "When did it start?"
+        },
+        {
+          "id": "sputum",
+          "question": "What does the phlegm look like?"
+        },
+        {
+          "id": "chest",
+          "question": "Any chest pain?"
+        },
+        {
+          "id": "travel",
+          "question": "Recent travel or sick contacts?"
+        },
+        {
+          "id": "smoking",
+          "question": "Do you smoke?"
+        },
+        {
+          "id": "diet",
+          "question": "Appetite?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        },
+        {
+          "diagnosisId": "chronic-bronchitis",
+          "label": "Chronic Bronchitis"
+        },
+        {
+          "diagnosisId": "asthma-chronic",
+          "label": "Chronic Asthma"
+        },
+        {
+          "diagnosisId": "pleural-effusion-parapneumonic",
+          "label": "Parapneumonic Pleural Effusion"
+        },
+        {
+          "diagnosisId": "latent-tb",
+          "label": "Latent Tuberculosis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "David Jones"
+        ],
+        "ageRange": {
+          "min": 47,
+          "max": 47
+        },
+        "allowedComplaintPhrasings": [
+          "I've had a cough with yellow phlegm and fever for 5 days."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "card-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "cardiology",
+      "displayName": "William Hernandez",
+      "age": 64,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for exertional chest discomfort.",
+      "publicComplaint": "My chest feels tight when I climb stairs. It goes away with rest.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "138/84",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "trigger",
+          "question": "What triggers the pain?"
+        },
+        {
+          "id": "relief",
+          "question": "What relieves it?"
+        },
+        {
+          "id": "duration",
+          "question": "How long does each episode last?"
+        },
+        {
+          "id": "hx",
+          "question": "Medical history?"
+        },
+        {
+          "id": "smoking",
+          "question": "Smoking?"
+        },
+        {
+          "id": "diet",
+          "question": "Recent meals?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "stable-angina",
+          "label": "Stable Angina"
+        },
+        {
+          "diagnosisId": "gerd",
+          "label": "Gastroesophageal Reflux Disease"
+        },
+        {
+          "diagnosisId": "pericarditis",
+          "label": "Acute Pericarditis"
+        },
+        {
+          "diagnosisId": "hcm",
+          "label": "Hypertrophic Cardiomyopathy"
+        },
+        {
+          "diagnosisId": "chf-nyha2",
+          "label": "Heart Failure (NYHA II)"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "William Hernandez"
+        ],
+        "ageRange": {
+          "min": 64,
+          "max": 64
+        },
+        "allowedComplaintPhrasings": [
+          "My chest feels tight when I climb stairs. It goes away with rest."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "card-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "cardiology",
+      "displayName": "Barbara Lopez",
+      "age": 71,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in after episode of palpitations.",
+      "publicComplaint": "My heart was racing and irregular for 2 hours yesterday.",
+      "vitalSigns": {
+        "hr": 86,
+        "bp": "128/78",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "episodes",
+          "question": "How often do these occur?"
+        },
+        {
+          "id": "trigger",
+          "question": "Any trigger?"
+        },
+        {
+          "id": "sync",
+          "question": "Any fainting?"
+        },
+        {
+          "id": "hx",
+          "question": "Medical history?"
+        },
+        {
+          "id": "alcohol",
+          "question": "Alcohol?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "paroxysmal-afib",
+          "label": "Paroxysmal Atrial Fibrillation"
+        },
+        {
+          "diagnosisId": "ventricular-pvcs",
+          "label": "Frequent PVCs"
+        },
+        {
+          "diagnosisId": "stable-angina",
+          "label": "Stable Angina"
+        },
+        {
+          "diagnosisId": "graves-disease",
+          "label": "Graves' Disease"
+        },
+        {
+          "diagnosisId": "orthostatic-hypotension",
+          "label": "Orthostatic Hypotension"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Barbara Lopez"
+        ],
+        "ageRange": {
+          "min": 71,
+          "max": 71
+        },
+        "allowedComplaintPhrasings": [
+          "My heart was racing and irregular for 2 hours yesterday."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "card-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "cardiology",
+      "displayName": "Thomas Gonzalez",
+      "age": 68,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for worsening leg swelling and exertional dyspnea.",
+      "publicComplaint": "I get short of breath walking to the mailbox and my ankles are swollen.",
+      "vitalSigns": {
+        "hr": 82,
+        "bp": "132/80",
+        "spo2": 96,
+        "temp": 36.7,
+        "rr": 18
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "How long?"
+        },
+        {
+          "id": "orthopnea",
+          "question": "Need extra pillows at night?"
+        },
+        {
+          "id": "pnd",
+          "question": "Wake up gasping?"
+        },
+        {
+          "id": "hx",
+          "question": "History?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight changes?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "chf-nyha2",
+          "label": "Heart Failure (NYHA II)"
+        },
+        {
+          "diagnosisId": "copd-gold2",
+          "label": "COPD (GOLD 2)"
+        },
+        {
+          "diagnosisId": "mitral-regurgitation",
+          "label": "Mitral Regurgitation"
+        },
+        {
+          "diagnosisId": "stable-angina",
+          "label": "Stable Angina"
+        },
+        {
+          "diagnosisId": "pleural-effusion-parapneumonic",
+          "label": "Parapneumonic Pleural Effusion"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Thomas Gonzalez"
+        ],
+        "ageRange": {
+          "min": 68,
+          "max": 68
+        },
+        "allowedComplaintPhrasings": [
+          "I get short of breath walking to the mailbox and my ankles are swollen."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "neuro-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "neurology",
+      "displayName": "Nancy Lee",
+      "age": 31,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, sunglasses on indoors.",
+      "publicComplaint": "My head is pounding on one side, with nausea and light bothers me.",
+      "vitalSigns": {
+        "hr": 82,
+        "bp": "118/74",
+        "spo2": 99,
+        "temp": 36.8,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "How often?"
+        },
+        {
+          "id": "side",
+          "question": "Side?"
+        },
+        {
+          "id": "trigger",
+          "question": "Triggers?"
+        },
+        {
+          "id": "aura",
+          "question": "Visual changes before?"
+        },
+        {
+          "id": "nausea",
+          "question": "Nausea?"
+        },
+        {
+          "id": "trauma",
+          "question": "Head trauma?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "migraine-without-aura",
+          "label": "Migraine without Aura"
+        },
+        {
+          "diagnosisId": "tension-headache",
+          "label": "Tension-type Headache"
+        },
+        {
+          "diagnosisId": "cluster-headache",
+          "label": "Cluster Headache"
+        },
+        {
+          "diagnosisId": "trigeminal-neuralgia",
+          "label": "Trigeminal Neuralgia"
+        },
+        {
+          "diagnosisId": "acute-sinusitis-bacterial",
+          "label": "Acute Bacterial Sinusitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Nancy Lee"
+        ],
+        "ageRange": {
+          "min": 31,
+          "max": 31
+        },
+        "allowedComplaintPhrasings": [
+          "My head is pounding on one side, with nausea and light bothers me."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "neuro-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "neurology",
+      "displayName": "Lisa Thompson",
+      "age": 38,
+      "gender": "F",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in, facial drooping on one side.",
+      "publicComplaint": "My face is drooping on the right side since this morning.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "126/78",
+        "spo2": 99,
+        "temp": 36.8,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "When did it start?"
+        },
+        {
+          "id": "forehead",
+          "question": "Can you wrinkle forehead?"
+        },
+        {
+          "id": "ear-pain",
+          "question": "Ear pain?"
+        },
+        {
+          "id": "weakness",
+          "question": "Arm/leg weakness?"
+        },
+        {
+          "id": "taste",
+          "question": "Taste changes?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "bells-palsy",
+          "label": "Bell's Palsy"
+        },
+        {
+          "diagnosisId": "lyme-disease",
+          "label": "Lyme Disease"
+        },
+        {
+          "diagnosisId": "shingles",
+          "label": "Herpes Zoster (Shingles)"
+        },
+        {
+          "diagnosisId": "idiopathic-parkinsons-early",
+          "label": "Early Idiopathic Parkinson's Disease"
+        },
+        {
+          "diagnosisId": "migraine-without-aura",
+          "label": "Migraine without Aura"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Lisa Thompson"
+        ],
+        "ageRange": {
+          "min": 38,
+          "max": 38
+        },
+        "allowedComplaintPhrasings": [
+          "My face is drooping on the right side since this morning."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "neuro-005",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "neurology",
+      "displayName": "Donald Harris",
+      "age": 67,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, wife worried about tremor.",
+      "publicComplaint": "My right hand shakes when resting and I feel slower.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "128/80",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "tremor",
+          "question": "When is tremor worst?"
+        },
+        {
+          "id": "gait",
+          "question": "Walking changes?"
+        },
+        {
+          "id": "rigidity",
+          "question": "Stiffness?"
+        },
+        {
+          "id": "smell",
+          "question": "Changes in smell?"
+        },
+        {
+          "id": "sleep",
+          "question": "Sleep?"
+        },
+        {
+          "id": "family",
+          "question": "Family history?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "idiopathic-parkinsons-early",
+          "label": "Early Idiopathic Parkinson's Disease"
+        },
+        {
+          "diagnosisId": "essential-tremor",
+          "label": "Essential Tremor"
+        },
+        {
+          "diagnosisId": "mild-cognitive-impairment",
+          "label": "Mild Cognitive Impairment"
+        },
+        {
+          "diagnosisId": "b12-deficiency",
+          "label": "Vitamin B12 Deficiency"
+        },
+        {
+          "diagnosisId": "hypothyroidism-hashimoto",
+          "label": "Hashimoto's Hypothyroidism"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Donald Harris"
+        ],
+        "ageRange": {
+          "min": 67,
+          "max": 67
+        },
+        "allowedComplaintPhrasings": [
+          "My right hand shakes when resting and I feel slower."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "nsg-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "neurosurgery",
+      "displayName": "Patricia Holland",
+      "age": 47,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Referral from primary care, holding right shoulder.",
+      "publicComplaint": "Neck pain shooting down my right arm to the thumb, getting worse over months.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "124/76",
+        "spo2": 99,
+        "temp": 36.6,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "When did this start?"
+        },
+        {
+          "id": "distribution",
+          "question": "Where does it radiate?"
+        },
+        {
+          "id": "numbness",
+          "question": "Numbness?"
+        },
+        {
+          "id": "weakness",
+          "question": "Weakness?"
+        },
+        {
+          "id": "conservative",
+          "question": "What have you tried?"
+        },
+        {
+          "id": "gait",
+          "question": "Any balance trouble or leg symptoms?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "cervical-disc-herniation",
+          "label": "Cervical Disc Herniation"
+        },
+        {
+          "diagnosisId": "cervical-radiculopathy",
+          "label": "Cervical Radiculopathy"
+        },
+        {
+          "diagnosisId": "cervical-cord-compression",
+          "label": "Cervical Cord Compression"
+        },
+        {
+          "diagnosisId": "rotator-cuff-tear-partial",
+          "label": "Partial Rotator Cuff Tear"
+        },
+        {
+          "diagnosisId": "carpal-tunnel",
+          "label": "Carpal Tunnel Syndrome"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Patricia Holland"
+        ],
+        "ageRange": {
+          "min": 47,
+          "max": 47
+        },
+        "allowedComplaintPhrasings": [
+          "Neck pain shooting down my right arm to the thumb, getting worse over months."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "nsg-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "neurosurgery",
+      "displayName": "Eleanor Whitfield",
+      "age": 73,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Referral, leans on a shopping cart for relief.",
+      "publicComplaint": "My legs ache and feel heavy when I walk; sitting fixes it.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "136/78",
+        "spo2": 97,
+        "temp": 36.6,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "pattern",
+          "question": "When does it occur?"
+        },
+        {
+          "id": "relief",
+          "question": "What helps?"
+        },
+        {
+          "id": "duration",
+          "question": "How long has this been going on?"
+        },
+        {
+          "id": "back",
+          "question": "Back pain?"
+        },
+        {
+          "id": "vascular",
+          "question": "Any history of claudication or PAD?"
+        },
+        {
+          "id": "bladder",
+          "question": "Bladder/bowel changes?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "lumbar-spinal-stenosis",
+          "label": "Lumbar Spinal Stenosis"
+        },
+        {
+          "diagnosisId": "spinal-stenosis",
+          "label": "Spinal Stenosis"
+        },
+        {
+          "diagnosisId": "lumbar-disc-herniation",
+          "label": "Lumbar Disc Herniation"
+        },
+        {
+          "diagnosisId": "peripheral-arterial-disease",
+          "label": "Peripheral Arterial Disease"
+        },
+        {
+          "diagnosisId": "hip-oa-moderate",
+          "label": "Moderate Hip Osteoarthritis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Eleanor Whitfield"
+        ],
+        "ageRange": {
+          "min": 73,
+          "max": 73
+        },
+        "allowedComplaintPhrasings": [
+          "My legs ache and feel heavy when I walk; sitting fixes it."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "nsg-006",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "neurosurgery",
+      "displayName": "Ruth Blackwood",
+      "age": 76,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Referral, shuffling magnetic gait noted in waiting room.",
+      "publicComplaint": "I keep stumbling, leaking urine, and my memory is slipping.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "134/76",
+        "spo2": 98,
+        "temp": 36.6,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "gait",
+          "question": "Tell me about your walking?"
+        },
+        {
+          "id": "urinary",
+          "question": "Bladder issues?"
+        },
+        {
+          "id": "cognition",
+          "question": "Memory?"
+        },
+        {
+          "id": "tremor",
+          "question": "Tremor?"
+        },
+        {
+          "id": "falls",
+          "question": "Falls?"
+        },
+        {
+          "id": "history",
+          "question": "Any prior brain issues?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "normal-pressure-hydrocephalus",
+          "label": "Normal Pressure Hydrocephalus"
+        },
+        {
+          "diagnosisId": "hydrocephalus",
+          "label": "Hydrocephalus"
+        },
+        {
+          "diagnosisId": "mild-cognitive-impairment",
+          "label": "Mild Cognitive Impairment"
+        },
+        {
+          "diagnosisId": "idiopathic-parkinsons-early",
+          "label": "Early Idiopathic Parkinson's Disease"
+        },
+        {
+          "diagnosisId": "b12-deficiency",
+          "label": "Vitamin B12 Deficiency"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Ruth Blackwood"
+        ],
+        "ageRange": {
+          "min": 76,
+          "max": 76
+        },
+        "allowedComplaintPhrasings": [
+          "I keep stumbling, leaking urine, and my memory is slipping."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "derm-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "dermatology",
+      "displayName": "Kenneth Walker",
+      "age": 36,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, scratching elbows.",
+      "publicComplaint": "Itchy scaly patches on my elbows and knees for years.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "120/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "location",
+          "question": "Where?"
+        },
+        {
+          "id": "family",
+          "question": "Family history?"
+        },
+        {
+          "id": "joint",
+          "question": "Joint pain?"
+        },
+        {
+          "id": "nails",
+          "question": "Nail changes?"
+        },
+        {
+          "id": "scale",
+          "question": "What do patches look like?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "plaque-psoriasis",
+          "label": "Plaque Psoriasis"
+        },
+        {
+          "diagnosisId": "seborrheic-dermatitis",
+          "label": "Seborrheic Dermatitis"
+        },
+        {
+          "diagnosisId": "tinea-corporis",
+          "label": "Tinea Corporis"
+        },
+        {
+          "diagnosisId": "atopic-dermatitis",
+          "label": "Atopic Dermatitis"
+        },
+        {
+          "diagnosisId": "contact-dermatitis",
+          "label": "Contact Dermatitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Kenneth Walker"
+        ],
+        "ageRange": {
+          "min": 36,
+          "max": 36
+        },
+        "allowedComplaintPhrasings": [
+          "Itchy scaly patches on my elbows and knees for years."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "derm-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "dermatology",
+      "displayName": "Joshua Allen",
+      "age": 17,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with mom.",
+      "publicComplaint": "My face has been breaking out badly for a year.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "distribution",
+          "question": "Where?"
+        },
+        {
+          "id": "type",
+          "question": "What type?"
+        },
+        {
+          "id": "otc",
+          "question": "Tried anything?"
+        },
+        {
+          "id": "scars",
+          "question": "Scarring?"
+        },
+        {
+          "id": "period",
+          "question": "Girls: menstrual relation?"
+        },
+        {
+          "id": "diet",
+          "question": "Diet?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "acne-vulgaris",
+          "label": "Acne Vulgaris"
+        },
+        {
+          "diagnosisId": "rosacea",
+          "label": "Rosacea"
+        },
+        {
+          "diagnosisId": "seborrheic-dermatitis",
+          "label": "Seborrheic Dermatitis"
+        },
+        {
+          "diagnosisId": "atopic-dermatitis",
+          "label": "Atopic Dermatitis"
+        },
+        {
+          "diagnosisId": "contact-dermatitis",
+          "label": "Contact Dermatitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Joshua Allen"
+        ],
+        "ageRange": {
+          "min": 17,
+          "max": 17
+        },
+        "allowedComplaintPhrasings": [
+          "My face has been breaking out badly for a year."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "derm-008",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "dermatology",
+      "displayName": "George Nguyen",
+      "age": 54,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in worried about changing mole.",
+      "publicComplaint": "A mole on my back has gotten bigger and changed color.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "124/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "change",
+          "question": "How has it changed?"
+        },
+        {
+          "id": "bleeding",
+          "question": "Bleeding?"
+        },
+        {
+          "id": "sun",
+          "question": "Sun exposure?"
+        },
+        {
+          "id": "family",
+          "question": "Family melanoma?"
+        },
+        {
+          "id": "others",
+          "question": "Other changing moles?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "melanoma-suspicious",
+          "label": "Suspicious Melanoma"
+        },
+        {
+          "diagnosisId": "plaque-psoriasis",
+          "label": "Plaque Psoriasis"
+        },
+        {
+          "diagnosisId": "tinea-corporis",
+          "label": "Tinea Corporis"
+        },
+        {
+          "diagnosisId": "contact-dermatitis",
+          "label": "Contact Dermatitis"
+        },
+        {
+          "diagnosisId": "seborrheic-dermatitis",
+          "label": "Seborrheic Dermatitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "George Nguyen"
+        ],
+        "ageRange": {
+          "min": 54,
+          "max": 54
+        },
+        "allowedComplaintPhrasings": [
+          "A mole on my back has gotten bigger and changed color."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "endo-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "endocrinology",
+      "displayName": "Michelle Smith",
+      "age": 33,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with cold intolerance.",
+      "publicComplaint": "I'm always cold, exhausted, and my hair is thinning.",
+      "vitalSigns": {
+        "hr": 58,
+        "bp": "112/68",
+        "spo2": 99,
+        "temp": 36.3,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "How long?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "constipation",
+          "question": "Bowel?"
+        },
+        {
+          "id": "family",
+          "question": "Family thyroid?"
+        },
+        {
+          "id": "menses",
+          "question": "Periods?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "hypothyroidism-hashimoto",
+          "label": "Hashimoto's Hypothyroidism"
+        },
+        {
+          "diagnosisId": "chronic-fatigue",
+          "label": "Chronic Fatigue Syndrome"
+        },
+        {
+          "diagnosisId": "mdd-moderate",
+          "label": "Major Depressive Disorder (Moderate)"
+        },
+        {
+          "diagnosisId": "iron-deficiency-anemia",
+          "label": "Iron-deficiency Anemia"
+        },
+        {
+          "diagnosisId": "pcos",
+          "label": "Polycystic Ovary Syndrome"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Michelle Smith"
+        ],
+        "ageRange": {
+          "min": 33,
+          "max": 33
+        },
+        "allowedComplaintPhrasings": [
+          "I'm always cold, exhausted, and my hair is thinning."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "endo-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "endocrinology",
+      "displayName": "Carol Johnson",
+      "age": 29,
+      "gender": "F",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in, anxious and tremulous.",
+      "publicComplaint": "I've lost 6 kg, my heart races, and my eyes feel bulging.",
+      "vitalSigns": {
+        "hr": 112,
+        "bp": "142/78",
+        "spo2": 99,
+        "temp": 37.2,
+        "rr": 18
+      },
+      "historyQuestions": [
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "heat",
+          "question": "Heat intolerance?"
+        },
+        {
+          "id": "eyes",
+          "question": "Eye changes?"
+        },
+        {
+          "id": "anxiety",
+          "question": "Anxious?"
+        },
+        {
+          "id": "bowel",
+          "question": "Bowels?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "graves-disease",
+          "label": "Graves' Disease"
+        },
+        {
+          "diagnosisId": "generalized-anxiety",
+          "label": "Generalized Anxiety Disorder"
+        },
+        {
+          "diagnosisId": "paroxysmal-afib",
+          "label": "Paroxysmal Atrial Fibrillation"
+        },
+        {
+          "diagnosisId": "panic-disorder",
+          "label": "Panic Disorder"
+        },
+        {
+          "diagnosisId": "pheochromocytoma",
+          "label": "Pheochromocytoma"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Carol Johnson"
+        ],
+        "ageRange": {
+          "min": 29,
+          "max": 29
+        },
+        "allowedComplaintPhrasings": [
+          "I've lost 6 kg, my heart races, and my eyes feel bulging."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "endo-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "endocrinology",
+      "displayName": "Amanda Brown",
+      "age": 25,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for irregular periods.",
+      "publicComplaint": "My periods are irregular, I have facial hair, and struggle to lose weight.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "124/78",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "menses",
+          "question": "Periods?"
+        },
+        {
+          "id": "hair",
+          "question": "Excess hair?"
+        },
+        {
+          "id": "acne",
+          "question": "Acne?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "fertility",
+          "question": "Trying to conceive?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "pcos",
+          "label": "Polycystic Ovary Syndrome"
+        },
+        {
+          "diagnosisId": "hypothyroidism-hashimoto",
+          "label": "Hashimoto's Hypothyroidism"
+        },
+        {
+          "diagnosisId": "pituitary-microadenoma",
+          "label": "Pituitary Microadenoma"
+        },
+        {
+          "diagnosisId": "graves-disease",
+          "label": "Graves' Disease"
+        },
+        {
+          "diagnosisId": "type2-diabetes",
+          "label": "Type 2 Diabetes Mellitus"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Amanda Brown"
+        ],
+        "ageRange": {
+          "min": 25,
+          "max": 25
+        },
+        "allowedComplaintPhrasings": [
+          "My periods are irregular, I have facial hair, and struggle to lose weight."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "gi-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "gastroenterology",
+      "displayName": "Laura Gonzalez",
+      "age": 45,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with chronic reflux.",
+      "publicComplaint": "Burning chest after meals and sour taste for months.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "122/74",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "duration",
+          "question": "How long?"
+        },
+        {
+          "id": "position",
+          "question": "Worse lying down?"
+        },
+        {
+          "id": "diet",
+          "question": "Trigger foods?"
+        },
+        {
+          "id": "dysphagia",
+          "question": "Swallowing?"
+        },
+        {
+          "id": "weight-loss",
+          "question": "Weight loss?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "gerd",
+          "label": "Gastroesophageal Reflux Disease"
+        },
+        {
+          "diagnosisId": "peptic-ulcer-disease",
+          "label": "Peptic Ulcer Disease"
+        },
+        {
+          "diagnosisId": "eosinophilic-esophagitis",
+          "label": "Eosinophilic Esophagitis"
+        },
+        {
+          "diagnosisId": "laryngopharyngeal-reflux",
+          "label": "Laryngopharyngeal Reflux"
+        },
+        {
+          "diagnosisId": "stable-angina",
+          "label": "Stable Angina"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Laura Gonzalez"
+        ],
+        "ageRange": {
+          "min": 45,
+          "max": 45
+        },
+        "allowedComplaintPhrasings": [
+          "Burning chest after meals and sour taste for months."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "gi-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "gastroenterology",
+      "displayName": "Ryan Wilson",
+      "age": 37,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with chronic diarrhea and weight loss.",
+      "publicComplaint": "Diarrhea and weight loss for a year, with abdominal bloating after bread.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "trigger",
+          "question": "Trigger foods?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "family",
+          "question": "Family history?"
+        },
+        {
+          "id": "rash",
+          "question": "Rash?"
+        },
+        {
+          "id": "anemia",
+          "question": "Anemia history?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "celiac-disease",
+          "label": "Celiac Disease"
+        },
+        {
+          "diagnosisId": "ibs-c",
+          "label": "IBS (Constipation-predominant)"
+        },
+        {
+          "diagnosisId": "crohns-disease",
+          "label": "Crohn's Disease"
+        },
+        {
+          "diagnosisId": "viral-gastroenteritis",
+          "label": "Viral Gastroenteritis"
+        },
+        {
+          "diagnosisId": "iron-deficiency-anemia",
+          "label": "Iron-deficiency Anemia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Ryan Wilson"
+        ],
+        "ageRange": {
+          "min": 37,
+          "max": 37
+        },
+        "allowedComplaintPhrasings": [
+          "Diarrhea and weight loss for a year, with abdominal bloating after bread."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "gi-005",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "gastroenterology",
+      "displayName": "Jacob Anderson",
+      "age": 26,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in, thin and tired-looking.",
+      "publicComplaint": "Abdominal pain, diarrhea 6-8 times a day, some blood.",
+      "vitalSigns": {
+        "hr": 94,
+        "bp": "110/68",
+        "spo2": 99,
+        "temp": 37.8,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "How long?"
+        },
+        {
+          "id": "blood",
+          "question": "Blood in stool?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "mouth",
+          "question": "Mouth ulcers?"
+        },
+        {
+          "id": "fistula",
+          "question": "Any abscesses?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "crohns-disease",
+          "label": "Crohn's Disease"
+        },
+        {
+          "diagnosisId": "ulcerative-colitis",
+          "label": "Ulcerative Colitis"
+        },
+        {
+          "diagnosisId": "celiac-disease",
+          "label": "Celiac Disease"
+        },
+        {
+          "diagnosisId": "ibs-c",
+          "label": "IBS (Constipation-predominant)"
+        },
+        {
+          "diagnosisId": "viral-gastroenteritis",
+          "label": "Viral Gastroenteritis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Jacob Anderson"
+        ],
+        "ageRange": {
+          "min": 26,
+          "max": 26
+        },
+        "allowedComplaintPhrasings": [
+          "Abdominal pain, diarrhea 6-8 times a day, some blood."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "pulm-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pulmonology",
+      "displayName": "Kathleen Lee",
+      "age": 28,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with recurrent wheezing.",
+      "publicComplaint": "I wheeze and cough at night, especially in spring.",
+      "vitalSigns": {
+        "hr": 84,
+        "bp": "118/72",
+        "spo2": 96,
+        "temp": 36.7,
+        "rr": 18
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "Since when?"
+        },
+        {
+          "id": "trigger",
+          "question": "Triggers?"
+        },
+        {
+          "id": "inhaler",
+          "question": "Using inhaler?"
+        },
+        {
+          "id": "night",
+          "question": "Nighttime symptoms?"
+        },
+        {
+          "id": "allergies",
+          "question": "Allergies?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "asthma-chronic",
+          "label": "Chronic Asthma"
+        },
+        {
+          "diagnosisId": "copd-gold2",
+          "label": "COPD (GOLD 2)"
+        },
+        {
+          "diagnosisId": "allergic-rhinitis-asthma",
+          "label": "Allergic Rhinitis-Asthma"
+        },
+        {
+          "diagnosisId": "chronic-bronchitis",
+          "label": "Chronic Bronchitis"
+        },
+        {
+          "diagnosisId": "chronic-cough-uaco",
+          "label": "Chronic Cough (UACOS)"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Kathleen Lee"
+        ],
+        "ageRange": {
+          "min": 28,
+          "max": 28
+        },
+        "allowedComplaintPhrasings": [
+          "I wheeze and cough at night, especially in spring."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "pulm-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pulmonology",
+      "displayName": "Jonathan Perez",
+      "age": 64,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, smoker, with chronic cough.",
+      "publicComplaint": "Chronic productive cough and shortness of breath walking two blocks.",
+      "vitalSigns": {
+        "hr": 86,
+        "bp": "134/82",
+        "spo2": 93,
+        "temp": 36.8,
+        "rr": 20
+      },
+      "historyQuestions": [
+        {
+          "id": "smoking",
+          "question": "Smoking?"
+        },
+        {
+          "id": "cough",
+          "question": "Cough?"
+        },
+        {
+          "id": "dyspnea",
+          "question": "Dyspnea?"
+        },
+        {
+          "id": "exacerbation",
+          "question": "Hospitalizations?"
+        },
+        {
+          "id": "wheeze",
+          "question": "Wheeze?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "copd-gold2",
+          "label": "COPD (GOLD 2)"
+        },
+        {
+          "diagnosisId": "asthma-chronic",
+          "label": "Chronic Asthma"
+        },
+        {
+          "diagnosisId": "chronic-bronchitis",
+          "label": "Chronic Bronchitis"
+        },
+        {
+          "diagnosisId": "chf-nyha2",
+          "label": "Heart Failure (NYHA II)"
+        },
+        {
+          "diagnosisId": "idiopathic-pulmonary-fibrosis",
+          "label": "Idiopathic Pulmonary Fibrosis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Jonathan Perez"
+        ],
+        "ageRange": {
+          "min": 64,
+          "max": 64
+        },
+        "allowedComplaintPhrasings": [
+          "Chronic productive cough and shortness of breath walking two blocks."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "pulm-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pulmonology",
+      "displayName": "Stephen Thompson",
+      "age": 53,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with wife complaining of loud snoring.",
+      "publicComplaint": "My wife says I stop breathing at night and I'm exhausted all day.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "142/88",
+        "spo2": 96,
+        "temp": 36.7,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "snoring",
+          "question": "Loud snoring?"
+        },
+        {
+          "id": "witnessed",
+          "question": "Witnessed apneas?"
+        },
+        {
+          "id": "sleep",
+          "question": "Daytime sleepiness?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "neck",
+          "question": "Neck size?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "obstructive-sleep-apnea",
+          "label": "Obstructive Sleep Apnea"
+        },
+        {
+          "diagnosisId": "chronic-fatigue",
+          "label": "Chronic Fatigue Syndrome"
+        },
+        {
+          "diagnosisId": "copd-gold2",
+          "label": "COPD (GOLD 2)"
+        },
+        {
+          "diagnosisId": "chf-nyha2",
+          "label": "Heart Failure (NYHA II)"
+        },
+        {
+          "diagnosisId": "insomnia-chronic",
+          "label": "Chronic Insomnia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Stephen Thompson"
+        ],
+        "ageRange": {
+          "min": 53,
+          "max": 53
+        },
+        "allowedComplaintPhrasings": [
+          "My wife says I stop breathing at night and I'm exhausted all day."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "neph-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "nephrology",
+      "displayName": "Benjamin Walker",
+      "age": 68,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for follow-up of elevated creatinine.",
+      "publicComplaint": "My doctor said my kidney function is getting worse.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "142/84",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "hx",
+          "question": "Medical history?"
+        },
+        {
+          "id": "meds",
+          "question": "NSAIDs?"
+        },
+        {
+          "id": "urine",
+          "question": "Urine changes?"
+        },
+        {
+          "id": "edema",
+          "question": "Swelling?"
+        },
+        {
+          "id": "family",
+          "question": "Family kidney disease?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "ckd-stage3a",
+          "label": "CKD Stage 3a"
+        },
+        {
+          "diagnosisId": "aki-pre-renal",
+          "label": "Pre-renal Acute Kidney Injury"
+        },
+        {
+          "diagnosisId": "diabetic-nephropathy",
+          "label": "Diabetic Nephropathy"
+        },
+        {
+          "diagnosisId": "hypertensive-nephrosclerosis",
+          "label": "Hypertensive Nephrosclerosis"
+        },
+        {
+          "diagnosisId": "polycystic-kidney-disease",
+          "label": "Polycystic Kidney Disease"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Benjamin Walker"
+        ],
+        "ageRange": {
+          "min": 68,
+          "max": 68
+        },
+        "allowedComplaintPhrasings": [
+          "My doctor said my kidney function is getting worse."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "neph-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "nephrology",
+      "displayName": "Frank Young",
+      "age": 44,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in doubled over with flank pain.",
+      "publicComplaint": "Severe right flank pain radiating to my groin, third episode.",
+      "vitalSigns": {
+        "hr": 102,
+        "bp": "138/86",
+        "spo2": 98,
+        "temp": 36.9,
+        "rr": 20
+      },
+      "historyQuestions": [
+        {
+          "id": "prior",
+          "question": "Prior stones?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "nausea",
+          "question": "Nausea?"
+        },
+        {
+          "id": "blood",
+          "question": "Blood in urine?"
+        },
+        {
+          "id": "fever",
+          "question": "Fever?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "nephrolithiasis-recurrent",
+          "label": "Recurrent Nephrolithiasis"
+        },
+        {
+          "diagnosisId": "kidney-stone-5mm",
+          "label": "Ureteral Stone (5 mm)"
+        },
+        {
+          "diagnosisId": "aki-pre-renal",
+          "label": "Pre-renal Acute Kidney Injury"
+        },
+        {
+          "diagnosisId": "uti-uncomplicated",
+          "label": "Uncomplicated UTI"
+        },
+        {
+          "diagnosisId": "pyelonephritis",
+          "label": "Pyelonephritis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Frank Young"
+        ],
+        "ageRange": {
+          "min": 44,
+          "max": 44
+        },
+        "allowedComplaintPhrasings": [
+          "Severe right flank pain radiating to my groin, third episode."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "neph-008",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "nephrology",
+      "displayName": "Brenda Nguyen",
+      "age": 56,
+      "gender": "F",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in after days of vomiting.",
+      "publicComplaint": "I've been vomiting for 3 days and now my urine is scant and dark.",
+      "vitalSigns": {
+        "hr": 102,
+        "bp": "104/64",
+        "spo2": 98,
+        "temp": 37.3,
+        "rr": 18
+      },
+      "historyQuestions": [
+        {
+          "id": "vomit",
+          "question": "Vomiting?"
+        },
+        {
+          "id": "fluid",
+          "question": "Fluids?"
+        },
+        {
+          "id": "urine",
+          "question": "Urine output?"
+        },
+        {
+          "id": "meds",
+          "question": "NSAIDs?"
+        },
+        {
+          "id": "hx",
+          "question": "History?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "aki-pre-renal",
+          "label": "Pre-renal Acute Kidney Injury"
+        },
+        {
+          "diagnosisId": "ckd-stage3a",
+          "label": "CKD Stage 3a"
+        },
+        {
+          "diagnosisId": "diabetic-nephropathy",
+          "label": "Diabetic Nephropathy"
+        },
+        {
+          "diagnosisId": "viral-gastroenteritis",
+          "label": "Viral Gastroenteritis"
+        },
+        {
+          "diagnosisId": "nephrotic-syndrome-membranous",
+          "label": "Membranous Nephropathy"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Brenda Nguyen"
+        ],
+        "ageRange": {
+          "min": 56,
+          "max": 56
+        },
+        "allowedComplaintPhrasings": [
+          "I've been vomiting for 3 days and now my urine is scant and dark."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "rheum-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "rheumatology",
+      "displayName": "Nicole Smith",
+      "age": 42,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with swollen, painful finger joints.",
+      "publicComplaint": "My hand joints swell and are stiff for hours in the morning.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "120/74",
+        "spo2": 99,
+        "temp": 37.1,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "stiffness",
+          "question": "Morning stiffness?"
+        },
+        {
+          "id": "joints",
+          "question": "Which joints?"
+        },
+        {
+          "id": "duration",
+          "question": "How long?"
+        },
+        {
+          "id": "family",
+          "question": "Family history?"
+        },
+        {
+          "id": "fatigue",
+          "question": "Fatigue?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "rheumatoid-arthritis-early",
+          "label": "Early Rheumatoid Arthritis"
+        },
+        {
+          "diagnosisId": "osteoarthritis-knee",
+          "label": "Knee Osteoarthritis"
+        },
+        {
+          "diagnosisId": "sle",
+          "label": "Systemic Lupus Erythematosus"
+        },
+        {
+          "diagnosisId": "gout",
+          "label": "Gout"
+        },
+        {
+          "diagnosisId": "polymyalgia-rheumatica",
+          "label": "Polymyalgia Rheumatica"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Nicole Smith"
+        ],
+        "ageRange": {
+          "min": 42,
+          "max": 42
+        },
+        "allowedComplaintPhrasings": [
+          "My hand joints swell and are stiff for hours in the morning."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "rheum-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "rheumatology",
+      "displayName": "Robert Williams",
+      "age": 51,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in limping with swollen big toe.",
+      "publicComplaint": "My big toe is red, hot, and I can't walk on it.",
+      "vitalSigns": {
+        "hr": 86,
+        "bp": "134/82",
+        "spo2": 98,
+        "temp": 37.5,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "When?"
+        },
+        {
+          "id": "trigger",
+          "question": "Trigger?"
+        },
+        {
+          "id": "prior",
+          "question": "Similar before?"
+        },
+        {
+          "id": "joint",
+          "question": "Joint?"
+        },
+        {
+          "id": "trauma",
+          "question": "Trauma?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "gout",
+          "label": "Gout"
+        },
+        {
+          "diagnosisId": "reactive-arthritis",
+          "label": "Reactive Arthritis"
+        },
+        {
+          "diagnosisId": "osteoarthritis-knee",
+          "label": "Knee Osteoarthritis"
+        },
+        {
+          "diagnosisId": "ankylosing-spondylitis",
+          "label": "Ankylosing Spondylitis"
+        },
+        {
+          "diagnosisId": "cellulitis-non-limb-threatening",
+          "label": "Cellulitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Robert Williams"
+        ],
+        "ageRange": {
+          "min": 51,
+          "max": 51
+        },
+        "allowedComplaintPhrasings": [
+          "My big toe is red, hot, and I can't walk on it."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "rheum-005",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "rheumatology",
+      "displayName": "John Jones",
+      "age": 30,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with years of low back pain.",
+      "publicComplaint": "Low back pain that's worse in the morning and improves with exercise.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "124/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "stiffness",
+          "question": "Morning stiffness?"
+        },
+        {
+          "id": "relief",
+          "question": "Relief?"
+        },
+        {
+          "id": "family",
+          "question": "Family?"
+        },
+        {
+          "id": "eye",
+          "question": "Eye inflammation?"
+        },
+        {
+          "id": "gi",
+          "question": "GI symptoms?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "ankylosing-spondylitis",
+          "label": "Ankylosing Spondylitis"
+        },
+        {
+          "diagnosisId": "lumbar-disc-herniation",
+          "label": "Lumbar Disc Herniation"
+        },
+        {
+          "diagnosisId": "reactive-arthritis",
+          "label": "Reactive Arthritis"
+        },
+        {
+          "diagnosisId": "fibromyalgia",
+          "label": "Fibromyalgia"
+        },
+        {
+          "diagnosisId": "sacroiliitis-other",
+          "label": "Other Sacroiliitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "John Jones"
+        ],
+        "ageRange": {
+          "min": 30,
+          "max": 30
+        },
+        "allowedComplaintPhrasings": [
+          "Low back pain that's worse in the morning and improves with exercise."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "heme-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "hematology",
+      "displayName": "Elizabeth Hernandez",
+      "age": 32,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with easy bruising.",
+      "publicComplaint": "I have bruises all over and bleed from gums when brushing.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "bruise",
+          "question": "Bruising?"
+        },
+        {
+          "id": "gums",
+          "question": "Gum bleeding?"
+        },
+        {
+          "id": "menses",
+          "question": "Heavy periods?"
+        },
+        {
+          "id": "infection",
+          "question": "Recent infection?"
+        },
+        {
+          "id": "meds",
+          "question": "Medications?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "itp",
+          "label": "Immune Thrombocytopenic Purpura"
+        },
+        {
+          "diagnosisId": "vwb-disease-mild",
+          "label": "von Willebrand Disease (Mild)"
+        },
+        {
+          "diagnosisId": "warfarin-bleeding-workup",
+          "label": "Warfarin Overanticoagulation"
+        },
+        {
+          "diagnosisId": "mds-low-risk",
+          "label": "Low-risk MDS"
+        },
+        {
+          "diagnosisId": "thrombotic-thrombocytopenic-purpura",
+          "label": "Thrombotic Thrombocytopenic Purpura"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Elizabeth Hernandez"
+        ],
+        "ageRange": {
+          "min": 32,
+          "max": 32
+        },
+        "allowedComplaintPhrasings": [
+          "I have bruises all over and bleed from gums when brushing."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "heme-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "hematology",
+      "displayName": "Barbara Lopez",
+      "age": 28,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in referred for anemia.",
+      "publicComplaint": "I'm tired all the time and my blood tests show low iron.",
+      "vitalSigns": {
+        "hr": 90,
+        "bp": "110/70",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "menses",
+          "question": "Periods?"
+        },
+        {
+          "id": "diet",
+          "question": "Diet?"
+        },
+        {
+          "id": "pica",
+          "question": "Pica?"
+        },
+        {
+          "id": "gi",
+          "question": "GI bleeding?"
+        },
+        {
+          "id": "meds",
+          "question": "Supplements?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "iron-deficiency",
+          "label": "Iron Deficiency"
+        },
+        {
+          "diagnosisId": "b12-pernicious",
+          "label": "Pernicious Anemia"
+        },
+        {
+          "diagnosisId": "thalassemia-trait",
+          "label": "Thalassemia Trait"
+        },
+        {
+          "diagnosisId": "mds-low-risk",
+          "label": "Low-risk MDS"
+        },
+        {
+          "diagnosisId": "iron-deficiency-anemia",
+          "label": "Iron-deficiency Anemia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Barbara Lopez"
+        ],
+        "ageRange": {
+          "min": 28,
+          "max": 28
+        },
+        "allowedComplaintPhrasings": [
+          "I'm tired all the time and my blood tests show low iron."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "heme-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "hematology",
+      "displayName": "Thomas Gonzalez",
+      "age": 70,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, pale, unsteady.",
+      "publicComplaint": "Numb feet, confusion at times, and I'm pale.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "126/78",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "gastritis",
+          "question": "Stomach issues?"
+        },
+        {
+          "id": "diet",
+          "question": "Diet?"
+        },
+        {
+          "id": "neuro",
+          "question": "Numbness?"
+        },
+        {
+          "id": "memory",
+          "question": "Memory?"
+        },
+        {
+          "id": "tongue",
+          "question": "Sore tongue?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "b12-pernicious",
+          "label": "Pernicious Anemia"
+        },
+        {
+          "diagnosisId": "b12-deficiency",
+          "label": "Vitamin B12 Deficiency"
+        },
+        {
+          "diagnosisId": "mds-low-risk",
+          "label": "Low-risk MDS"
+        },
+        {
+          "diagnosisId": "iron-deficiency",
+          "label": "Iron Deficiency"
+        },
+        {
+          "diagnosisId": "hypothyroidism-hashimoto",
+          "label": "Hashimoto's Hypothyroidism"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Thomas Gonzalez"
+        ],
+        "ageRange": {
+          "min": 70,
+          "max": 70
+        },
+        "allowedComplaintPhrasings": [
+          "Numb feet, confusion at times, and I'm pale."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "onc-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "oncology",
+      "displayName": "Walter Bennett",
+      "age": 67,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Outpatient referral for cough and weight loss.",
+      "publicComplaint": "I have a cough that won't quit and I've dropped 8 kg in three months.",
+      "vitalSigns": {
+        "hr": 92,
+        "bp": "128/78",
+        "spo2": 94,
+        "temp": 36.9,
+        "rr": 18
+      },
+      "historyQuestions": [
+        {
+          "id": "smoking",
+          "question": "Smoking history?"
+        },
+        {
+          "id": "cough",
+          "question": "Cough character?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight loss?"
+        },
+        {
+          "id": "pain",
+          "question": "Chest or shoulder pain?"
+        },
+        {
+          "id": "occupation",
+          "question": "Asbestos or dust exposure?"
+        },
+        {
+          "id": "travel",
+          "question": "Recent travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "lung-cancer",
+          "label": "Lung Cancer"
+        },
+        {
+          "diagnosisId": "pulmonary-nodule-incidental",
+          "label": "Incidental Pulmonary Nodule"
+        },
+        {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        },
+        {
+          "diagnosisId": "active-tb",
+          "label": "Active Tuberculosis"
+        },
+        {
+          "diagnosisId": "sarcoidosis-stage2",
+          "label": "Sarcoidosis (Stage II)"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Walter Bennett"
+        ],
+        "ageRange": {
+          "min": 67,
+          "max": 67
+        },
+        "allowedComplaintPhrasings": [
+          "I have a cough that won't quit and I've dropped 8 kg in three months."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "onc-007",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "oncology",
+      "displayName": "Alicia Romero",
+      "age": 44,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "New-patient visit after breast biopsy.",
+      "publicComplaint": "My biopsy came back abnormal and I was sent here to plan treatment.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "116/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "lump",
+          "question": "When did you find the lump?"
+        },
+        {
+          "id": "biopsy",
+          "question": "Biopsy result?"
+        },
+        {
+          "id": "family",
+          "question": "Family history?"
+        },
+        {
+          "id": "menses",
+          "question": "Menstrual history?"
+        },
+        {
+          "id": "children",
+          "question": "Pregnancies?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "breast-cancer",
+          "label": "Breast Cancer"
+        },
+        {
+          "diagnosisId": "breast-fibroadenoma",
+          "label": "Breast Fibroadenoma"
+        },
+        {
+          "diagnosisId": "breast-cyst",
+          "label": "Breast Cyst"
+        },
+        {
+          "diagnosisId": "fibrocystic-changes",
+          "label": "Fibrocystic Breast Changes"
+        },
+        {
+          "diagnosisId": "ductal-carcinoma-in-situ",
+          "label": "Ductal Carcinoma in Situ"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Alicia Romero"
+        ],
+        "ageRange": {
+          "min": 44,
+          "max": 44
+        },
+        "allowedComplaintPhrasings": [
+          "My biopsy came back abnormal and I was sent here to plan treatment."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "onc-008",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "oncology",
+      "displayName": "George Whitaker",
+      "age": 61,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Referred after positive screening colonoscopy with biopsy.",
+      "publicComplaint": "My colonoscopy found a tumor and the biopsy was cancer.",
+      "vitalSigns": {
+        "hr": 88,
+        "bp": "122/74",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "symptoms",
+          "question": "Bowel changes?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight loss?"
+        },
+        {
+          "id": "biopsy",
+          "question": "Biopsy?"
+        },
+        {
+          "id": "family",
+          "question": "Family history?"
+        },
+        {
+          "id": "fatigue",
+          "question": "Fatigue?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "colorectal-cancer",
+          "label": "Colorectal Cancer"
+        },
+        {
+          "diagnosisId": "colon-polyp-screening",
+          "label": "Colon Cancer Screening"
+        },
+        {
+          "diagnosisId": "iron-deficiency-anemia",
+          "label": "Iron-deficiency Anemia"
+        },
+        {
+          "diagnosisId": "crohns-disease",
+          "label": "Crohn's Disease"
+        },
+        {
+          "diagnosisId": "ulcerative-colitis",
+          "label": "Ulcerative Colitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "George Whitaker"
+        ],
+        "ageRange": {
+          "min": 61,
+          "max": 61
+        },
+        "allowedComplaintPhrasings": [
+          "My colonoscopy found a tumor and the biopsy was cancer."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "id-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "infectious-disease",
+      "displayName": "Donald Lee",
+      "age": 38,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for positive PPD screening.",
+      "publicComplaint": "My employer's TB skin test was positive. I feel fine.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "120/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "exposure",
+          "question": "TB contacts?"
+        },
+        {
+          "id": "sx",
+          "question": "Cough, weight loss?"
+        },
+        {
+          "id": "hiv",
+          "question": "HIV?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        },
+        {
+          "id": "prior",
+          "question": "Prior treatment?"
+        },
+        {
+          "id": "bcg",
+          "question": "BCG vaccine?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "latent-tb",
+          "label": "Latent Tuberculosis"
+        },
+        {
+          "diagnosisId": "active-tb",
+          "label": "Active Tuberculosis"
+        },
+        {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        },
+        {
+          "diagnosisId": "sarcoidosis-stage2",
+          "label": "Sarcoidosis (Stage II)"
+        },
+        {
+          "diagnosisId": "pulmonary-nodule-incidental",
+          "label": "Incidental Pulmonary Nodule"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Donald Lee"
+        ],
+        "ageRange": {
+          "min": 38,
+          "max": 38
+        },
+        "allowedComplaintPhrasings": [
+          "My employer's TB skin test was positive. I feel fine."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "id-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "infectious-disease",
+      "displayName": "Sarah White",
+      "age": 42,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in after camping trip.",
+      "publicComplaint": "A bullseye rash on my leg and joint pain.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "120/74",
+        "spo2": 99,
+        "temp": 37.4,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "tick",
+          "question": "Tick bite?"
+        },
+        {
+          "id": "rash",
+          "question": "Describe?"
+        },
+        {
+          "id": "joints",
+          "question": "Joints?"
+        },
+        {
+          "id": "headache",
+          "question": "Headache?"
+        },
+        {
+          "id": "fever",
+          "question": "Fever?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "lyme-disease",
+          "label": "Lyme Disease"
+        },
+        {
+          "diagnosisId": "tinea-corporis",
+          "label": "Tinea Corporis"
+        },
+        {
+          "diagnosisId": "cellulitis-non-limb-threatening",
+          "label": "Cellulitis"
+        },
+        {
+          "diagnosisId": "reactive-arthritis",
+          "label": "Reactive Arthritis"
+        },
+        {
+          "diagnosisId": "shingles",
+          "label": "Herpes Zoster (Shingles)"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Sarah White"
+        ],
+        "ageRange": {
+          "min": 42,
+          "max": 42
+        },
+        "allowedComplaintPhrasings": [
+          "A bullseye rash on my leg and joint pain."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "id-010",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "infectious-disease",
+      "displayName": "Kevin Robinson",
+      "age": 48,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with red warm calf.",
+      "publicComplaint": "My right calf is red, warm, tender after a scrape.",
+      "vitalSigns": {
+        "hr": 86,
+        "bp": "126/78",
+        "spo2": 98,
+        "temp": 37.8,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "trauma",
+          "question": "Trauma?"
+        },
+        {
+          "id": "redness",
+          "question": "Redness?"
+        },
+        {
+          "id": "fever",
+          "question": "Fever?"
+        },
+        {
+          "id": "pulses",
+          "question": "Swelling?"
+        },
+        {
+          "id": "dm",
+          "question": "Diabetes?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "cellulitis-non-limb-threatening",
+          "label": "Cellulitis"
+        },
+        {
+          "diagnosisId": "osteomyelitis-chronic",
+          "label": "Chronic Osteomyelitis"
+        },
+        {
+          "diagnosisId": "dvt",
+          "label": "Deep Vein Thrombosis"
+        },
+        {
+          "diagnosisId": "gout",
+          "label": "Gout"
+        },
+        {
+          "diagnosisId": "contact-dermatitis",
+          "label": "Contact Dermatitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Kevin Robinson"
+        ],
+        "ageRange": {
+          "min": 48,
+          "max": 48
+        },
+        "allowedComplaintPhrasings": [
+          "My right calf is red, warm, tender after a scrape."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "allergy-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "allergy-immunology",
+      "displayName": "Lisa Walker",
+      "age": 22,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with seasonal sneezing.",
+      "publicComplaint": "Every spring I sneeze nonstop with itchy eyes.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "116/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "season",
+          "question": "Seasonal?"
+        },
+        {
+          "id": "eye",
+          "question": "Eye symptoms?"
+        },
+        {
+          "id": "pets",
+          "question": "Pets?"
+        },
+        {
+          "id": "family",
+          "question": "Family atopy?"
+        },
+        {
+          "id": "wheeze",
+          "question": "Wheeze?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "allergic-rhinitis-seasonal",
+          "label": "Seasonal Allergic Rhinitis"
+        },
+        {
+          "diagnosisId": "allergic-rhinitis-ent",
+          "label": "Allergic Rhinitis"
+        },
+        {
+          "diagnosisId": "allergic-rhinitis-asthma",
+          "label": "Allergic Rhinitis-Asthma"
+        },
+        {
+          "diagnosisId": "chronic-cough-uaco",
+          "label": "Chronic Cough (UACOS)"
+        },
+        {
+          "diagnosisId": "nasal-polyps",
+          "label": "Nasal Polyposis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Lisa Walker"
+        ],
+        "ageRange": {
+          "min": 22,
+          "max": 22
+        },
+        "allowedComplaintPhrasings": [
+          "Every spring I sneeze nonstop with itchy eyes."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "allergy-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "allergy-immunology",
+      "displayName": "Margaret King",
+      "age": 40,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with daily hives.",
+      "publicComplaint": "Hives nearly every day for 4 months.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 36.8,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "duration",
+          "question": "Duration?"
+        },
+        {
+          "id": "trigger",
+          "question": "Trigger?"
+        },
+        {
+          "id": "lesions",
+          "question": "Lesions?"
+        },
+        {
+          "id": "angio",
+          "question": "Swelling?"
+        },
+        {
+          "id": "thyroid",
+          "question": "Thyroid?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "chronic-urticaria",
+          "label": "Chronic Urticaria (Idiopathic)"
+        },
+        {
+          "diagnosisId": "urticaria-chronic",
+          "label": "Chronic Urticaria"
+        },
+        {
+          "diagnosisId": "hereditary-angioedema",
+          "label": "Hereditary Angioedema"
+        },
+        {
+          "diagnosisId": "food-allergy-peanut",
+          "label": "Peanut Allergy"
+        },
+        {
+          "diagnosisId": "contact-dermatitis",
+          "label": "Contact Dermatitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Margaret King"
+        ],
+        "ageRange": {
+          "min": 40,
+          "max": 40
+        },
+        "allowedComplaintPhrasings": [
+          "Hives nearly every day for 4 months."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "allergy-006",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "allergy-immunology",
+      "displayName": "Betty Scott",
+      "age": 30,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with asthma worse at home.",
+      "publicComplaint": "My asthma is worse when I'm home with pets.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "118/74",
+        "spo2": 96,
+        "temp": 36.7,
+        "rr": 18
+      },
+      "historyQuestions": [
+        {
+          "id": "pets",
+          "question": "Pets?"
+        },
+        {
+          "id": "symptoms",
+          "question": "When worse?"
+        },
+        {
+          "id": "season",
+          "question": "Seasonal?"
+        },
+        {
+          "id": "rhinitis",
+          "question": "Rhinitis?"
+        },
+        {
+          "id": "eczema",
+          "question": "Eczema?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "asthma-allergic",
+          "label": "Allergic Asthma"
+        },
+        {
+          "diagnosisId": "asthma-chronic",
+          "label": "Chronic Asthma"
+        },
+        {
+          "diagnosisId": "allergic-rhinitis-asthma",
+          "label": "Allergic Rhinitis-Asthma"
+        },
+        {
+          "diagnosisId": "chronic-cough-uaco",
+          "label": "Chronic Cough (UACOS)"
+        },
+        {
+          "diagnosisId": "atopic-march-child",
+          "label": "Atopic March"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Betty Scott"
+        ],
+        "ageRange": {
+          "min": 30,
+          "max": 30
+        },
+        "allowedComplaintPhrasings": [
+          "My asthma is worse when I'm home with pets."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "psych-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "psychiatry",
+      "displayName": "Kimberly Smith",
+      "age": 34,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, tearful.",
+      "publicComplaint": "I feel sad every day, can't enjoy anything, and struggle at work.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "duration",
+          "question": "How long?"
+        },
+        {
+          "id": "sleep",
+          "question": "Sleep?"
+        },
+        {
+          "id": "appetite",
+          "question": "Appetite?"
+        },
+        {
+          "id": "suicide",
+          "question": "Suicidal thoughts?"
+        },
+        {
+          "id": "energy",
+          "question": "Energy?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "mdd-moderate",
+          "label": "Major Depressive Disorder (Moderate)"
+        },
+        {
+          "diagnosisId": "generalized-anxiety",
+          "label": "Generalized Anxiety Disorder"
+        },
+        {
+          "diagnosisId": "bipolar-2-hypomanic",
+          "label": "Bipolar II (Hypomanic)"
+        },
+        {
+          "diagnosisId": "adjustment-disorder",
+          "label": "Adjustment Disorder"
+        },
+        {
+          "diagnosisId": "hypothyroidism-hashimoto",
+          "label": "Hashimoto's Hypothyroidism"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Kimberly Smith"
+        ],
+        "ageRange": {
+          "min": 34,
+          "max": 34
+        },
+        "allowedComplaintPhrasings": [
+          "I feel sad every day, can't enjoy anything, and struggle at work."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "psych-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "psychiatry",
+      "displayName": "Jason Johnson",
+      "age": 42,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, tense.",
+      "publicComplaint": "I worry constantly about everything for years.",
+      "vitalSigns": {
+        "hr": 86,
+        "bp": "128/80",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "worry",
+          "question": "Worry?"
+        },
+        {
+          "id": "sleep",
+          "question": "Sleep?"
+        },
+        {
+          "id": "tension",
+          "question": "Muscle tension?"
+        },
+        {
+          "id": "irritable",
+          "question": "Irritable?"
+        },
+        {
+          "id": "panic",
+          "question": "Panic attacks?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "generalized-anxiety",
+          "label": "Generalized Anxiety Disorder"
+        },
+        {
+          "diagnosisId": "panic-disorder",
+          "label": "Panic Disorder"
+        },
+        {
+          "diagnosisId": "mdd-moderate",
+          "label": "Major Depressive Disorder (Moderate)"
+        },
+        {
+          "diagnosisId": "graves-disease",
+          "label": "Graves' Disease"
+        },
+        {
+          "diagnosisId": "social-anxiety",
+          "label": "Social Anxiety Disorder"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Jason Johnson"
+        ],
+        "ageRange": {
+          "min": 42,
+          "max": 42
+        },
+        "allowedComplaintPhrasings": [
+          "I worry constantly about everything for years."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "psych-010",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "psychiatry",
+      "displayName": "Gary Martinez",
+      "age": 52,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, wife insists.",
+      "publicComplaint": "I drink every night, and I've had two DUIs.",
+      "vitalSigns": {
+        "hr": 84,
+        "bp": "138/86",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "amount",
+          "question": "How much?"
+        },
+        {
+          "id": "withdrawal",
+          "question": "Shakes?"
+        },
+        {
+          "id": "tried",
+          "question": "Tried to stop?"
+        },
+        {
+          "id": "social",
+          "question": "Problems?"
+        },
+        {
+          "id": "tolerance",
+          "question": "Tolerance?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "alcohol-use-disorder",
+          "label": "Alcohol Use Disorder"
+        },
+        {
+          "diagnosisId": "mdd-moderate",
+          "label": "Major Depressive Disorder (Moderate)"
+        },
+        {
+          "diagnosisId": "alcoholic-hepatitis",
+          "label": "Alcoholic Hepatitis"
+        },
+        {
+          "diagnosisId": "generalized-anxiety",
+          "label": "Generalized Anxiety Disorder"
+        },
+        {
+          "diagnosisId": "ptsd",
+          "label": "Post-traumatic Stress Disorder"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Gary Martinez"
+        ],
+        "ageRange": {
+          "min": 52,
+          "max": 52
+        },
+        "allowedComplaintPhrasings": [
+          "I drink every night, and I've had two DUIs."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "obgyn-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "obgyn",
+      "displayName": "Melissa Lopez",
+      "age": 26,
+      "gender": "F",
+      "severity": "critical",
+      "arrivalBlurb": "Walk-in, pale and clutching lower abdomen.",
+      "publicComplaint": "Severe pelvic pain, missed period, spotting.",
+      "vitalSigns": {
+        "hr": 124,
+        "bp": "92/56",
+        "spo2": 98,
+        "temp": 37,
+        "rr": 22
+      },
+      "historyQuestions": [
+        {
+          "id": "lmp",
+          "question": "LMP?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "bleed",
+          "question": "Bleeding?"
+        },
+        {
+          "id": "shoulder",
+          "question": "Shoulder pain?"
+        },
+        {
+          "id": "sti",
+          "question": "Prior PID?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "ectopic-pregnancy",
+          "label": "Ectopic Pregnancy"
+        },
+        {
+          "diagnosisId": "threatened-miscarriage",
+          "label": "Threatened Miscarriage"
+        },
+        {
+          "diagnosisId": "ovarian-torsion",
+          "label": "Ovarian Torsion"
+        },
+        {
+          "diagnosisId": "appendicitis",
+          "label": "Appendicitis"
+        },
+        {
+          "diagnosisId": "pid-outpatient",
+          "label": "Pelvic Inflammatory Disease (Outpatient)"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Melissa Lopez"
+        ],
+        "ageRange": {
+          "min": 26,
+          "max": 26
+        },
+        "allowedComplaintPhrasings": [
+          "Severe pelvic pain, missed period, spotting."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "obgyn-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "obgyn",
+      "displayName": "Deborah Gonzalez",
+      "age": 41,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with heavy menses.",
+      "publicComplaint": "I've had heavy periods for a year and feel exhausted.",
+      "vitalSigns": {
+        "hr": 88,
+        "bp": "112/72",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "flow",
+          "question": "How heavy?"
+        },
+        {
+          "id": "duration",
+          "question": "Duration?"
+        },
+        {
+          "id": "clots",
+          "question": "Clots?"
+        },
+        {
+          "id": "fatigue",
+          "question": "Fatigue?"
+        },
+        {
+          "id": "weight",
+          "question": "Weight?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "menorrhagia-fibroids",
+          "label": "Menorrhagia (Fibroids)"
+        },
+        {
+          "diagnosisId": "endometriosis",
+          "label": "Endometriosis"
+        },
+        {
+          "diagnosisId": "pcos",
+          "label": "Polycystic Ovary Syndrome"
+        },
+        {
+          "diagnosisId": "endometrial-hyperplasia",
+          "label": "Endometrial Hyperplasia"
+        },
+        {
+          "diagnosisId": "iron-deficiency-anemia",
+          "label": "Iron-deficiency Anemia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Deborah Gonzalez"
+        ],
+        "ageRange": {
+          "min": 41,
+          "max": 41
+        },
+        "allowedComplaintPhrasings": [
+          "I've had heavy periods for a year and feel exhausted."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "obgyn-006",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "obgyn",
+      "displayName": "Laura Thomas",
+      "age": 33,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with painful periods and infertility.",
+      "publicComplaint": "My periods are painful and I can't get pregnant.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "dysmenorrhea",
+          "question": "Pain?"
+        },
+        {
+          "id": "dyspareunia",
+          "question": "Pain with sex?"
+        },
+        {
+          "id": "dyschezia",
+          "question": "Pain with BM?"
+        },
+        {
+          "id": "fertility",
+          "question": "Trying?"
+        },
+        {
+          "id": "family",
+          "question": "Family?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "endometriosis",
+          "label": "Endometriosis"
+        },
+        {
+          "diagnosisId": "pcos-obgyn",
+          "label": "PCOS (Gynecologic)"
+        },
+        {
+          "diagnosisId": "pid-outpatient",
+          "label": "Pelvic Inflammatory Disease (Outpatient)"
+        },
+        {
+          "diagnosisId": "menorrhagia-fibroids",
+          "label": "Menorrhagia (Fibroids)"
+        },
+        {
+          "diagnosisId": "ovarian-cyst",
+          "label": "Ovarian Cyst"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Laura Thomas"
+        ],
+        "ageRange": {
+          "min": 33,
+          "max": 33
+        },
+        "allowedComplaintPhrasings": [
+          "My periods are painful and I can't get pregnant."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "uro-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "urology",
+      "displayName": "Nicholas Lee",
+      "age": 68,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with difficulty urinating.",
+      "publicComplaint": "Weak stream, frequency, and getting up at night to urinate.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "128/78",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "stream",
+          "question": "Stream?"
+        },
+        {
+          "id": "nocturia",
+          "question": "Nocturia?"
+        },
+        {
+          "id": "hesitancy",
+          "question": "Hesitancy?"
+        },
+        {
+          "id": "blood",
+          "question": "Blood?"
+        },
+        {
+          "id": "meds",
+          "question": "Meds?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "bph-moderate",
+          "label": "Benign Prostatic Hyperplasia (Moderate)"
+        },
+        {
+          "diagnosisId": "prostatitis-chronic",
+          "label": "Chronic Prostatitis"
+        },
+        {
+          "diagnosisId": "overactive-bladder",
+          "label": "Overactive Bladder"
+        },
+        {
+          "diagnosisId": "prostate-cancer-screen",
+          "label": "Prostate Cancer Screening"
+        },
+        {
+          "diagnosisId": "uti-uncomplicated",
+          "label": "Uncomplicated UTI"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Nicholas Lee"
+        ],
+        "ageRange": {
+          "min": 68,
+          "max": 68
+        },
+        "allowedComplaintPhrasings": [
+          "Weak stream, frequency, and getting up at night to urinate."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "uro-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "urology",
+      "displayName": "Jonathan Thompson",
+      "age": 52,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in writhing with flank pain.",
+      "publicComplaint": "Severe right flank pain radiating to groin and nausea.",
+      "vitalSigns": {
+        "hr": 102,
+        "bp": "138/86",
+        "spo2": 98,
+        "temp": 36.9,
+        "rr": 20
+      },
+      "historyQuestions": [
+        {
+          "id": "prior",
+          "question": "Prior stones?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain character?"
+        },
+        {
+          "id": "nausea",
+          "question": "Nausea?"
+        },
+        {
+          "id": "blood",
+          "question": "Hematuria?"
+        },
+        {
+          "id": "fluid",
+          "question": "Fluids?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "kidney-stone-5mm",
+          "label": "Ureteral Stone (5 mm)"
+        },
+        {
+          "diagnosisId": "nephrolithiasis-recurrent",
+          "label": "Recurrent Nephrolithiasis"
+        },
+        {
+          "diagnosisId": "pyelonephritis",
+          "label": "Pyelonephritis"
+        },
+        {
+          "diagnosisId": "uti-uncomplicated",
+          "label": "Uncomplicated UTI"
+        },
+        {
+          "diagnosisId": "appendicitis",
+          "label": "Appendicitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Jonathan Thompson"
+        ],
+        "ageRange": {
+          "min": 52,
+          "max": 52
+        },
+        "allowedComplaintPhrasings": [
+          "Severe right flank pain radiating to groin and nausea."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "uro-006",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "urology",
+      "displayName": "Larry Sanchez",
+      "age": 19,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in 12 hours after dull testicular pain.",
+      "publicComplaint": "Dull then sharp right testicle pain since yesterday.",
+      "vitalSigns": {
+        "hr": 92,
+        "bp": "128/78",
+        "spo2": 99,
+        "temp": 37,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "When?"
+        },
+        {
+          "id": "trauma",
+          "question": "Trauma?"
+        },
+        {
+          "id": "nausea",
+          "question": "Nausea?"
+        },
+        {
+          "id": "prior",
+          "question": "Prior episodes?"
+        },
+        {
+          "id": "std",
+          "question": "STI risk?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "testicular-torsion-subacute",
+          "label": "Subacute Testicular Torsion"
+        },
+        {
+          "diagnosisId": "epididymitis",
+          "label": "Epididymitis"
+        },
+        {
+          "diagnosisId": "orchitis",
+          "label": "Orchitis"
+        },
+        {
+          "diagnosisId": "varicocele",
+          "label": "Varicocele"
+        },
+        {
+          "diagnosisId": "hernia",
+          "label": "Hernia (Inguinal/Scrotal)"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Larry Sanchez"
+        ],
+        "ageRange": {
+          "min": 19,
+          "max": 19
+        },
+        "allowedComplaintPhrasings": [
+          "Dull then sharp right testicle pain since yesterday."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "oph-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "ophthalmology",
+      "displayName": "Brandon Walker",
+      "age": 66,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in for routine eye screening.",
+      "publicComplaint": "My doctor said I have high eye pressure.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "132/78",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "sx",
+          "question": "Symptoms?"
+        },
+        {
+          "id": "family",
+          "question": "Family?"
+        },
+        {
+          "id": "vision",
+          "question": "Vision?"
+        },
+        {
+          "id": "pain",
+          "question": "Eye pain?"
+        },
+        {
+          "id": "ethnicity",
+          "question": "Ethnicity risk?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "primary-open-angle-glaucoma",
+          "label": "Primary Open-angle Glaucoma"
+        },
+        {
+          "diagnosisId": "angle-closure-glaucoma",
+          "label": "Angle-closure Glaucoma"
+        },
+        {
+          "diagnosisId": "uveitis-anterior",
+          "label": "Anterior Uveitis"
+        },
+        {
+          "diagnosisId": "amd-dry",
+          "label": "Dry Age-related Macular Degeneration"
+        },
+        {
+          "diagnosisId": "cataract-nuclear",
+          "label": "Nuclear Cataract"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Brandon Walker"
+        ],
+        "ageRange": {
+          "min": 66,
+          "max": 66
+        },
+        "allowedComplaintPhrasings": [
+          "My doctor said I have high eye pressure."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "oph-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "ophthalmology",
+      "displayName": "Anna Young",
+      "age": 74,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with gradually worsening vision.",
+      "publicComplaint": "Vision has been blurry with glare at night for a year.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "128/76",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "progression",
+          "question": "Progression?"
+        },
+        {
+          "id": "glare",
+          "question": "Glare?"
+        },
+        {
+          "id": "dm",
+          "question": "DM?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "redness",
+          "question": "Redness?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "cataract-nuclear",
+          "label": "Nuclear Cataract"
+        },
+        {
+          "diagnosisId": "amd-dry",
+          "label": "Dry Age-related Macular Degeneration"
+        },
+        {
+          "diagnosisId": "primary-open-angle-glaucoma",
+          "label": "Primary Open-angle Glaucoma"
+        },
+        {
+          "diagnosisId": "diabetic-retinopathy-np",
+          "label": "Non-proliferative Diabetic Retinopathy"
+        },
+        {
+          "diagnosisId": "refractive-error",
+          "label": "Refractive Error"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Anna Young"
+        ],
+        "ageRange": {
+          "min": 74,
+          "max": 74
+        },
+        "allowedComplaintPhrasings": [
+          "Vision has been blurry with glare at night for a year."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "oph-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "ophthalmology",
+      "displayName": "Benjamin Allen",
+      "age": 58,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, diabetic, for retinal screen.",
+      "publicComplaint": "My sugars run high. I notice blurry reading lately.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "138/82",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "dm",
+          "question": "DM duration?"
+        },
+        {
+          "id": "control",
+          "question": "A1C?"
+        },
+        {
+          "id": "floaters",
+          "question": "Floaters?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "htn",
+          "question": "HTN?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "diabetic-retinopathy-np",
+          "label": "Non-proliferative Diabetic Retinopathy"
+        },
+        {
+          "diagnosisId": "diabetic-retinopathy-proliferative",
+          "label": "Proliferative Diabetic Retinopathy"
+        },
+        {
+          "diagnosisId": "amd-dry",
+          "label": "Dry Age-related Macular Degeneration"
+        },
+        {
+          "diagnosisId": "primary-open-angle-glaucoma",
+          "label": "Primary Open-angle Glaucoma"
+        },
+        {
+          "diagnosisId": "central-retinal-vein-occlusion",
+          "label": "Central Retinal Vein Occlusion"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Benjamin Allen"
+        ],
+        "ageRange": {
+          "min": 58,
+          "max": 58
+        },
+        "allowedComplaintPhrasings": [
+          "My sugars run high. I notice blurry reading lately."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ent-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "ent",
+      "displayName": "David Williams",
+      "age": 17,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with sore throat.",
+      "publicComplaint": "Severe sore throat, fever, no cough.",
+      "vitalSigns": {
+        "hr": 92,
+        "bp": "118/72",
+        "spo2": 99,
+        "temp": 38.8,
+        "rr": 16
+      },
+      "historyQuestions": [
+        {
+          "id": "cough",
+          "question": "Cough?"
+        },
+        {
+          "id": "exudate",
+          "question": "White patches?"
+        },
+        {
+          "id": "nodes",
+          "question": "Neck lymph nodes?"
+        },
+        {
+          "id": "contacts",
+          "question": "Contacts ill?"
+        },
+        {
+          "id": "rash",
+          "question": "Rash?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "tonsillitis-strep",
+          "label": "Streptococcal Tonsillitis"
+        },
+        {
+          "diagnosisId": "infectious-mononucleosis",
+          "label": "Infectious Mononucleosis"
+        },
+        {
+          "diagnosisId": "viral-uri",
+          "label": "Viral Upper Respiratory Infection"
+        },
+        {
+          "diagnosisId": "peritonsillar-abscess",
+          "label": "Peritonsillar Abscess"
+        },
+        {
+          "diagnosisId": "strep-pharyngitis-child",
+          "label": "Pediatric Strep Pharyngitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "David Williams"
+        ],
+        "ageRange": {
+          "min": 17,
+          "max": 17
+        },
+        "allowedComplaintPhrasings": [
+          "Severe sore throat, fever, no cough."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ent-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "ent",
+      "displayName": "Mary Brown",
+      "age": 55,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with spinning on turning head.",
+      "publicComplaint": "Room spins for seconds when I turn in bed or look up.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "124/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "trigger",
+          "question": "Trigger?"
+        },
+        {
+          "id": "duration",
+          "question": "How long each?"
+        },
+        {
+          "id": "hearing",
+          "question": "Hearing?"
+        },
+        {
+          "id": "tinnitus",
+          "question": "Tinnitus?"
+        },
+        {
+          "id": "neuro",
+          "question": "Neuro symptoms?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "benign-positional-vertigo",
+          "label": "Benign Paroxysmal Positional Vertigo"
+        },
+        {
+          "diagnosisId": "menieres-disease",
+          "label": "Ménière's Disease"
+        },
+        {
+          "diagnosisId": "vestibular-neuritis",
+          "label": "Vestibular Neuritis"
+        },
+        {
+          "diagnosisId": "orthostatic-hypotension",
+          "label": "Orthostatic Hypotension"
+        },
+        {
+          "diagnosisId": "migraine-vestibular",
+          "label": "Vestibular Migraine"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Mary Brown"
+        ],
+        "ageRange": {
+          "min": 55,
+          "max": 55
+        },
+        "allowedComplaintPhrasings": [
+          "Room spins for seconds when I turn in bed or look up."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ent-010",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "ent",
+      "displayName": "Linda Martinez",
+      "age": 55,
+      "gender": "F",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in with sudden hearing loss.",
+      "publicComplaint": "My right ear suddenly went deaf this morning with ringing.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "128/78",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "Onset?"
+        },
+        {
+          "id": "tinnitus",
+          "question": "Tinnitus?"
+        },
+        {
+          "id": "vertigo",
+          "question": "Vertigo?"
+        },
+        {
+          "id": "noise",
+          "question": "Noise exposure?"
+        },
+        {
+          "id": "uri",
+          "question": "Recent illness?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "sudden-sensorineural-hearing-loss",
+          "label": "Sudden Sensorineural Hearing Loss"
+        },
+        {
+          "diagnosisId": "menieres-disease",
+          "label": "Ménière's Disease"
+        },
+        {
+          "diagnosisId": "tinnitus-subjective",
+          "label": "Subjective Tinnitus"
+        },
+        {
+          "diagnosisId": "acoustic-neuroma",
+          "label": "Acoustic Neuroma"
+        },
+        {
+          "diagnosisId": "otitis-media-adult",
+          "label": "Adult Otitis Media"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Linda Martinez"
+        ],
+        "ageRange": {
+          "min": 55,
+          "max": 55
+        },
+        "allowedComplaintPhrasings": [
+          "My right ear suddenly went deaf this morning with ringing."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ortho-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "orthopedics",
+      "displayName": "Elizabeth Hernandez",
+      "age": 54,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with progressive shoulder stiffness.",
+      "publicComplaint": "My right shoulder is frozen, hard to lift arm.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "122/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "Onset?"
+        },
+        {
+          "id": "trauma",
+          "question": "Trauma?"
+        },
+        {
+          "id": "dm",
+          "question": "DM?"
+        },
+        {
+          "id": "range",
+          "question": "Range?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "frozen-shoulder",
+          "label": "Adhesive Capsulitis (Frozen Shoulder)"
+        },
+        {
+          "diagnosisId": "rotator-cuff-tear-partial",
+          "label": "Partial Rotator Cuff Tear"
+        },
+        {
+          "diagnosisId": "osteoarthritis-shoulder",
+          "label": "Shoulder Osteoarthritis"
+        },
+        {
+          "diagnosisId": "subacromial-bursitis",
+          "label": "Subacromial Bursitis"
+        },
+        {
+          "diagnosisId": "bicipital-tendinitis",
+          "label": "Bicipital Tendinitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Elizabeth Hernandez"
+        ],
+        "ageRange": {
+          "min": 54,
+          "max": 54
+        },
+        "allowedComplaintPhrasings": [
+          "My right shoulder is frozen, hard to lift arm."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ortho-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "orthopedics",
+      "displayName": "Daniel Wilson",
+      "age": 34,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in limping after pivot injury.",
+      "publicComplaint": "Knee pain and locking after twisting playing soccer.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "122/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "injury",
+          "question": "Injury?"
+        },
+        {
+          "id": "locking",
+          "question": "Locking?"
+        },
+        {
+          "id": "swelling",
+          "question": "Swelling?"
+        },
+        {
+          "id": "instability",
+          "question": "Giving way?"
+        },
+        {
+          "id": "prior",
+          "question": "Prior knee?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "meniscal-tear",
+          "label": "Meniscal Tear"
+        },
+        {
+          "diagnosisId": "acl-tear",
+          "label": "Anterior Cruciate Ligament Tear"
+        },
+        {
+          "diagnosisId": "osteoarthritis-knee",
+          "label": "Knee Osteoarthritis"
+        },
+        {
+          "diagnosisId": "pes-anserine-bursitis",
+          "label": "Pes Anserine Bursitis"
+        },
+        {
+          "diagnosisId": "patellofemoral-syndrome",
+          "label": "Patellofemoral Pain Syndrome"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Daniel Wilson"
+        ],
+        "ageRange": {
+          "min": 34,
+          "max": 34
+        },
+        "allowedComplaintPhrasings": [
+          "Knee pain and locking after twisting playing soccer."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ortho-008",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "orthopedics",
+      "displayName": "Anthony Moore",
+      "age": 25,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in limping after basketball.",
+      "publicComplaint": "Rolled right ankle yesterday, swollen and hurts to bear weight.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "122/74",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "mechanism",
+          "question": "How?"
+        },
+        {
+          "id": "swelling",
+          "question": "Swelling?"
+        },
+        {
+          "id": "bear",
+          "question": "Bear weight?"
+        },
+        {
+          "id": "prior",
+          "question": "Prior sprain?"
+        },
+        {
+          "id": "pop",
+          "question": "Pop?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "ankle-sprain-gr2",
+          "label": "Grade II Ankle Sprain"
+        },
+        {
+          "diagnosisId": "ankle-fracture",
+          "label": "Ankle Fracture"
+        },
+        {
+          "diagnosisId": "achilles-rupture",
+          "label": "Achilles Tendon Rupture"
+        },
+        {
+          "diagnosisId": "peroneal-tendinopathy",
+          "label": "Peroneal Tendinopathy"
+        },
+        {
+          "diagnosisId": "syndesmotic-injury",
+          "label": "Syndesmotic Injury"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Anthony Moore"
+        ],
+        "ageRange": {
+          "min": 25,
+          "max": 25
+        },
+        "allowedComplaintPhrasings": [
+          "Rolled right ankle yesterday, swollen and hurts to bear weight."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "pmr-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pmr",
+      "displayName": "Robert Johnson",
+      "age": 68,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Follow-up after left MCA stroke 8 weeks ago.",
+      "publicComplaint": "Right arm and leg still weak, want to walk again without the walker.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "136/82",
+        "spo2": 97,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "event",
+          "question": "Index event?"
+        },
+        {
+          "id": "deficit",
+          "question": "Current deficit?"
+        },
+        {
+          "id": "speech",
+          "question": "Speech?"
+        },
+        {
+          "id": "tone",
+          "question": "Spasticity?"
+        },
+        {
+          "id": "falls",
+          "question": "Falls?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "ischemic-stroke",
+          "label": "Ischemic Stroke"
+        },
+        {
+          "diagnosisId": "multiple-sclerosis",
+          "label": "Multiple Sclerosis"
+        },
+        {
+          "diagnosisId": "idiopathic-parkinsons-early",
+          "label": "Early Idiopathic Parkinson's Disease"
+        },
+        {
+          "diagnosisId": "cervical-radiculopathy",
+          "label": "Cervical Radiculopathy"
+        },
+        {
+          "diagnosisId": "b12-deficiency",
+          "label": "Vitamin B12 Deficiency"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Robert Johnson"
+        ],
+        "ageRange": {
+          "min": 68,
+          "max": 68
+        },
+        "allowedComplaintPhrasings": [
+          "Right arm and leg still weak, want to walk again without the walker."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "pmr-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pmr",
+      "displayName": "George Davis",
+      "age": 71,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with progressive walking limitation.",
+      "publicComplaint": "My legs feel heavy and ache after walking a block, better when I sit or lean forward.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "138/82",
+        "spo2": 97,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "pattern",
+          "question": "Pattern?"
+        },
+        {
+          "id": "flex",
+          "question": "Forward flex?"
+        },
+        {
+          "id": "numbness",
+          "question": "Numbness?"
+        },
+        {
+          "id": "pulses",
+          "question": "Pulses?"
+        },
+        {
+          "id": "bladder",
+          "question": "Bladder?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "spinal-stenosis",
+          "label": "Spinal Stenosis"
+        },
+        {
+          "diagnosisId": "lumbar-disc-herniation",
+          "label": "Lumbar Disc Herniation"
+        },
+        {
+          "diagnosisId": "sciatica-l5",
+          "label": "L5 Sciatica"
+        },
+        {
+          "diagnosisId": "hip-oa-moderate",
+          "label": "Moderate Hip Osteoarthritis"
+        },
+        {
+          "diagnosisId": "piriformis-syndrome",
+          "label": "Piriformis Syndrome"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "George Davis"
+        ],
+        "ageRange": {
+          "min": 71,
+          "max": 71
+        },
+        "allowedComplaintPhrasings": [
+          "My legs feel heavy and ache after walking a block, better when I sit or lean forward."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "pmr-005",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pmr",
+      "displayName": "Dorothy Brown",
+      "age": 76,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with sudden mid-back pain after light lifting.",
+      "publicComplaint": "Sharp mid-back pain since I lifted a grocery bag two weeks ago, hard to stand straight.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "132/78",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "Onset?"
+        },
+        {
+          "id": "meds",
+          "question": "Steroids?"
+        },
+        {
+          "id": "menopause",
+          "question": "Menopause?"
+        },
+        {
+          "id": "height",
+          "question": "Height loss?"
+        },
+        {
+          "id": "neuro",
+          "question": "Leg weakness?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "vertebral-compression-fracture",
+          "label": "Vertebral Compression Fracture"
+        },
+        {
+          "diagnosisId": "osteoporosis-postmenopausal",
+          "label": "Postmenopausal Osteoporosis"
+        },
+        {
+          "diagnosisId": "lumbar-disc-herniation",
+          "label": "Lumbar Disc Herniation"
+        },
+        {
+          "diagnosisId": "spinal-stenosis",
+          "label": "Spinal Stenosis"
+        },
+        {
+          "diagnosisId": "multiple-myeloma",
+          "label": "Multiple Myeloma"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Dorothy Brown"
+        ],
+        "ageRange": {
+          "min": 76,
+          "max": 76
+        },
+        "allowedComplaintPhrasings": [
+          "Sharp mid-back pain since I lifted a grocery bag two weeks ago, hard to stand straight."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "peds-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pediatrics",
+      "displayName": "Donald Lee",
+      "age": 3,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in, tugging at ear.",
+      "publicComplaint": "Fever, fussy, pulling right ear for 2 days.",
+      "vitalSigns": {
+        "hr": 128,
+        "bp": "94/58",
+        "spo2": 99,
+        "temp": 38.4,
+        "rr": 22
+      },
+      "historyQuestions": [
+        {
+          "id": "uri",
+          "question": "URI?"
+        },
+        {
+          "id": "sleep",
+          "question": "Sleep?"
+        },
+        {
+          "id": "appetite",
+          "question": "Appetite?"
+        },
+        {
+          "id": "vomit",
+          "question": "Vomiting?"
+        },
+        {
+          "id": "daycare",
+          "question": "Daycare?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "acute-otitis-media-child",
+          "label": "Pediatric Acute Otitis Media"
+        },
+        {
+          "diagnosisId": "viral-uri",
+          "label": "Viral Upper Respiratory Infection"
+        },
+        {
+          "diagnosisId": "otitis-externa",
+          "label": "Otitis Externa"
+        },
+        {
+          "diagnosisId": "acute-sinusitis-bacterial",
+          "label": "Acute Bacterial Sinusitis"
+        },
+        {
+          "diagnosisId": "strep-pharyngitis-child",
+          "label": "Pediatric Strep Pharyngitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Donald Lee"
+        ],
+        "ageRange": {
+          "min": 3,
+          "max": 3
+        },
+        "allowedComplaintPhrasings": [
+          "Fever, fussy, pulling right ear for 2 days."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "peds-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pediatrics",
+      "displayName": "Sarah Perez",
+      "age": 7,
+      "gender": "F",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in, wheezing, parents anxious.",
+      "publicComplaint": "She's wheezing and can't catch her breath since yesterday.",
+      "vitalSigns": {
+        "hr": 132,
+        "bp": "104/66",
+        "spo2": 91,
+        "temp": 37,
+        "rr": 32
+      },
+      "historyQuestions": [
+        {
+          "id": "hx",
+          "question": "Asthma?"
+        },
+        {
+          "id": "trigger",
+          "question": "Trigger?"
+        },
+        {
+          "id": "inhaler",
+          "question": "Inhaler?"
+        },
+        {
+          "id": "fever",
+          "question": "Fever?"
+        },
+        {
+          "id": "daycare",
+          "question": "School?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "pediatric-asthma-exacerbation",
+          "label": "Pediatric Asthma Exacerbation"
+        },
+        {
+          "diagnosisId": "viral-uri",
+          "label": "Viral Upper Respiratory Infection"
+        },
+        {
+          "diagnosisId": "bronchiolitis",
+          "label": "Bronchiolitis"
+        },
+        {
+          "diagnosisId": "foreign-body-aspiration",
+          "label": "Foreign Body Aspiration"
+        },
+        {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Sarah Perez"
+        ],
+        "ageRange": {
+          "min": 7,
+          "max": 7
+        },
+        "allowedComplaintPhrasings": [
+          "She's wheezing and can't catch her breath since yesterday."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "peds-005",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "pediatrics",
+      "displayName": "Paul Harris",
+      "age": 1,
+      "gender": "M",
+      "severity": "urgent",
+      "arrivalBlurb": "Walk-in after brief seizure at home, now alert.",
+      "publicComplaint": "Had a convulsion during fever, lasted 2 minutes.",
+      "vitalSigns": {
+        "hr": 128,
+        "bp": "96/60",
+        "spo2": 99,
+        "temp": 39.2,
+        "rr": 26
+      },
+      "historyQuestions": [
+        {
+          "id": "duration",
+          "question": "Duration?"
+        },
+        {
+          "id": "character",
+          "question": "Type?"
+        },
+        {
+          "id": "postictal",
+          "question": "After?"
+        },
+        {
+          "id": "first",
+          "question": "First?"
+        },
+        {
+          "id": "family",
+          "question": "Family?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "febrile-seizure",
+          "label": "Simple Febrile Seizure"
+        },
+        {
+          "diagnosisId": "epilepsy",
+          "label": "Epilepsy"
+        },
+        {
+          "diagnosisId": "meningitis",
+          "label": "Meningitis"
+        },
+        {
+          "diagnosisId": "breath-holding-spell",
+          "label": "Breath-holding Spell"
+        },
+        {
+          "diagnosisId": "encephalitis",
+          "label": "Encephalitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Paul Harris"
+        ],
+        "ageRange": {
+          "min": 1,
+          "max": 1
+        },
+        "allowedComplaintPhrasings": [
+          "Had a convulsion during fever, lasted 2 minutes."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "gs-001",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "general-surgery",
+      "displayName": "Joshua Walker",
+      "age": 52,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with groin bulge.",
+      "publicComplaint": "A lump in my right groin that comes out when I cough.",
+      "vitalSigns": {
+        "hr": 72,
+        "bp": "124/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "onset",
+          "question": "Onset?"
+        },
+        {
+          "id": "reducible",
+          "question": "Goes back in?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "nausea",
+          "question": "Nausea?"
+        },
+        {
+          "id": "obstruction",
+          "question": "Bowel?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "inguinal-hernia-reducible",
+          "label": "Reducible Inguinal Hernia"
+        },
+        {
+          "diagnosisId": "femoral-hernia",
+          "label": "Femoral Hernia"
+        },
+        {
+          "diagnosisId": "lymphadenopathy",
+          "label": "Lymphadenopathy"
+        },
+        {
+          "diagnosisId": "hydrocele",
+          "label": "Hydrocele"
+        },
+        {
+          "diagnosisId": "umbilical-hernia",
+          "label": "Umbilical Hernia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Joshua Walker"
+        ],
+        "ageRange": {
+          "min": 52,
+          "max": 52
+        },
+        "allowedComplaintPhrasings": [
+          "A lump in my right groin that comes out when I cough."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "gs-004",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "general-surgery",
+      "displayName": "Sandra King",
+      "age": 48,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with intermittent RUQ pain.",
+      "publicComplaint": "Episodes of right upper quadrant pain after fatty meals.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "128/78",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "trigger",
+          "question": "Trigger?"
+        },
+        {
+          "id": "radiation",
+          "question": "Radiation?"
+        },
+        {
+          "id": "nausea",
+          "question": "Nausea?"
+        },
+        {
+          "id": "jaundice",
+          "question": "Jaundice?"
+        },
+        {
+          "id": "fever",
+          "question": "Fever?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "gallstones-cholelithiasis",
+          "label": "Cholelithiasis"
+        },
+        {
+          "diagnosisId": "gallstones-biliary-colic",
+          "label": "Biliary Colic"
+        },
+        {
+          "diagnosisId": "peptic-ulcer-disease",
+          "label": "Peptic Ulcer Disease"
+        },
+        {
+          "diagnosisId": "gerd",
+          "label": "Gastroesophageal Reflux Disease"
+        },
+        {
+          "diagnosisId": "pancreatitis",
+          "label": "Acute Pancreatitis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Sandra King"
+        ],
+        "ageRange": {
+          "min": 48,
+          "max": 48
+        },
+        "allowedComplaintPhrasings": [
+          "Episodes of right upper quadrant pain after fatty meals."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "gs-007",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "general-surgery",
+      "displayName": "George Torres",
+      "age": 34,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with painful defecation.",
+      "publicComplaint": "Severe pain and bright blood with bowel movements.",
+      "vitalSigns": {
+        "hr": 80,
+        "bp": "124/76",
+        "spo2": 99,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "constipation",
+          "question": "Constipation?"
+        },
+        {
+          "id": "pain",
+          "question": "Pain?"
+        },
+        {
+          "id": "blood",
+          "question": "Blood?"
+        },
+        {
+          "id": "spasm",
+          "question": "Spasm?"
+        },
+        {
+          "id": "prior",
+          "question": "Prior?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "anal-fissure",
+          "label": "Anal Fissure"
+        },
+        {
+          "diagnosisId": "hemorrhoids",
+          "label": "Hemorrhoids"
+        },
+        {
+          "diagnosisId": "hemorrhoids-grade2",
+          "label": "Grade II Hemorrhoids"
+        },
+        {
+          "diagnosisId": "perianal-abscess",
+          "label": "Perianal Abscess"
+        },
+        {
+          "diagnosisId": "anal-fistula",
+          "label": "Anal Fistula"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "George Torres"
+        ],
+        "ageRange": {
+          "min": 34,
+          "max": 34
+        },
+        "allowedComplaintPhrasings": [
+          "Severe pain and bright blood with bowel movements."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ctv-002",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "cardiothoracic-vascular-surgery",
+      "displayName": "Margaret Foster",
+      "age": 62,
+      "gender": "F",
+      "severity": "stable",
+      "arrivalBlurb": "Referral for incidental pulmonary nodule on screening CT.",
+      "publicComplaint": "A small spot was found on my lung scan and my doctor sent me here.",
+      "vitalSigns": {
+        "hr": 76,
+        "bp": "128/78",
+        "spo2": 97,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "smoking",
+          "question": "Smoking history?"
+        },
+        {
+          "id": "sx",
+          "question": "Any cough or weight loss?"
+        },
+        {
+          "id": "hemoptysis",
+          "question": "Any blood in sputum?"
+        },
+        {
+          "id": "family",
+          "question": "Family cancer history?"
+        },
+        {
+          "id": "exposure",
+          "question": "Asbestos or radon exposure?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "pulmonary-nodule-incidental",
+          "label": "Incidental Pulmonary Nodule"
+        },
+        {
+          "diagnosisId": "lung-cancer",
+          "label": "Lung Cancer"
+        },
+        {
+          "diagnosisId": "latent-tb",
+          "label": "Latent Tuberculosis"
+        },
+        {
+          "diagnosisId": "sarcoidosis-stage2",
+          "label": "Sarcoidosis (Stage II)"
+        },
+        {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Margaret Foster"
+        ],
+        "ageRange": {
+          "min": 62,
+          "max": 62
+        },
+        "allowedComplaintPhrasings": [
+          "A small spot was found on my lung scan and my doctor sent me here."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ctv-003",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "cardiothoracic-vascular-surgery",
+      "displayName": "Tyler Bennett",
+      "age": 26,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Follow-up after second spontaneous pneumothorax, considering pleurodesis.",
+      "publicComplaint": "My lung collapsed for the second time and the surgeon wants me to think about pleurodesis.",
+      "vitalSigns": {
+        "hr": 78,
+        "bp": "124/74",
+        "spo2": 97,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "episodes",
+          "question": "How many pneumothoraces?"
+        },
+        {
+          "id": "tube",
+          "question": "Did you need a chest tube?"
+        },
+        {
+          "id": "pain",
+          "question": "Any residual pain?"
+        },
+        {
+          "id": "smoking",
+          "question": "Smoking?"
+        },
+        {
+          "id": "family",
+          "question": "Family history of pneumothorax?"
+        },
+        {
+          "id": "travel",
+          "question": "Travel or flying soon?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "pneumothorax",
+          "label": "Pneumothorax"
+        },
+        {
+          "diagnosisId": "pleural-effusion-parapneumonic",
+          "label": "Parapneumonic Pleural Effusion"
+        },
+        {
+          "diagnosisId": "pulmonary-nodule-incidental",
+          "label": "Incidental Pulmonary Nodule"
+        },
+        {
+          "diagnosisId": "lung-cancer",
+          "label": "Lung Cancer"
+        },
+        {
+          "diagnosisId": "community-acquired-pna",
+          "label": "Community-acquired Pneumonia"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Tyler Bennett"
+        ],
+        "ageRange": {
+          "min": 26,
+          "max": 26
+        },
+        "allowedComplaintPhrasings": [
+          "My lung collapsed for the second time and the surgeon wants me to think about pleurodesis."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    },
+    {
+      "caseId": "ctv-009",
+      "caseVersion": "1.1.0",
+      "rubricVersion": "1.1.0",
+      "specialtyId": "cardiothoracic-vascular-surgery",
+      "displayName": "Walter Greenfield",
+      "age": 69,
+      "gender": "M",
+      "severity": "stable",
+      "arrivalBlurb": "Walk-in with worsening calf pain on walking.",
+      "publicComplaint": "My right calf cramps after one block of walking and stops me in my tracks.",
+      "vitalSigns": {
+        "hr": 74,
+        "bp": "146/84",
+        "spo2": 98,
+        "temp": 36.7,
+        "rr": 14
+      },
+      "historyQuestions": [
+        {
+          "id": "distance",
+          "question": "How far can you walk?"
+        },
+        {
+          "id": "relief",
+          "question": "What relieves it?"
+        },
+        {
+          "id": "rest-pain",
+          "question": "Pain at rest?"
+        },
+        {
+          "id": "wounds",
+          "question": "Any foot wounds?"
+        },
+        {
+          "id": "smoking",
+          "question": "Smoking?"
+        },
+        {
+          "id": "hx",
+          "question": "Diabetes or HTN?"
+        }
+      ],
+      "diagnosisOptions": [
+        {
+          "diagnosisId": "peripheral-arterial-disease",
+          "label": "Peripheral Arterial Disease"
+        },
+        {
+          "diagnosisId": "spinal-stenosis",
+          "label": "Spinal Stenosis"
+        },
+        {
+          "diagnosisId": "lumbar-disc-herniation",
+          "label": "Lumbar Disc Herniation"
+        },
+        {
+          "diagnosisId": "osteoarthritis-knee",
+          "label": "Knee Osteoarthritis"
+        },
+        {
+          "diagnosisId": "dvt",
+          "label": "Deep Vein Thrombosis"
+        }
+      ],
+      "difficulty": "intermediate",
+      "learnerLevel": "undergraduate-clinical-years",
+      "reviewStatus": "source-verified-formative",
+      "variantPolicy": {
+        "allowedDisplayNames": [
+          "Walter Greenfield"
+        ],
+        "ageRange": {
+          "min": 69,
+          "max": 69
+        },
+        "allowedComplaintPhrasings": [
+          "My right calf cramps after one block of walking and stops me in my tracks."
+        ],
+        "difficultyOptions": [
+          "intermediate"
+        ]
+      }
+    }
+  ]
+}

@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { store, useGameState, POLYCLINIC_BED_INDEX } from '../game/store';
+import { useEffect, useMemo, useState } from 'react';
+import { store, useGameState } from '../game/store';
 import { testById } from '../data/tests';
 import { investigationResultText } from '../clinical/investigations';
-import { POLYCLINIC_DIAGNOSIS_LABELS, getCaseSpecialty } from '../data/polyclinicPatients';
+import { getCaseClinic, getDiagnosisLabel } from '../data/cases';
 import { MEDICATIONS, CATEGORY_LABELS, SPECIALTY_MEDICATION_CATEGORIES, medicationById, type Medication, type MedicationCategory } from '../data/medications';
 import { CLINIC_LABELS } from '../game/clinic';
-import { getExistingConversation } from '../voice/conversationStore';
-import type { ConversationMessage } from '../voice/conversation';
+import { ExaminationTab as ExaminationTabFeature } from './examine/ExaminationTab';
+import { HistoryTab as HistoryTabFeature } from './examine/HistoryTab';
+import { ChatTab as ChatTabFeature } from './examine/ChatTab';
 
 type Tab = 'history' | 'chat' | 'examination' | 'tests' | 'results' | 'diagnose' | 'rx';
 
@@ -16,8 +17,7 @@ interface Props {
   finishError?: string;
 }
 
-const diagLabel = (id: string): string =>
-  POLYCLINIC_DIAGNOSIS_LABELS[id] ?? id.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+const diagLabel = (caseId: string, id: string): string => getDiagnosisLabel(caseId, id);
 
 export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
   const state = useGameState();
@@ -216,9 +216,9 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
             "{c.chiefComplaint}"
           </div>
 
-          {tab === 'history' && <HistoryTab patient={patient} />}
-          {tab === 'chat' && <ChatTab patient={patient} />}
-          {tab === 'examination' && <ExaminationTab patient={patient} />}
+          {tab === 'history' && <HistoryTabFeature patient={patient} />}
+          {tab === 'chat' && <ChatTabFeature patient={patient} />}
+          {tab === 'examination' && <ExaminationTabFeature patient={patient} />}
           {tab === 'tests' && <TestsTab patient={patient} />}
           {tab === 'results' && <ResultsTab patient={patient} />}
           {tab === 'diagnose' && (
@@ -248,7 +248,7 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
           }}
         >
           <span>Press Esc to close · {ordered.size} test{ordered.size === 1 ? '' : 's'} ordered</span>
-          <span>{submitted ? `Diagnosis: ${diagLabel(submitted)}` : 'Diagnosis pending'}</span>
+          <span>{submitted ? `Diagnosis: ${diagLabel(c.id, submitted)}` : 'Diagnosis pending'}</span>
         </div>
       </div>
     </div>
@@ -291,97 +291,6 @@ function Vital({
 }
 
 // ── History tab ──────────────────────────────────────────────────
-
-function HistoryTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
-  const c = patient.case;
-  const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [questionError, setQuestionError] = useState('');
-  const asked = new Set(patient.askedQuestionIds);
-  const answered = c.anamnesis.filter((q) => asked.has(q.id));
-  const unanswered = c.anamnesis.filter((q) => !asked.has(q.id));
-
-  if (c.anamnesis.length === 0) {
-    return <div style={{ color: 'var(--ink-2)', fontWeight: 700 }}>No anamnesis questions for this case.</div>;
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {answered.map((q) => (
-        <div
-          key={q.id}
-          className="plush"
-          style={{
-            padding: 12,
-            background: q.relevant ? 'var(--mint)' : 'white',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-          }}
-        >
-          <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--ink-2)' }}>You asked</div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{q.question}</div>
-          <div style={{ marginTop: 4, fontSize: 14, fontStyle: 'italic' }}>
-            <strong>{c.name.split(' ')[0]}:</strong> "{q.answer}"
-          </div>
-        </div>
-      ))}
-
-      {unanswered.length === 0 ? (
-        <div className="plush" style={{ padding: 12, fontWeight: 700, color: 'var(--ink-2)' }}>
-          All questions covered. Move on to ordering tests or making a diagnosis.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              color: 'var(--ink-2)',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              marginTop: 8,
-            }}
-          >
-            Ask
-          </div>
-          {unanswered.map((q) => (
-            <button
-              key={q.id}
-              type="button"
-              className="tap btn-plush ghost"
-              style={{
-                fontSize: 14,
-                padding: '10px 14px',
-                textAlign: 'left',
-                fontWeight: 700,
-              }}
-              disabled={submittingId !== null}
-              onClick={async () => {
-                const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
-                if (!conversation) {
-                  setQuestionError('Patient conversation is not ready. Close and reopen Examine, then retry.');
-                  return;
-                }
-                setQuestionError('');
-                setSubmittingId(q.id);
-                const accepted = await conversation.sendTextMessage(q.question, 'predefined', q.id);
-                if (!accepted) {
-                  setQuestionError(conversation.getLastResponseError() || 'The local patient response failed. Please retry the question.');
-                } else {
-                  store.askPolyclinicQuestion(q.id);
-                }
-                setSubmittingId(null);
-              }}
-            >
-              {submittingId === q.id ? 'Patient is responding…' : q.question}
-            </button>
-          ))}
-          {questionError && <div role="alert" style={{ color: 'var(--rose-deep)', fontWeight: 700 }}>{questionError}</div>}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Order Tests tab ───────────────────────────────────────────────
 
@@ -936,7 +845,8 @@ function DiagnoseTab({
       </div>
     );
   }
-  const isCorrect = submitted === c.correctDiagnosisId;
+  const result = patient.diagnosisResult;
+  const isCorrect = result?.diagnosisWasCorrect ?? false;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -946,8 +856,8 @@ function DiagnoseTab({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
         {shuffledOptions.map((dxId) => {
           const isPicked = submitted === dxId;
-          const showCorrect = submitted !== null && dxId === c.correctDiagnosisId;
-          const showWrong = isPicked && !isCorrect;
+          const showCorrect = result !== undefined && dxId === result.correctDiagnosisId;
+          const showWrong = result !== undefined && isPicked && !isCorrect;
           const bg = showCorrect ? 'var(--mint)' : showWrong ? 'var(--rose)' : isPicked ? 'var(--butter)' : 'white';
           return (
             <button
@@ -965,13 +875,13 @@ function DiagnoseTab({
               }}
             >
               {showCorrect ? '✓ ' : showWrong ? '✗ ' : ''}
-              {diagLabel(dxId)}
+              {diagLabel(c.id, dxId)}
             </button>
           );
         })}
       </div>
 
-      {submitted && (
+      {result && (
         <div
           className="plush"
           style={{
@@ -981,8 +891,8 @@ function DiagnoseTab({
           }}
         >
           {isCorrect
-            ? `✓ Spot on — ${diagLabel(c.correctDiagnosisId)}.`
-            : `✗ Not quite. The correct diagnosis was ${diagLabel(c.correctDiagnosisId)}.`}
+            ? `✓ Spot on — ${diagLabel(c.id, result.correctDiagnosisId)}.`
+            : `✗ Not quite. The correct diagnosis was ${diagLabel(c.id, result.correctDiagnosisId)}.`}
         </div>
       )}
 
@@ -1012,153 +922,6 @@ function DiagnoseTab({
 
 // ── Chat tab — live voice transcript ─────────────────────────────
 
-function ExaminationTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
-  const actions = [
-    { id: 'general-observation', label: 'General observation', detail: 'Record a general visual assessment.' },
-    { id: 'record-vital-signs', label: 'Review vital signs', detail: 'Record review of the displayed observations.' },
-    { id: 'focused-examination', label: 'Focused examination', detail: 'Record a focused physical examination. Detailed findings are not modeled.' },
-  ];
-  const recorded = new Set(patient.examinationActions.map((item) => item.actionId));
-  return <div style={{ display: 'grid', gap: 10 }}>
-    <p style={{ margin: 0, fontWeight: 700 }}>Choose each examination action you performed. This records the action without inventing findings.</p>
-    {actions.map((action) => <button key={action.id} type="button" className="btn-plush ghost" disabled={recorded.has(action.id)} onClick={() => store.recordExaminationAction(action.id)} style={{ textAlign: 'left', padding: 14 }}>
-      <strong>{recorded.has(action.id) ? 'Recorded: ' : ''}{action.label}</strong><br /><span style={{ fontSize: 12 }}>{action.detail}</span>
-    </button>)}
-  </div>;
-}
-
-function ChatTab({ patient }: { patient: NonNullable<ReturnType<typeof useGameState>['polyclinic']['patient']> }) {
-  const patientName = patient.case.name;
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState('');
-  const [messages, setMessages] = useState<ReadonlyArray<ConversationMessage>>(() => {
-    const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-    return conv ? conv.getMessages() : [];
-  });
-  const [, setAudioRevision] = useState(0);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  // Subscribe to live message updates so the chat history updates while
-  // the doctor talks. The conversation's `subscribeMessages` returns a
-  // teardown so we clean up on unmount / patient change.
-  useEffect(() => {
-    const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
-    if (!conv) return;
-    setMessages(conv.getMessages());
-    const unsubscribeMessages = conv.subscribeMessages((msgs) => setMessages(msgs));
-    const unsubscribeAudio = conv.subscribeAudioStates(() => setAudioRevision((value) => value + 1));
-    return () => { unsubscribeMessages(); unsubscribeAudio(); };
-  }, []);
-
-  // Auto-scroll to the latest message whenever new ones come in.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages]);
-
-  // Skip the system seed message (role: 'system') if any leak through.
-  const visible = messages.filter((m) => m.role === 'user' || m.role === 'assistant');
-
-  if (visible.length === 0) {
-    return (
-      <div className="plush" style={{ padding: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
-        No conversation yet. The transcript appears here as you talk to {patientName.split(' ')[0]} —
-        and updates live during the consultation.
-      </div>
-    );
-  }
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text || sending) return;
-    const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
-    if (!conversation) {
-      setSendError('Patient conversation is not ready. Close and reopen Examine, then retry.');
-      return;
-    }
-    setSending(true);
-    setSendError('');
-    setDraft('');
-    const accepted = await conversation.sendTextMessage(text, 'typed');
-    if (!accepted) {
-      setDraft(text);
-      setSendError(`${conversation.getLastResponseError() || 'The local patient response failed.'} Your question was restored so you can retry.`);
-    }
-    setSending(false);
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-    <div
-      ref={scrollRef}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        maxHeight: 380,
-        overflowY: 'auto',
-        paddingRight: 6,
-      }}
-    >
-      {visible.map((m, i) => {
-        const mine = m.role === 'user';
-        return (
-          <div
-            key={i}
-            style={{
-              alignSelf: mine ? 'flex-end' : 'flex-start',
-              maxWidth: '78%',
-              background: mine ? 'var(--sky)' : 'white',
-              border: '3px solid var(--line)',
-              borderRadius:
-                mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-              padding: '10px 14px',
-              boxShadow: 'var(--plush-tiny)',
-              fontSize: 13,
-              fontWeight: 600,
-              lineHeight: 1.4,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 800,
-                color: 'var(--ink-2)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                marginBottom: 2,
-              }}
-            >
-              {mine ? 'You' : patientName.split(' ')[0]}
-            </div>
-            {m.content}
-            {!mine && m.audioTurnId && (() => {
-              const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
-              const audioState = conversation?.getAudioTurnState(m.audioTurnId);
-              const queuePosition = conversation?.getAudioQueuePosition(m.audioTurnId);
-              return <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', fontSize: 10 }}>
-                <span>Audio: {audioState ?? 'not requested'}{queuePosition ? ` · queue ${queuePosition}` : ''}</span>
-                {audioState === 'playing' && <button type="button" onClick={() => conversation?.skipCurrentSpeech()} style={{ font: 'inherit' }}>Skip</button>}
-                {(audioState === 'played' || audioState === 'error') && <button type="button" onClick={() => conversation?.replayTurn(m.audioTurnId!)} style={{ font: 'inherit' }}>Replay</button>}
-              </div>;
-            })()}
-          </div>
-        );
-      })}
-    </div>
-    <form onSubmit={submit} style={{ display: 'flex', gap: 8 }}>
-      <label htmlFor="patient-question" style={{ position: 'absolute', left: -10000 }}>Type a question for the patient</label>
-      <input id="patient-question" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={sending} placeholder={`Ask ${patientName.split(' ')[0]} a question…`} style={{ flex: 1, border: '3px solid var(--line)', borderRadius: 12, padding: '10px 12px', font: 'inherit' }} />
-      <button type="submit" className="btn-plush primary" disabled={sending || !draft.trim()}>{sending ? 'Sending…' : 'Ask'}</button>
-    </form>
-    {sendError && <div role="alert" style={{ color: 'var(--rose-deep)', fontWeight: 700 }}>{sendError}</div>}
-    </div>
-  );
-}
-
 // ── Rx tab — prescription pad ─────────────────────────────────────
 
 function RxTab({
@@ -1182,7 +945,7 @@ function RxTab({
     );
   }
 
-  const specialty = getCaseSpecialty(patient.case.id);
+  const specialty = getCaseClinic(patient.case.id);
   const allowedCategories = useMemo<MedicationCategory[] | null>(
     () => (specialty ? SPECIALTY_MEDICATION_CATEGORIES[specialty] : null),
     [specialty],

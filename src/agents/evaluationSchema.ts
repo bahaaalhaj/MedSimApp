@@ -21,6 +21,16 @@ const generation = z.object({
   actual_model: z.string().nullable(),
   request_id: z.string(),
 });
+const postSubmissionReference = z.object({
+  referenceId: z.string(),
+  organization: z.string(),
+  title: z.string(),
+  publicationYear: z.number(),
+  version: z.string().optional(),
+  url: z.string(),
+  accessedAt: z.string(),
+  verificationStatus: z.enum(['unverified', 'source-verified', 'clinician-verified', 'superseded']),
+});
 
 /** The browser validates the backend result again before rendering or persisting it. */
 export const caseEvaluationInput = z.object({
@@ -37,6 +47,15 @@ export const caseEvaluationInput = z.object({
   improvements: z.array(z.string()),
   narrative: z.string().min(1),
   generation,
+  post_submission: z.object({
+    correctDiagnosis: z.object({ diagnosisId: z.string(), label: z.string() }),
+    references: z.array(postSubmissionReference),
+  }).nullable().optional(),
+  diagnosis_result: z.object({
+    submitted_diagnosis_id: z.string().nullable(),
+    correct_diagnosis_id: z.string(),
+    diagnosis_was_correct: z.boolean(),
+  }).optional(),
 });
 
 export type CaseEvaluationInput = z.infer<typeof caseEvaluationInput>;

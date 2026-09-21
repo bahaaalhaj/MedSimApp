@@ -29,6 +29,7 @@ export interface ConversationOptions {
   speakerGender: 'M' | 'F'; isPediatric: boolean; caseId: string; caseVersion: string;
   ensureAttempt: () => Promise<string | null>;
   onTranscript: (record: TranscriptRecord) => void;
+  onAuthorizedAnswer: (questionId: string, answer: string, relevant: boolean) => void;
 }
 
 interface AudioJob { turnId: string; text: string; isOpeningGreeting: boolean; cacheable: boolean; }
@@ -140,6 +141,7 @@ export class Conversation {
     const controller = new AbortController(); this.requestController = controller;
     let response = ''; let patientProvenance: PatientResponseProvenance = 'safe-unknown';
     let actualModel: string | null = null; let patientIntentId: string | null = null; let patientMatchedSource: string | null = null;
+    let answerShownToTrainee: string | null = null; let relevantPerCase = false;
     try {
       const attemptId = await this.options.ensureAttempt();
       if (!attemptId) throw new LocalPatientError('The encounter service is unavailable. Retry when the backend is ready.', 'model-unavailable', true);
@@ -150,6 +152,8 @@ export class Conversation {
         if (chunk.actualModel !== undefined) actualModel = chunk.actualModel;
         if (chunk.intentId !== undefined) patientIntentId = chunk.intentId;
         if (chunk.matchedSource !== undefined) patientMatchedSource = chunk.matchedSource;
+        if (chunk.answerShownToTrainee !== undefined) answerShownToTrainee = chunk.answerShownToTrainee;
+        if (chunk.relevantPerCase !== undefined && chunk.relevantPerCase !== null) relevantPerCase = chunk.relevantPerCase;
       }
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -174,6 +178,9 @@ export class Conversation {
     this.options.onTranscript({ role: 'trainee', content: clean, timestampIso: new Date().toISOString(), questionSource: source });
     this.messages.push({ role: 'assistant', content: cleanResponse, audioTurnId });
     this.options.onTranscript({ role: 'patient', content: cleanResponse, timestampIso: new Date().toISOString(), questionSource: null, patientProvenance, actualModel, audioTurnId, patientIntentId, patientMatchedSource });
+    if (source === 'predefined' && questionId && answerShownToTrainee !== null) {
+      this.options.onAuthorizedAnswer(questionId, answerShownToTrainee, relevantPerCase);
+    }
     this.currentEmotion = detectEmotion(cleanResponse); this.listeners.onEmotion?.(this.currentEmotion);
     this.listeners.onSubtitle?.({ who: 'patient', text: cleanResponse }); this.emitMessages(); this.setStatus('ready');
     this.enqueueSpeech({ turnId: audioTurnId, text: cleanResponse, isOpeningGreeting: false, cacheable: patientProvenance !== 'openrouter' });

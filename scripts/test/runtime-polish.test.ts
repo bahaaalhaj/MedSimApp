@@ -59,15 +59,16 @@ test('Finish validation is visible and actionable', () => {
   assert.match(overlay, /finishError[\s\S]*role="alert"/);
 });
 
-test('debrief starts after navigation, shows loading, and has deterministic API-failure fallback', () => {
+test('debrief starts after navigation and delegates deterministic fallback to the backend', () => {
   const debrief = read('src/components/DebriefScreen.tsx');
   const hook = read('src/agents/useLocalDebrief.ts');
-  const fallback = read('src/agents/deterministicEvaluation.ts');
+  const backend = read('backend/medsim_backend/services/evaluation_service.py');
   assert.match(debrief, /status === 'starting' \|\| status === 'idle'/);
   assert.match(debrief, /status === 'streaming'/);
-  assert.match(hook, /buildConservativeDeterministicEvaluation/);
+  assert.doesNotMatch(hook, /buildConservativeDeterministicEvaluation/);
+  assert.match(hook, /setStatus\('error'\)/);
   assert.match(hook, /12_000/);
-  assert.match(fallback, /mode: 'deterministic-fallback'/);
+  assert.match(backend, /normalize_evaluation\(case, evidence, server_orders, model_result\)/);
 });
 
 test('evaluation persistence remains exactly-once guarded', () => {

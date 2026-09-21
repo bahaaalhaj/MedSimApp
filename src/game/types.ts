@@ -80,6 +80,28 @@ export interface PatientCase {
   rubric?: CaseRubric;
 }
 
+/** Browser-runtime case data. Hidden answers, answer keys, investigation
+ * results, treatment expectations, and rubrics are intentionally absent. */
+export interface LearnerPatientCase {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'M' | 'F';
+  severity: Severity;
+  arrivalBlurb: string;
+  chiefComplaint: string;
+  vitals: PatientCase['vitals'];
+  anamnesis: Array<{ id: string; question: string; answer?: string; relevant?: boolean }>;
+  diagnosisOptions: string[];
+  diagnosisLabels: Record<string, string>;
+  variantPolicy?: {
+    allowedDisplayNames: string[];
+    ageRange: { min: number; max: number };
+    allowedComplaintPhrasings: string[];
+    difficultyOptions?: Array<'introductory' | 'intermediate' | 'advanced'>;
+  };
+}
+
 // ── OSCE rubric — grades a completed encounter ────────────────────────
 //
 // The backend hybrid evaluator reads this rubric at debrief time and
@@ -183,7 +205,7 @@ export interface EncounterTranscriptEntry {
 }
 
 export interface ActivePatient {
-  case: PatientCase;
+  case: LearnerPatientCase;
   bedIndex: number;
   status: PatientStatus;
   askedQuestionIds: string[];
@@ -211,6 +233,7 @@ export interface ActivePatient {
   }>;
   givenTreatmentIds: string[];
   submittedDiagnosisId: string | null;
+  diagnosisResult?: { correctDiagnosisId: string; diagnosisWasCorrect: boolean };
   arrivedAt: number;
   deadlineMs: number;
   /** Immutable provenance captured when the encounter starts. */

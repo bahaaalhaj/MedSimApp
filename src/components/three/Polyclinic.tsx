@@ -5,11 +5,11 @@ import * as THREE from 'three';
 import type { Group, CanvasTexture } from 'three';
 import { interactionBus } from './interactions';
 import type { WallCollider } from './Player';
-import { useGameState, POLYCLINIC_BED_INDEX } from '../../game/store';
-import { CLINIC_LABELS } from '../../game/clinic';
+import { POLYCLINIC_BED_INDEX } from '../../game/store';
 import { FloatingPatientAudioPanel } from './FloatingPatientAudioPanel';
 import { StylizedCharacter } from './StylizedCharacter';
 import { parentGenderForId } from '../../voice/patientPersona';
+import { usePolyclinicEncounterScene } from './usePolyclinicEncounterScene';
 
 // ───────── World layout — a doctor's private office (muayenehane) ─────────
 //
@@ -2736,34 +2736,7 @@ export function Polyclinic({
 }: {
   patientAudioVisible?: boolean;
 } = {}) {
-  const state = useGameState();
-  const clinicId = state.polyclinic.clinic;
-  const patient = state.polyclinic.patient;
-  const clinicLabel = CLINIC_LABELS[clinicId];
-
-  const [doorOpen, setDoorOpen] = useState(false);
-  const prevPatientRef = useRef<typeof patient>(null);
-  useEffect(() => {
-    const prev = prevPatientRef.current;
-    if (patient && !prev) {
-      setDoorOpen(true);
-      const t = window.setTimeout(() => setDoorOpen(false), 5500);
-      prevPatientRef.current = patient;
-      return () => window.clearTimeout(t);
-    }
-    if (!patient && prev) {
-      setDoorOpen(true);
-      const t = window.setTimeout(() => setDoorOpen(false), 5500);
-      prevPatientRef.current = null;
-      return () => window.clearTimeout(t);
-    }
-    prevPatientRef.current = patient;
-  }, [patient]);
-
-  const patientKey = useMemo(() => {
-    if (!patient) return null;
-    return `${patient.case.id}-${patient.arrivedAt}`;
-  }, [patient]);
+  const { clinicLabel, doorOpen, patient, patientKey } = usePolyclinicEncounterScene();
 
   // The GLB avatar renders throughout walk-in → seated → walk-out via
   // WalkingPatient below; no separate seated-figure gate is needed.

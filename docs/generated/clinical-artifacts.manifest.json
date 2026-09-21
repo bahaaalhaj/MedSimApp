@@ -4,7 +4,7 @@
     "sourceFile": "src/clinical/cases.ts",
     "generatorCommand": "npm run clinical:generate",
     "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
-    "semanticChecksum": "sha256:392fedbfde45089ce24eda9e2b36bccf4f67a7a199d12c6ec5de312e7bc38cf5"
+    "semanticChecksum": "sha256:3b8169983c72d2840818c70eac41ed0c56b84f03bb90a6d6804c868306de25eb"
   },
   "schemaVersion": "1.0.0",
   "canonicalSource": "src/clinical/cases.ts",
@@ -17,6 +17,10 @@
   },
   "artifacts": [
     {
+      "path": "src/generated/learner-case-manifest.json",
+      "semanticChecksum": "sha256:915fbcea03a6b24c8e741bb3b7ad430aec232b28f0ed256bd3ef253c4760575c"
+    },
+    {
       "path": "docs/generated/curation-manifest.json",
       "semanticChecksum": "sha256:dd0c950d93902852277c81bce63e134a3e4bece78ee9a60269810edbba8ec661"
     },
@@ -26,7 +30,7 @@
     },
     {
       "path": "docs/generated/local-ai-manifest.server.json",
-      "semanticChecksum": "sha256:e72f06384ea0fcb26a964d045e3ce9855578d06262306d7794c94a752368be45"
+      "semanticChecksum": "sha256:11d6d795fe7006ec7cb69b68c450b208f1265ce7dfc37e89c2c0c5b7fbc94056"
     },
     {
       "path": "docs/generated/case-reference-matrix.csv",
