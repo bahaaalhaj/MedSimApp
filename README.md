@@ -10,7 +10,7 @@ MedSim is a desktop-first outpatient clinical-training simulator. Learners inter
 |---|---|
 | Frontend | React 18, TypeScript, Vite, Three.js |
 | Patient dialogue | Backend-owned OpenRouter provider through SSE; optional offline llama.cpp |
-| Patient speech | Local Kokoro on CPU; text remains authoritative |
+| Patient speech | Optional local Kokoro; text remains authoritative |
 | Backend | FastAPI on `127.0.0.1:8787` |
 | Assessment | Server-owned deterministic rubric plus optional hosted evidence classification |
 | State | One `Store` using `useSyncExternalStore` |
@@ -22,12 +22,12 @@ The browser cannot supply credentials, model endpoints, model names, system prom
 Prerequisites: Node.js 22+, Python 3.11/3.12, Internet access for OpenRouter, and `espeak-ng` on `PATH` for Kokoro.
 
 ```powershell
-npm install
+npm ci
 python -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-tts.txt
 Copy-Item backend/.env.example backend/.env.local
-# Manually set OPENROUTER_API_KEY; the approved free Mini model is pinned.
+# Manually set OPENROUTER_API_KEY for live hosted inference; the configured free Mini model is pinned.
 powershell -ExecutionPolicy Bypass -File scripts/check-openrouter.ps1
 backend/.venv/Scripts/python.exe backend/prepare_kokoro.py
 backend/.venv/Scripts/python.exe backend/server.py
@@ -42,13 +42,24 @@ The verified llama.cpp/Qwen 1.7B implementation remains an explicit offline opti
 ## Verification
 
 ```powershell
-npm run verify
 npm test
-node node_modules/typescript/bin/tsc --noEmit
+node node_modules/typescript/bin/tsc -b
+npm run verify
+npm run clinical:validate
+npm run clinical:verify-curation
+npm run clinical:validate-investigations
+npm run clinical:verify-generated
+npm run security:scan
+npm run lint
+npm run format:check
 npm run build
 backend/.venv/Scripts/python.exe -m unittest discover -s backend/tests -v
-powershell -ExecutionPolicy Bypass -File scripts/check-openrouter.ps1
+git diff --check
 ```
+
+The same provider-disabled matrix runs in [CI](docs/ci.md) with pinned Node.js and Python runtimes. It does not require a paid API key, model download, or Kokoro inference.
+
+See [API contracts](docs/api-contracts.md), [backend schema boundaries](docs/backend-schema.md), [application flow](docs/app-flow.md), and [local setup/deployment](docs/deployment-and-local-setup.md) for current implementation boundaries.
 
 ## Clinical governance
 

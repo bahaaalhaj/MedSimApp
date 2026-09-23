@@ -31,12 +31,13 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
     let disposed = false;
     let attempt = 0;
     let stopMessages: (() => void) | null = null;
+    let attachTimer: number | null = null;
 
     const tryAttach = () => {
       if (disposed) return;
       const conv = getExistingConversation(POLYCLINIC_BED_INDEX);
       if (!conv) {
-        if (attempt++ < 20) window.setTimeout(tryAttach, 100);
+        if (attempt++ < 20) attachTimer = window.setTimeout(tryAttach, 100);
         return;
       }
       // Pull current state and subscribe to future updates via setListeners.
@@ -75,6 +76,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
 
     return () => {
       disposed = true;
+      if (attachTimer !== null) window.clearTimeout(attachTimer);
       window.clearInterval(tick);
       stopMessages?.();
     };
@@ -112,7 +114,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
         position: 'fixed',
         top: 18,
         right: 18,
-        zIndex: 60,
+        zIndex: 'var(--layer-dialogue)',
         width: 260,
         background: 'white',
         border: '3px solid var(--line)',

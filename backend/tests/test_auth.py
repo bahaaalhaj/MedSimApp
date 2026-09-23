@@ -122,6 +122,17 @@ class AuthenticationTests(unittest.TestCase):
         self.assertTrue(session.json()["authenticated"])
         self.assertEqual(session.json()["user"]["email"], "doctor@example.com")
 
+    def test_session_restores_after_auth_service_reconstruction(self) -> None:
+        self.assertEqual(self.register().status_code, 201)
+        token = self.client.cookies.get(server.auth_api.SESSION_COOKIE)
+        restarted_service = AuthService(
+            AuthRepository(server.auth_api.settings.database_path),
+            server.auth_api.settings,
+        )
+        restored = restarted_service.current_user(token)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored["email"], "doctor@example.com")
+
     def test_incorrect_password_and_unknown_user_share_generic_error(self) -> None:
         self.assertEqual(self.register().status_code, 201)
         self.assertEqual(self.logout().status_code, 204)

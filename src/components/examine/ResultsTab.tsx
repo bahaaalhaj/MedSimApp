@@ -167,7 +167,7 @@ export function ResultsTab({ patient }: Props) {
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 100,
+            zIndex: 'var(--layer-popover)',
             background: 'rgba(0,0,0,0.92)',
             display: 'flex',
             flexDirection: 'column',
@@ -236,4 +236,3 @@ export function ResultsTab({ patient }: Props) {
 // ── Diagnose tab ─────────────────────────────────────────────────
 
 // Mulberry32 PRNG seeded from a case id — stable across remounts so the
-

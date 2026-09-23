@@ -1,0 +1,12 @@
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["node_modules", "dist"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+# server.py intentionally re-exports runtime symbols for legacy imports; tests
+# intentionally prepare sys.path before importing the backend application.
+[tool.ruff.lint.per-file-ignores]
+"backend/server.py" = ["F401"]
+"backend/tests/*.py" = ["E402"]

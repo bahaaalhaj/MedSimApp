@@ -26,9 +26,10 @@ test('Kokoro lifecycle is singleton, preloaded once, offline, queued and cached'
 
 test('deterministic and safe-unknown audio are cacheable while model text is not', () => {
   const conversation = read('src/voice/conversation.ts');
+  const synthesis = read('src/voice/ttsSynthesis.ts');
   assert.match(conversation, /patientProvenance !== 'openrouter'/);
-  assert.match(conversation, /cacheable,/);
-  assert.match(conversation, /X-Patient-TTS-Cache/);
+  assert.match(conversation, /cacheable: response\.patientProvenance !== 'openrouter'/);
+  assert.match(synthesis, /X-Patient-TTS-Cache/);
 });
 
 test('background music is a single long-lived controller that ducks for patient speech', () => {
@@ -48,7 +49,7 @@ test('actual Finish consultation controls call immediate idempotent finalization
   ].join('\n');
   assert.match(encounter, /onClick=\{\(e\) => \{[\s\S]*endConsultation\(\)/);
   assert.match(overlay, /onClick=\{onFinish\}[\s\S]*Finish consultation/);
-  assert.match(encounter, /if \(finishingRef\.current\) return/);
+  assert.match(encounter, /finishingGateRef\.current\.tryStart\(\)/);
   assert.match(encounter, /finishPolyclinicCase\(true\)[\s\S]*disposePatientConversation\(POLYCLINIC_BED_INDEX\)/);
   assert.doesNotMatch(encounter, /sayFarewell/);
 });

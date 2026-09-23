@@ -1,6 +1,6 @@
 # MedSim backend
 
-FastAPI owns authentication, server-bound encounter attempts, investigation snapshots, provider-neutral patient text streaming, hybrid evaluation, and local Kokoro speech.
+FastAPI owns authentication, server-bound encounter attempts, investigation snapshots, provider-neutral patient text streaming, hybrid evaluation, and optional local Kokoro speech. CI installs only the base requirements and disables inference/TTS; model assets are never downloaded in CI.
 
 ## API surface
 

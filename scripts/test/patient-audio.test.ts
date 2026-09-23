@@ -39,8 +39,8 @@ test('local patient contract is attempt-bound and greeting is deterministic', ()
   assert.match(client, /actualModel/);
   assert.doesNotMatch(client, /systemPrompt|baseUrl|model:/);
   assert.match(persona, /Hello, doctor\. I came in because/);
-  assert.match(conversation, /if \(this\.status !== 'uninitialized'\) return/);
-  assert.match(read('src/game/store.ts'), /this\.investigationInitPromise && this\.investigationInitCaseId === patient\.case\.id/);
+  assert.match(conversation, /this\.state\.getStatus\(\) !== 'uninitialized'/);
+  assert.match(read('src/game/store.ts'), /this\.investigationInitPromise && this\.investigationInitEncounterKey === targetEncounterKey/);
 });
 
 test('adult and pediatric Kokoro speaker policies remain deterministic', () => {
@@ -82,17 +82,19 @@ test('encounter transcript survives in state but is not resubmitted as evaluatio
 
 test('patient audio uses Web Audio buffers without DOM audio or object URLs', () => {
   const conversation = read('src/voice/conversation.ts');
-  assert.match(conversation, /decodeAudioData/);
-  assert.match(conversation, /createBufferSource/);
-  assert.doesNotMatch(conversation, /createObjectURL|document\.createElement\(['"]audio|appendChild/);
-  const transcriptAt = conversation.indexOf("role: 'patient', content: cleanResponse");
+  const synthesis = read('src/voice/ttsSynthesis.ts');
+  const playback = read('src/voice/WebAudioPlayback.ts');
+  const queue = read('src/voice/OrderedAudioQueue.ts');
+  assert.match(synthesis, /decodeAudioData/);
+  assert.match(playback, /createBufferSource/);
+  assert.doesNotMatch(conversation + synthesis + playback, /createObjectURL|document\.createElement\(['"]audio|appendChild/);
+  const transcriptAt = conversation.indexOf("role: 'patient', content: response.text");
   const speechAt = conversation.indexOf('this.enqueueSpeech(', transcriptAt);
   assert.ok(transcriptAt >= 0 && speechAt > transcriptAt, 'patient text must be recorded before optional speech');
-  assert.doesNotMatch(conversation, /await this\.synthesizeAndPlay\(cleanResponse/);
-  assert.match(conversation, /while \(!this\.disposed && this\.audioQueue\.length\)/);
+  assert.match(queue, /while \(!this\.disposed && this\.queue\.length\)/);
   assert.match(conversation, /replayTurn\(turnId: string\)/);
-  assert.match(conversation, /signal: controller\.signal/);
-  assert.match(conversation, /this\.ttsController\?\.abort\(\)/);
+  assert.match(synthesis, /signal,/);
+  assert.match(queue, /this\.controller\?\.abort\(\)/);
   assert.match(conversation, /patientProvenance/);
   assert.match(conversation, /actualModel/);
   assert.match(conversation, /setMuted\(muted: boolean\)/);
@@ -100,7 +102,7 @@ test('patient audio uses Web Audio buffers without DOM audio or object URLs', ()
   assert.match(conversation, /replayLastResponse/);
   assert.match(conversation, /retrySpeech/);
   assert.match(conversation, /setStatus\('speaking'\)/);
-  assert.match(conversation, /source\.onended/);
+  assert.match(playback, /source\.onended/);
 });
 
 test('removed cloud speech providers and transport are absent from runtime manifests', () => {
@@ -127,23 +129,48 @@ test('Examine has click and guarded E access and records attempt-bound actions',
 
 test('patient audio is ordered and every accepted turn has replayable state', () => {
   const conversation = read('src/voice/conversation.ts');
-  assert.match(conversation, /PatientAudioState = 'queued' \| 'preparing' \| 'playing' \| 'played' \| 'skipped' \| 'error'/);
-  assert.match(conversation, /this\.audioQueue\.push\(job\)/);
+  const queue = read('src/voice/OrderedAudioQueue.ts');
+  assert.match(queue, /PatientAudioState = 'queued' \| 'preparing' \| 'playing' \| 'played' \| 'skipped' \| 'error'/);
+  assert.match(queue, /this\.queue\.push\(job\)/);
   assert.match(conversation, /Replay to try again/);
-  assert.doesNotMatch(conversation, /sendTextMessage[\s\S]{0,500}cancelSpeech\(\)/);
+  assert.doesNotMatch(conversation, /sendTextMessage[\s\S]{0,500}cancelAll\(\)/);
 });
 
 test('failed dialogue turns do not become transcript evidence and skipped preparation is recoverable', () => {
   const conversation = read('src/voice/conversation.ts');
-  assert.match(conversation, /Only a successfully answered question becomes grading evidence/);
-  assert.match(conversation, /this\.messages\.pop\(\); this\.emitMessages\(\)/);
-  assert.match(conversation, /this\.setAudioTurnState\(job\.turnId, 'skipped'\)/);
-  assert.match(conversation, /private activeAudioTurnId/);
+  const state = read('src/voice/ConversationState.ts');
+  const queue = read('src/voice/OrderedAudioQueue.ts');
+  const playback = read('src/voice/WebAudioPlayback.ts');
+  assert.match(conversation, /Text and transcript evidence are committed before optional TTS begins/);
+  assert.match(conversation, /this\.state\.popMessage\(\)/);
+  assert.match(state, /popMessage\(\)/);
+  assert.match(queue, /this\.setState\(job\.turnId, 'skipped'\)/);
+  assert.match(playback, /private activeTurnId/);
 });
 
 test('an in-flight attempt initialization is never reused for a different patient', () => {
   const store = read('src/game/store.ts');
-  assert.match(store, /private investigationInitCaseId/);
-  assert.match(store, /this\.investigationInitCaseId === patient\.case\.id/);
+  const conversations = read('src/voice/conversationStore.ts');
+  assert.match(store, /private investigationInitEncounterKey/);
+  assert.match(store, /this\.investigationInitEncounterKey === targetEncounterKey/);
   assert.match(store, /this\.investigationInitPromise === task/);
+  assert.match(store, /isSameEncounter\(current, patient\)/);
+  assert.match(conversations, /existing\.encounterKey === encounterKey/);
+  assert.match(conversations, /active\.variantSeed !== encounterKey/);
+  assert.match(conversations, /active\.caseVersion !== caseVersion/);
+});
+
+test('conversation disposal disconnects audio nodes and clears UI timers and subscribers', () => {
+  const playback = read('src/voice/WebAudioPlayback.ts');
+  const queue = read('src/voice/OrderedAudioQueue.ts');
+  const state = read('src/voice/ConversationState.ts');
+  const dock = read('src/components/DockedPatientAudioPanel.tsx');
+  assert.match(playback, /current\.disconnect\(\)/);
+  assert.match(playback, /this\.gain\.disconnect\(\)/);
+  assert.match(playback, /this\.analyser\.disconnect\(\)/);
+  assert.match(queue, /this\.controller\?\.abort\(\)/);
+  assert.match(queue, /this\.subscribers\.clear\(\)/);
+  assert.match(state, /this\.messageSubscribers\.clear\(\)/);
+  assert.match(dock, /window\.clearTimeout\(attachTimer\)/);
+  assert.match(dock, /window\.clearInterval\(tick\)/);
 });

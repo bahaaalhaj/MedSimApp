@@ -19,6 +19,7 @@ import { disposePatientConversation } from '../voice/conversationStore';
 import { TopBar } from './primitives';
 import { ExamineOverlay } from './ExamineOverlay';
 import { DockedPatientAudioPanel } from './DockedPatientAudioPanel';
+import { CompletionGate } from '../game/CompletionGate';
 
 /** Adaptive FOV: keeps the horizontal FOV near 82° regardless of viewport
  *  aspect, plus a hold-Z (or scroll wheel) "lean in" zoom. */
@@ -172,7 +173,7 @@ export function EncounterScreen() {
   const [pointerLocked, setPointerLocked] = useState(false);
   const [examineOpen, setExamineOpen] = useState(false);
   const [finishError, setFinishError] = useState('');
-  const finishingRef = useRef(false);
+  const finishingGateRef = useRef(new CompletionGate());
 
   // If the user navigated straight here without a patient set, drop the
   // current selectedCaseId in. Without this the scene shows an empty room.
@@ -264,20 +265,19 @@ export function EncounterScreen() {
   };
 
   const endConsultation = () => {
-    if (finishingRef.current) return;
     const active = store.getState().polyclinic.patient;
     if (!active?.submittedDiagnosisId) {
       setFinishError('Submit a diagnosis before finishing the consultation. Open Examine, choose Diagnose, and submit your selection.');
       setExamineOpen(true);
       return;
     }
-    finishingRef.current = true;
+    if (!finishingGateRef.current.tryStart()) return;
     setFinishError('');
     const startedAt = performance.now();
     if (document.pointerLockElement) document.exitPointerLock();
     interactionBus.setActive(null);
     if (!store.finishPolyclinicCase(true)) {
-      finishingRef.current = false;
+      finishingGateRef.current.reset();
       setFinishError('The encounter could not be finalized. Your evidence remains on this screen; please try again.');
       return;
     }

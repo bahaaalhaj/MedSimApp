@@ -26,7 +26,13 @@ export function FloatingPatientAudioPanel({ bedPosition, bedRotationY = 0, headO
 
   useEffect(() => {
     let cancelled = false;
-    const conversation = getOrCreatePatientConversation(patient.bedIndex, patient.case, listenersRef.current);
+    const conversation = getOrCreatePatientConversation(
+      patient.bedIndex,
+      patient.case,
+      patient.caseVersion,
+      patient.variantSeed,
+      listenersRef.current
+    );
     setStatus(conversation.getStatus());
     setVolume(conversation.getVolume());
     setMuted(conversation.isMuted());
@@ -34,9 +40,15 @@ export function FloatingPatientAudioPanel({ bedPosition, bedRotationY = 0, headO
       void conversation.init().catch(() => undefined).finally(() => { if (!cancelled) setStatus(conversation.getStatus()); });
     }
     return () => { cancelled = true; };
-  }, [patient.bedIndex, patient.case]);
+  }, [patient.bedIndex, patient.case, patient.caseVersion, patient.variantSeed]);
 
-  const conversation = getOrCreatePatientConversation(patient.bedIndex, patient.case, listenersRef.current);
+  const conversation = getOrCreatePatientConversation(
+    patient.bedIndex,
+    patient.case,
+    patient.caseVersion,
+    patient.variantSeed,
+    listenersRef.current
+  );
   const setOutputVolume = (next: number) => { setVolume(next); conversation.setVolume(next); };
   const toggleMute = () => { const next = !muted; setMuted(next); conversation.setMuted(next); };
   const firstName = patient.case.name.split(' ')[0];

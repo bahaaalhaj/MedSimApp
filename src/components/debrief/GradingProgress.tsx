@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Doodle } from '../primitives';
+import { AttendingCardFrame } from './AttendingCardFrame';
 import { StatusBanner } from './StatusBanner';
 
 function truncate(s: string, n: number): string {
@@ -41,40 +41,11 @@ export function GradingProgress({ partialNarration }: { partialNarration: string
   }
 
   return (
-    <div
-      className="plush-lg popin"
-      style={{
-        background: 'var(--sky)',
-        padding: 24,
-        position: 'relative',
-        marginBottom: 22,
-        transform: 'rotate(-0.4deg)',
-      }}
-    >
-      <div style={{ position: 'absolute', top: -14, left: 24 }} className="chip butter">
-        ATTENDING
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
-        <div className="floaty">
-          <div
-            className="plush"
-            style={{
-              width: 110,
-              height: 110,
-              background: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Doodle kind="star" size={86} color="#FFD86B" />
-          </div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 32, lineHeight: 1.05, margin: '4px 0 12px' }}>
-            The attending is grading{'\u2026'}
-          </h1>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <AttendingCardFrame label="ATTENDING" background="var(--sky)">
+      <h1 style={{ fontSize: 32, lineHeight: 1.05, margin: '4px 0 12px' }}>
+        The attending is grading{'\u2026'}
+      </h1>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {GRADING_STEPS.map((label, i) => {
               const state = i < step ? 'done' : i === step ? 'active' : 'pending';
               const icon =
@@ -138,9 +109,7 @@ export function GradingProgress({ partialNarration }: { partialNarration: string
                 </li>
               );
             })}
-          </ul>
-        </div>
-      </div>
-    </div>
+      </ul>
+    </AttendingCardFrame>
   );
 }

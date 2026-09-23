@@ -59,7 +59,7 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 50,
+        zIndex: 'var(--layer-overlay)',
         background: 'rgba(43,30,22,0.40)',
         backdropFilter: 'blur(2px)',
         display: 'flex',

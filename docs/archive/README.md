@@ -5,5 +5,7 @@ history. They are not authoritative for the current MedSim runtime, learner
 journey, clinical case bank, deployment configuration, or evaluation behavior.
 
 For current implementation and clinical-safety guidance, use `AGENTS.md`,
-`README.md`, `docs/codex-analysis/`, and the current clinical governance and
-reference documents under `docs/`.
+`README.md`, `docs/ci.md`, `docs/api-contracts.md`, `docs/app-flow.md`,
+`docs/deployment-and-local-setup.md`, `docs/codex-analysis/`, and the current
+clinical governance and reference documents under `docs/`. Archived reports are
+not current API, provider, case-bank, or learner-flow specifications.

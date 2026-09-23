@@ -24,7 +24,7 @@ Transcript entries live on `ActivePatient`, not in the disposable audio object. 
 
 - `kokoro`: default, four allowlisted adult English voices selected deterministically by case ID and speaker gender. Pediatric encounters use the accompanying parent's adult voice.
 - `chatterbox`: optional and feature-gated. The compact Nano English model is used by default; Arabic selects the official multilingual model. It is never imported while disabled.
-- `disabled`: controlled text-only behavior for tests and graceful deployments.
+- `disabled`: controlled text-only behavior for tests, CI, and graceful deployments.
 
 Only transcript response text is sent to TTS. Pronunciation normalization operates on a copy and is returned in a response header for local debugging; it never changes the transcript. Current normalization expands a small, conservative allowlist of common units and abbreviations.
 
@@ -42,7 +42,7 @@ Only transcript response text is sent to TTS. Pronunciation normalization operat
 
 Prepare the cache explicitly with `backend/.venv/Scripts/python.exe backend/prepare_kokoro.py`. Configuration and all four selected voices are integrity-checked without loading the model. Only after the cache passes does runtime set Hugging Face offline mode and import Kokoro. `/health` never downloads; missing files produce `tts-model-missing` and the setup command.
 
-FastAPI starts one background Kokoro preload and discarded warm-up utterance. Readiness is `loading`, `ready`, or `failed`; patient text never waits for it. Deterministic opening audio is cached in memory by case, case version, voice, speed, and text with a 32-entry LRU bound.
+FastAPI starts one background Kokoro preload and discarded warm-up utterance. Readiness is `loading`, `ready`, or `failed`; patient text never waits for it. Deterministic opening audio is cached in memory by case, case version, voice, speed, and text with the implementation’s 64-entry LRU bound.
 
 ## Hardware and cleanup
 

@@ -23,6 +23,29 @@
   --paper: #FFFAF0;
   --shadow: rgba(43,30,22,0.18);
 
+  /* Semantic aliases preserve palette switching while keeping component intent clear. */
+  --surface-canvas: var(--cream);
+  --surface-raised: #FFFFFF;
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --border-color: var(--line);
+
+  --font-ui: 'Nunito', system-ui, sans-serif;
+  --font-display: 'Nunito', sans-serif;
+
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-8: 18px;
+  --space-9: 22px;
+  --space-10: 24px;
+  --space-11: 28px;
+  --space-12: 36px;
+
   --r-sm: 14px;
   --r-md: 22px;
   --r-lg: 36px;
@@ -30,11 +53,20 @@
 
   --stroke: 3px;
   --stroke-thick: 4px;
+  --border-default: var(--stroke) solid var(--border-color);
+  --border-emphasis: var(--stroke-thick) solid var(--border-color);
 
   /* drop-shadow that mimics a cartoon outline+offset */
   --plush: 0 6px 0 var(--line), 0 14px 28px rgba(43,30,22,0.18);
   --plush-sm: 0 4px 0 var(--line), 0 8px 16px rgba(43,30,22,0.15);
   --plush-tiny: 0 2px 0 var(--line);
+
+  --layer-content: 1;
+  --layer-decoration: 2;
+  --layer-overlay: 50;
+  --layer-dialogue: 60;
+  --layer-popover: 100;
+  --layer-diagnostics: 2000;
 }
 
 * { box-sizing: border-box; }
@@ -45,9 +77,9 @@ html, body, #root {
 
 body {
   margin: 0;
-  font-family: 'Nunito', system-ui, sans-serif;
-  color: var(--ink);
-  background: var(--cream);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  background: var(--surface-canvas);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -230,7 +262,7 @@ body {
 }
 
 /* h1/h2 */
-h1, h2, h3 { font-family: 'Nunito', sans-serif; letter-spacing: -0.01em; margin: 0; }
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; margin: 0; }
 h1 { font-weight: 900; }
 h2 { font-weight: 800; }
 

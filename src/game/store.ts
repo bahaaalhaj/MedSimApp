@@ -17,6 +17,10 @@ import { getAssignableCases, getCase, getCaseClinic, getCaseVersion, getPatientC
 import { clearAllConversationStorage, ensureAudioContext } from '../voice/conversationStore';
 import type { EncounterTranscriptEntry } from './types';
 import type { TrainingMode } from '../clinical/types';
+import { completeEncounter, encounterKey, isSameEncounter } from './encounterState';
+import { appendTranscript, bindEvidenceToAttempt } from './transcriptState';
+import { navigationUpdate } from './navigationState';
+import { appendInvestigationError, markInvestigationAttemptError, markInvestigationAttemptReady, markTestOrdered, replaceInvestigationOrder } from './investigationState';
 import {
   createInvestigationAttempt,
   getInvestigationResult,
@@ -106,22 +110,6 @@ function toPatientCase(c: MedSimCase, variantSeed: string): LearnerPatientCase {
   };
 }
 
-/** True when the trainee actually engaged with the patient — asked a
- *  history question, ordered a test, gave a treatment, prescribed, or
- *  submitted a diagnosis. A freshly-arrived patient with no interaction
- *  yet returns false. Used to guard `lastEncounter` overwrites. */
-function hasEncounterActivity(p: ActivePatient): boolean {
-  return (
-    p.askedQuestionIds.length > 0 ||
-    p.transcript.some((entry) => entry.role === 'trainee') ||
-    p.examinationActions.length > 0 ||
-    p.orderedTestIds.length > 0 ||
-    p.givenTreatmentIds.length > 0 ||
-    (p.prescriptions?.length ?? 0) > 0 ||
-    p.submittedDiagnosisId !== null
-  );
-}
-
 function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): ActivePatient {
   const now = Date.now();
   return {
@@ -165,7 +153,7 @@ class Store {
 
   private listeners = new Set<() => void>();
   private investigationInitPromise: Promise<string | null> | null = null;
-  private investigationInitCaseId: string | null = null;
+  private investigationInitEncounterKey: string | null = null;
 
   getState = (): GameState => this.state;
 
@@ -180,7 +168,7 @@ class Store {
   }
 
   // ── navigation ────────────────────────────────
-  setScreen = (screen: Screen) => this.set({ screen });
+  setScreen = (screen: Screen) => this.set(navigationUpdate(screen));
 
   /** Open the debrief screen in review mode for a saved evaluation. */
   viewEvalHistory = (historyId: string) =>
@@ -284,11 +272,11 @@ class Store {
   finishPolyclinicCase = (navigateToDebrief = false): boolean => {
     const current = this.state.polyclinic.patient;
     if (!current) return false;
-    const snapshot = current ? { ...current, encounterChecks: { ...this.state.endConfirm } } : null;
-    const keepSnapshot = snapshot && hasEncounterActivity(snapshot);
+    const snapshot = completeEncounter(current, this.state.endConfirm, this.state.lastEncounter);
+    const keepSnapshot = snapshot !== this.state.lastEncounter;
     this.set({
       polyclinic: { ...this.state.polyclinic, patient: null },
-      lastEncounter: keepSnapshot ? snapshot : this.state.lastEncounter,
+      lastEncounter: snapshot,
       ...(navigateToDebrief ? { screen: 'debrief' as const } : {}),
     });
     return Boolean(keepSnapshot);
@@ -375,10 +363,7 @@ class Store {
     }));
 
   appendTranscriptEntry = (entry: EncounterTranscriptEntry) =>
-    this.updatePolyclinicPatient((p) => {
-      if (p.case.id !== entry.caseId || p.transcript.some((item) => item.id === entry.id)) return p;
-      return { ...p, transcript: [...p.transcript, entry] };
-    });
+    this.updatePolyclinicPatient((p) => appendTranscript(p, entry));
 
   recordExaminationAction = (actionId: string) => {
     const patient = this.state.polyclinic.patient;
@@ -397,8 +382,8 @@ class Store {
     const patient = this.state.polyclinic.patient;
     if (!patient) return null;
     if (patient.investigationAttemptId) return patient.investigationAttemptId;
-    if (this.investigationInitPromise && this.investigationInitCaseId === patient.case.id) return this.investigationInitPromise;
-    const targetCaseId = patient.case.id;
+    const targetEncounterKey = encounterKey(patient);
+    if (this.investigationInitPromise && this.investigationInitEncounterKey === targetEncounterKey) return this.investigationInitPromise;
     let task: Promise<string | null> | null = null;
     task = (async () => {
       try {
@@ -409,30 +394,26 @@ class Store {
           patient.encounterAttemptId,
           { displayName: patient.case.name, age: patient.case.age, chiefComplaint: patient.case.chiefComplaint },
         );
-        this.updatePolyclinicPatient((current) => current.case.id !== patient.case.id ? current : {
-          ...current,
-          encounterAttemptId: attempt.attemptId,
-          investigationAttemptId: attempt.attemptId,
-          investigationAttemptStatus: 'ready',
-          investigationCatalogue: attempt.investigations,
-          transcript: current.transcript.map((entry) => ({ ...entry, attemptId: attempt.attemptId })),
-          examinationActions: current.examinationActions.map((entry) => ({ ...entry, attemptId: attempt.attemptId })),
-        });
+        this.updatePolyclinicPatient((current) => !isSameEncounter(current, patient)
+          ? current
+          : bindEvidenceToAttempt(markInvestigationAttemptReady(current, attempt), attempt.attemptId));
         return attempt.attemptId;
       } catch {
-        this.updatePolyclinicPatient((current) => ({ ...current, investigationAttemptStatus: 'error' }));
+        this.updatePolyclinicPatient((current) => isSameEncounter(current, patient)
+          ? markInvestigationAttemptError(current)
+          : current);
         return null;
       } finally {
         // Do not clear a newer patient's in-flight initialization when a
         // previous request resolves after the patient changed.
         if (this.investigationInitPromise === task) {
           this.investigationInitPromise = null;
-          this.investigationInitCaseId = null;
+          this.investigationInitEncounterKey = null;
         }
       }
     })();
     this.investigationInitPromise = task;
-    this.investigationInitCaseId = targetCaseId;
+    this.investigationInitEncounterKey = targetEncounterKey;
     return task;
   };
 
@@ -441,26 +422,23 @@ class Store {
   orderPolyclinicTest = async (testId: string, indication = '') => {
     let patient = this.state.polyclinic.patient;
     if (!patient || patient.orderedTestIds.includes(testId)) return;
+    const requestedFor = patient;
     if (!patient.investigationAttemptId) {
       await this.initializeInvestigationAttempt();
       patient = this.state.polyclinic.patient;
     }
-    if (!patient?.investigationAttemptId) return;
+    if (!patient?.investigationAttemptId || !isSameEncounter(patient, requestedFor)) return;
     const now = Date.now();
-    this.updatePolyclinicPatient((p) => ({ ...p, orderedTestIds: [...p.orderedTestIds, testId], testOrderedAt: { ...p.testOrderedAt, [testId]: now } }));
+    this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? markTestOrdered(p, testId, now) : p);
     try {
       const ordered = await orderInvestigation(patient.investigationAttemptId, testId, indication);
-      this.updatePolyclinicPatient((p) => ({ ...p, investigationOrders: [...p.investigationOrders.filter((item) => item.investigationId !== testId), ordered] }));
+      this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? replaceInvestigationOrder(p, testId, ordered) : p);
       const delay = Math.max(0, ordered.availableAt * 1000 - Date.now()) + 40;
       await new Promise((resolve) => setTimeout(resolve, delay));
       const resolved = await getInvestigationResult(patient.investigationAttemptId, ordered.orderId);
-      this.updatePolyclinicPatient((p) => ({
-        ...p,
-        investigationOrders: [...p.investigationOrders.filter((item) => item.investigationId !== testId), resolved],
-        completedTestIds: resolved.status === 'available' ? [...new Set([...p.completedTestIds, testId])] : p.completedTestIds,
-      }));
+      this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? replaceInvestigationOrder(p, testId, resolved) : p);
     } catch {
-      this.updatePolyclinicPatient((p) => ({ ...p, investigationOrders: [...p.investigationOrders, { orderId: `error-${testId}`, investigationId: testId, orderedAt: now / 1000, availableAt: now / 1000, status: 'error', indication, statusDetail: 'The investigation service did not return a result; no local fallback was used.' }] }));
+      this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? appendInvestigationError(p, testId, indication, now) : p);
     }
   };
 
@@ -474,7 +452,7 @@ class Store {
       const attemptId = patient.investigationAttemptId ?? await this.initializeInvestigationAttempt();
       if (!attemptId) return;
       const result = await submitDiagnosis(attemptId, dxId);
-      this.updatePolyclinicPatient((p) => p.submittedDiagnosisId !== dxId ? p : {
+      this.updatePolyclinicPatient((p) => !isSameEncounter(p, patient) || p.submittedDiagnosisId !== dxId ? p : {
         ...p,
         diagnosisResult: { correctDiagnosisId: result.correctDiagnosisId, diagnosisWasCorrect: result.diagnosisWasCorrect },
       });

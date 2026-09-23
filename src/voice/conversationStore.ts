@@ -17,15 +17,14 @@ export function ensureAudioContext(): AudioContext {
   return sharedCtx;
 }
 
-/** Cached conversation, keyed by bedIndex. `caseId` is carried alongside so
- *  we can detect when a bed (or the polyclinic sentinel -10) receives a
- *  different patient — in that case the old conversation is disposed and a
- *  fresh one is built for the new persona. Without this, the polyclinic's
- *  single sentinel bedIndex caused new patients to inherit the previous
- *  patient's name, history, and voice. */
+/** Cached conversation, keyed by bedIndex. Encounter identity is carried
+ *  alongside so a new attempt cannot inherit the prior patient's history,
+ *  pending requests, or voice even when it uses the same case and bed. */
 interface CachedConversation {
   conv: Conversation;
   caseId: string;
+  caseVersion: string;
+  encounterKey: string;
 }
 
 const store = new Map<number, CachedConversation>();
@@ -38,10 +37,17 @@ export function getExistingConversation(bedIndex: number): Conversation | null {
 export function getOrCreatePatientConversation(
   bedIndex: number,
   patientCase: LearnerPatientCase,
+  caseVersion: string,
+  encounterKey: string,
   listeners: ConversationListeners
 ): Conversation {
   const existing = store.get(bedIndex);
-  if (existing && existing.caseId === patientCase.id) {
+  if (
+    existing
+    && existing.caseId === patientCase.id
+    && existing.caseVersion === caseVersion
+    && existing.encounterKey === encounterKey
+  ) {
     existing.conv.setListeners(listeners);
     return existing.conv;
   }
@@ -61,14 +67,26 @@ export function getOrCreatePatientConversation(
     speakerGender,
     isPediatric: isPediatric(patientCase),
     caseId: patientCase.id,
-    caseVersion: gameStore.getState().polyclinic.patient?.caseVersion ?? 'legacy-1',
+    caseVersion,
     ensureAttempt: async () => {
       await gameStore.initializeInvestigationAttempt();
-      return gameStore.getState().polyclinic.patient?.investigationAttemptId ?? null;
+      const active = gameStore.getState().polyclinic.patient;
+      if (
+        !active
+        || active.case.id !== patientCase.id
+        || active.caseVersion !== caseVersion
+        || active.variantSeed !== encounterKey
+      ) return null;
+      return active.investigationAttemptId;
     },
     onTranscript: (record) => {
       const active = gameStore.getState().polyclinic.patient;
-      if (!active || active.case.id !== patientCase.id) return;
+      if (
+        !active
+        || active.case.id !== patientCase.id
+        || active.caseVersion !== caseVersion
+        || active.variantSeed !== encounterKey
+      ) return;
       gameStore.appendTranscriptEntry({
         id: `${active.encounterAttemptId}-${active.transcript.length}-${Date.now()}`,
         ...record,
@@ -81,7 +99,7 @@ export function getOrCreatePatientConversation(
       gameStore.authorizePolyclinicAnswer(questionId, answer, relevant);
     },
   });
-  store.set(bedIndex, { conv, caseId: patientCase.id });
+  store.set(bedIndex, { conv, caseId: patientCase.id, caseVersion, encounterKey });
   return conv;
 }
 

@@ -151,10 +151,12 @@ test('Debrief status and grading-progress components retain presentation contrac
   const debrief = read('src/components/DebriefScreen.tsx');
   const statusBanner = read('src/components/debrief/StatusBanner.tsx');
   const gradingProgress = read('src/components/debrief/GradingProgress.tsx');
+  const attendingCard = read('src/components/debrief/AttendingCardFrame.tsx');
 
   assert.match(statusBanner, /ATTENDING/);
-  assert.match(statusBanner, /<Doodle kind="star" size=\{86\} color="#FFD86B"/);
-  assert.match(statusBanner, /background: bg/);
+  assert.match(statusBanner, /<AttendingCardFrame label="ATTENDING" background=\{bg\}/);
+  assert.match(attendingCard, /<Doodle kind="star" size=\{86\} color="#FFD86B"/);
+  assert.match(attendingCard, /background,/);
   assert.match(statusBanner, /\{title\}/);
   assert.match(statusBanner, /\{body\}/);
   assert.match(gradingProgress, /Replaying your conversation with the patient/);
@@ -171,7 +173,8 @@ test('Debrief status and grading-progress components retain presentation contrac
   assert.match(debrief, /import \{ GradingProgress \}/);
   assert.equal((statusBanner.match(/export function StatusBanner/g) ?? []).length, 1);
   assert.equal((gradingProgress.match(/export function GradingProgress/g) ?? []).length, 1);
-  assert.doesNotMatch(statusBanner + gradingProgress, /store|rubric|answer|score|from ['"][^'"]*(agents|clinical|game)/);
+  assert.equal((attendingCard.match(/export function AttendingCardFrame/g) ?? []).length, 1);
+  assert.doesNotMatch(statusBanner + gradingProgress + attendingCard, /store|rubric|answer|score|from ['"][^'"]*(agents|clinical|game)/);
 });
 
 test('Debrief safety and verdict headers retain presentation-only contracts', () => {
@@ -191,7 +194,7 @@ test('Debrief safety and verdict headers retain presentation-only contracts', ()
     assert.match(verdictCard, new RegExp(band));
   }
   assert.match(verdictCard, /YOUR MARK/);
-  assert.match(verdictCard, /<Doodle kind="star" size=\{86\} color="#FFD86B"/);
+  assert.match(verdictCard, /<AttendingCardFrame label="YOUR MARK" background=\{GLOBAL_BG\[verdict\]\}/);
   assert.match(verdictCard, /\{narrative\}/);
   assert.equal((safetyBanner.match(/export function SafetyBreachBanner/g) ?? []).length, 1);
   assert.equal((verdictCard.match(/export function VerdictCard/g) ?? []).length, 1);
@@ -208,4 +211,22 @@ test('scene and debrief retain their presentational and lifecycle seams', () => 
   assert.match(debrief, /status === 'streaming'/);
   assert.match(debrief, /if \(savedRef\.current\) return/);
   assert.match(debrief, /EvaluationBody evaluation=\{evaluation\}/);
+});
+
+test('design tokens retain shared palette, typography, spacing, border, shadow, and layer contracts', () => {
+  const styles = read('src/styles/global.css');
+  const attendingCard = read('src/components/debrief/AttendingCardFrame.tsx');
+  for (const token of [
+    '--surface-canvas',
+    '--text-primary',
+    '--font-ui',
+    '--space-10',
+    '--border-default',
+    '--plush',
+    '--layer-overlay',
+  ]) {
+    assert.match(styles, new RegExp(token));
+  }
+  assert.match(attendingCard, /var\(--space-10\)/);
+  assert.match(attendingCard, /var\(--space-9\)/);
 });

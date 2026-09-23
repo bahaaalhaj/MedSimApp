@@ -9,7 +9,10 @@
     "security:scan-frontend": "node scripts/verify/frontend-answer-leakage.ts",
     "preview": "node node_modules/vite/bin/vite.js preview",
     "verify": "node scripts/verify/run-all.ts",
+    "security:scan": "node scripts/verify/ci-safety.ts",
     "test": "node scripts/test/run-all.ts",
+    "lint": "node node_modules/eslint/bin/eslint.js src scripts",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check .prettierrc.json eslint.config.js src/components/debrief/AttendingCardFrame.tsx",
     "clinical:validate": "node scripts/clinical/validate.ts",
     "clinical:generate": "node --max-old-space-size=8192 scripts/clinical/generate.ts",
     "clinical:verify-generated": "node --max-old-space-size=8192 scripts/clinical/generate.ts --check",
@@ -35,8 +38,12 @@
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "fflate": "~0.8.2",
+    "prettier": "^3.9.9",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.70.1",
     "vite": "^5.4.10"
   },
   "allowScripts": {

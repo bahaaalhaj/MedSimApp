@@ -57,7 +57,7 @@ test('outpatient completion snapshots once and transitions directly to debrief',
   const store = read('src/game/store.ts');
   assert.doesNotMatch(encounter, /pickNextCaseId\(\)/);
   assert.match(encounter, /store\.finishPolyclinicCase\(true\)/);
-  assert.match(encounter, /finishingRef\.current/);
+  assert.match(encounter, /finishingGateRef\.current\.tryStart\(\)/);
   assert.match(store, /navigateToDebrief[\s\S]*screen: 'debrief'/);
 });
 

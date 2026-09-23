@@ -4,7 +4,7 @@
 
 MedSim defaults to a backend-only OpenRouter provider and keeps local llama.cpp as an explicit offline option. OpenRouter receives only synthetic patient-safe facts or bounded learner evidence; it never receives browser credentials, unrelated case-bank data, internal paths, or real patient data. Kokoro remains local and patient text remains authoritative.
 
-The OpenRouter catalogue was checked on 2026-09-15 through `/api/v1/models`. No Qwen-branded model ID ending in `:free` was available. A focused live comparison selected `nex-agi/nex-n2.5-mini:free` as primary and `nex-agi/nex-n2.5-pro:free` as the only fallback. Both are zero-priced Nex AGI models with Qwen3.5-MoE lineage and declare 262,144-token context, reasoning controls, and structured JSON output.
+The OpenRouter catalogue was checked on 2026-09-15 through `/api/v1/models`. No Qwen-branded model ID ending in `:free` was available. A focused live comparison selected `nex-agi/nex-n2.5-mini:free` as primary and `nex-agi/nex-n2.5-pro:free` as the only fallback. These are configuration observations, not clinical or educational approval, and free availability can change.
 
 Free availability varies. OpenRouter documents 50 free-model requests per day for accounts with less than 10 purchased credits and 1,000 per day after that threshold. Internet connectivity and provider capacity are required. Configure the API key's lowest available spending limit and model allowlist in the OpenRouter dashboard even though MedSim also enforces `:free`.
 
@@ -62,7 +62,7 @@ $env:MEDSIM_LOCAL_LLM_ENABLED='true'
 powershell -ExecutionPolicy Bypass -File scripts/start-local-ai.ps1 -Model 1.7b -Wait
 ```
 
-Offline mode retains the verified Qwen3-1.7B Q8_0 artifact, llama.cpp b10948 Vulkan runtime, explicit NVIDIA device selection, and the 2.5 GB available-memory threshold. No local model starts automatically while OpenRouter is selected, and no 4B model has been downloaded.
+Offline mode remains an explicit optional path. No local model starts automatically while OpenRouter is selected, and CI does not download or run any model.
 
 ## Academic limitations
 
