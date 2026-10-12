@@ -312,6 +312,14 @@ h2 { font-weight: 800; }
   .auth-guest { align-items: stretch; flex-direction: column; }
 }
 
+@media (max-width: 900px) {
+  .profile-grid, .history-grid { grid-template-columns: 1fr !important; padding: 20px 16px !important; }
+}
+@media (max-width: 620px) {
+  .history-row { grid-template-columns: 72px 22px minmax(0, 1fr) !important; }
+  .history-row .chip, .history-row > span:last-child { display: none; }
+}
+
 /* ── Case evaluation card (medsim-attending debrief) ─────────────── */
 .case-eval {
   background: var(--paper);

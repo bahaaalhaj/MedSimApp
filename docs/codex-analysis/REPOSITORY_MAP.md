@@ -33,7 +33,6 @@
 | Encounter | `EncounterScreen.tsx` | Owns room, pointer lock, voice and overlay lifecycle |
 | Clinical actions | `ExamineOverlay.tsx` | History, chat, tests/results, diagnosis, prescription |
 | Wrap/debrief | `EndConfirmScreen.tsx`, `DebriefScreen.tsx` | Self-check then Managed-Agent grade |
-| Explainers | `AgenticRoundsScreen.tsx`, `AgentTopologyScreen.tsx` | Static architecture/demo content; some claims are stale |
 
 ## Key data modules
 

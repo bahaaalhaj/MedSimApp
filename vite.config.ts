@@ -5,8 +5,8 @@ const PROXY = {
   // Local patient SSE proxy; model configuration remains server-side.
   // The `/agent/sessions/:id/stream` endpoint is SSE; Vite's proxy
   // handles that correctly as long as we disable buffering on the
-  // server side (see backend/server.py). Trailing slash is required
-  // so the prefix doesn't catch frontend routes like /agentic-rounds.
+  // server side (see backend/server.py). The trailing slash preserves
+  // the route prefix used by the patient dialogue endpoint.
   '^/agent/': {
     target: 'http://127.0.0.1:8787',
     changeOrigin: true,

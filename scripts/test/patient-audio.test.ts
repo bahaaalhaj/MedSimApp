@@ -120,8 +120,8 @@ test('Examine has click and guarded E access and records attempt-bound actions',
   ].join('\n');
   const storeSource = read('src/game/store.ts');
   assert.match(encounter, /aria-label="Examine patient"/);
-  assert.match(encounter, /e\.key !== 'e' && e\.key !== 'E'/);
-  assert.match(encounter, /tagName === 'INPUT'[\s\S]*tagName === 'TEXTAREA'[\s\S]*isContentEditable/);
+  assert.match(encounter, /isExamineShortcut\(e\)/);
+  assert.match(encounter, /isEditableShortcutTarget\(e\.target\)/);
   assert.match(overlay, /onRecordAction=\{\(actionId\) => store\.recordExaminationAction\(actionId\)\}/);
   assert.match(storeSource, /actionId, performedAt, attemptId: p\.investigationAttemptId \?\? p\.encounterAttemptId/);
   assert.match(storeSource, /recordExamination\(attemptId, actionId, performedAt\)/);

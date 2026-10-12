@@ -16,9 +16,7 @@ export type Screen =
   | 'encounter'
   | 'endConfirm'
   | 'debrief'
-  | 'history'
-  | 'agenticRounds'
-  | 'agentTopology';
+  | 'history';
 
 export type AvatarStyle = 'cute' | 'portrait' | 'animal' | 'initials';
 export type RoomLayout = 'side' | 'front';

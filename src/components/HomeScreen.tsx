@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { PatientFace, TopBar } from './primitives';
 import { store, useTweaks } from '../game/store';
 import { useAuth } from '../auth/AuthProvider';
-import {
-  listEvalHistory,
-  deleteEvalHistory,
-  type EvalHistoryEntry,
-} from '../data/evalHistory';
+import { deleteEvalHistory, listEvalHistory, type EvalHistoryEntry } from '../data/evalHistory';
+import { calculateTrainingStats, streakMessage, type TrainingDomainKey } from '../profile/trainingStats';
 
 const VERDICT_COLOR: Record<EvalHistoryEntry['verdict'], string> = {
   excellent: 'var(--mint)',
@@ -15,7 +12,6 @@ const VERDICT_COLOR: Record<EvalHistoryEntry['verdict'], string> = {
   borderline: 'var(--peach)',
   'clear-fail': 'var(--rose)',
 };
-
 const VERDICT_LABEL: Record<EvalHistoryEntry['verdict'], string> = {
   excellent: 'Excellent',
   good: 'Good',
@@ -23,26 +19,23 @@ const VERDICT_LABEL: Record<EvalHistoryEntry['verdict'], string> = {
   borderline: 'Borderline',
   'clear-fail': 'Clear fail',
 };
+const DOMAINS: Array<{ key: TrainingDomainKey; label: string; color: string; deep: string }> = [
+  { key: 'data_gathering', label: 'Data Gathering', color: 'var(--peach)', deep: 'var(--peach-deep)' },
+  { key: 'clinical_management', label: 'Clinical Management', color: 'var(--mint)', deep: 'var(--mint-deep)' },
+  { key: 'interpersonal', label: 'Interpersonal', color: 'var(--sky)', deep: 'var(--sky-deep)' },
+];
 
 function relativeDate(ms: number): string {
-  const diffMs = Date.now() - ms;
-  const minutes = Math.round(diffMs / 60000);
+  const minutes = Math.round((Date.now() - ms) / 60_000);
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return days < 7 ? `${days}d ago` : new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-interface StatProps {
-  big: string;
-  sub: string;
-  out?: string;
-}
-
-function Stat({ big, sub, out }: StatProps) {
+function Stat({ big, sub }: { big: string; sub: string }) {
   return (
     <div
       style={{
@@ -53,10 +46,7 @@ function Stat({ big, sub, out }: StatProps) {
         boxShadow: 'var(--plush-tiny)',
       }}
     >
-      <div style={{ fontWeight: 900, fontSize: 32, lineHeight: 1, color: 'var(--ink)' }}>
-        {big}
-        <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>{out}</span>
-      </div>
+      <div style={{ fontWeight: 900, fontSize: 32, lineHeight: 1 }}>{big}</div>
       <div
         style={{
           fontSize: 11,
@@ -73,184 +63,83 @@ function Stat({ big, sub, out }: StatProps) {
   );
 }
 
-const VERDICT_SCORE: Record<EvalHistoryEntry['verdict'], number> = {
-  'clear-fail': 1,
-  borderline: 2,
-  satisfactory: 3,
-  good: 4,
-  excellent: 5,
-};
-
-const DOMAIN_META = [
-  { key: 'data_gathering' as const, label: 'Data Gathering', color: 'var(--peach)', deep: 'var(--peach-deep)' },
-  { key: 'clinical_management' as const, label: 'Clinical Management', color: 'var(--mint)', deep: 'var(--mint-deep)' },
-  { key: 'interpersonal' as const, label: 'Interpersonal', color: 'var(--sky)', deep: 'var(--sky-deep)' },
-];
-
-interface TrainingStats {
-  count: number;
-  avgRating: number; // 0–5
-  domains: { key: 'data_gathering' | 'clinical_management' | 'interpersonal'; label: string; pct: number; color: string; deep: string }[];
-  weakest: { label: string; pct: number; deep: string } | null;
-  streakDays: number;
-}
-
-function computeStats(history: EvalHistoryEntry[]): TrainingStats {
-  const count = history.length;
-  if (count === 0) {
-    return {
-      count: 0,
-      avgRating: 0,
-      domains: DOMAIN_META.map((d) => ({ ...d, pct: 0 })),
-      weakest: null,
-      streakDays: 0,
-    };
-  }
-
-  const avgRating =
-    history.reduce((sum, e) => sum + (VERDICT_SCORE[e.verdict] ?? 0), 0) / count;
-
-  const domains = DOMAIN_META.map((d) => {
-    const ratios = history
-      .map((e) => {
-        const ds = e.evaluation.domain_scores[d.key];
-        return ds && ds.max > 0 ? ds.raw / ds.max : null;
-      })
-      .filter((r): r is number => r !== null);
-    const pct = ratios.length > 0
-      ? Math.round((ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100)
-      : 0;
-    return { ...d, pct };
-  });
-
-  const weakestDomain = domains.reduce((min, d) => (d.pct < min.pct ? d : min), domains[0]);
-  const weakest = { label: weakestDomain.label, pct: weakestDomain.pct, deep: weakestDomain.deep };
-
-  // Streak: count consecutive days (today, yesterday, …) with at least one
-  // saved review. Stops at the first gap.
-  const days = new Set(
-    history.map((e) => new Date(e.savedAt).toISOString().slice(0, 10)),
-  );
-  let streakDays = 0;
-  const cursor = new Date();
-  for (;;) {
-    const key = cursor.toISOString().slice(0, 10);
-    if (days.has(key)) {
-      streakDays += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-
-  return { count, avgRating, domains, weakest, streakDays };
-}
-
 export function HomeScreen() {
   const tweaks = useTweaks();
   const auth = useAuth();
   const [history, setHistory] = useState<EvalHistoryEntry[]>([]);
-
-  // Load on mount + whenever the screen is shown so it stays current.
-  useEffect(() => {
-    let active = true;
-    void listEvalHistory()
-      .then((entries) => { if (active) setHistory(entries); })
-      .catch(() => { if (active) setHistory([]); });
-    return () => { active = false; };
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const refresh = useCallback(async () => {
+    setStatus('loading');
+    try {
+      setHistory(await listEvalHistory());
+      setStatus('ready');
+    } catch {
+      setStatus('error');
+    }
   }, []);
-
-  const refresh = async () => setHistory(await listEvalHistory());
-  const onDelete = async (id: string) => {
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  const remove = async (id: string) => {
     try {
       await deleteEvalHistory(id);
       await refresh();
     } catch {
-      // Keep the row visible when the server could not confirm deletion.
+      /* Preserve data when deletion is unconfirmed. */
     }
   };
-
-  const stats = computeStats(history);
+  const stats = calculateTrainingStats(history);
+  const weakestMeta = stats.weakestDomain
+    ? DOMAINS.find((domain) => domain.key === stats.weakestDomain?.key)
+    : undefined;
+  const identity = auth.status === 'guest' ? 'Guest' : (auth.user?.displayName ?? 'doctor');
 
   return (
-    <div className="screen" style={{ background: 'var(--cream)' }}>
+    <div className="screen" style={{ background: 'var(--cream)', overflowY: 'auto' }}>
       <TopBar here={0} steps={['Profile']} />
-
-      <div
+      <main
+        className="profile-grid"
         style={{
           padding: '28px 36px',
           minHeight: 'calc(100vh - 67px)',
           display: 'grid',
-          gridTemplateColumns: '1.4fr 1fr',
+          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 1fr)',
           gap: 24,
         }}
       >
-        {/* LEFT — desk */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <header>
             <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-2)' }}>
-              {stats.count === 0 ? 'Day one' : 'Welcome back'}
+              {stats.sessionsCompleted ? 'Welcome back' : 'Day one'}
             </div>
             <h1 style={{ fontSize: 44, lineHeight: 1.05, marginTop: 4 }}>
-              {stats.count === 0
-                ? `Ready when you are, ${auth.status === 'guest' ? 'Guest' : auth.user?.displayName ?? 'doctor'}.`
-                : `Welcome back, ${auth.status === 'guest' ? 'Guest' : auth.user?.displayName ?? 'doctor'}.`}
+              {stats.sessionsCompleted ? `Welcome back, ${identity}.` : `Ready when you are, ${identity}.`}
             </h1>
             <div style={{ fontSize: 16, color: 'var(--ink-2)', fontWeight: 600, marginTop: 6 }}>
-              {stats.count === 0
-                ? 'Pick a polyclinic and your first case walks in. Your training log starts filling in after that.'
-                : 'Your training log is updating with every case you finish.'}
+              {stats.sessionsCompleted
+                ? 'Your training log is updating with every case you finish.'
+                : 'Pick a polyclinic and your first case walks in. Your training log starts filling in after that.'}
             </div>
-          </div>
-
-          {stats.count === 0 ? (
-            <div
-              className="plush-lg"
-              style={{
-                background: 'var(--cream-2)',
-                padding: 18,
-                position: 'relative',
-                transform: 'rotate(-0.6deg)',
-              }}
-            >
-              <div style={{ position: 'absolute', top: -12, left: 22 }} className="chip butter">
-                ★ first case
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 18,
-                  alignItems: 'center',
-                  background: 'white',
-                  borderRadius: 18,
-                  border: '3px dashed rgba(43,30,22,0.25)',
-                  padding: 16,
-                }}
+          </header>
+          {status === 'loading' && !history.length ? (
+            <div className="plush" role="status" style={{ padding: 18, fontWeight: 700, color: 'var(--ink-2)' }}>
+              Loading your training history…
+            </div>
+          ) : status === 'error' && !history.length ? (
+            <div className="plush" role="alert" style={{ padding: 18 }}>
+              <strong>Your training history could not be loaded.</strong>
+              <br />
+              <button
+                type="button"
+                className="btn-plush ghost"
+                style={{ marginTop: 12 }}
+                onClick={() => void refresh()}
               >
-                <div className="floaty" style={{ opacity: 0.6 }}>
-                  <PatientFace style={tweaks.avatarStyle} skin="#E8B68F" hair="#3B2A1F" size={120} mood="neutral" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900, fontSize: 22 }}>No case picked yet</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', marginTop: 2 }}>
-                    Choose a polyclinic — the next patient on the bench will walk straight in.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-plush primary"
-                  style={{ fontSize: 15, padding: '14px 18px' }}
-                  onClick={() => store.setScreen('gpRoom')}
-                >
-                  Start →
-                </button>
-              </div>
+                Retry
+              </button>
             </div>
-          ) : (
-            <div className="plush-lg" style={{ background: 'var(--peach)', padding: 18, position: 'relative', transform: 'rotate(-0.6deg)' }}>
-              <div style={{ position: 'absolute', top: -12, left: 22 }} className="chip butter">
-                ★ pick up where you left off
-              </div>
+          ) : history.length ? (
+            <div className="plush-lg" style={{ background: 'var(--peach)', padding: 18 }}>
               <div
                 style={{
                   display: 'flex',
@@ -262,395 +151,258 @@ export function HomeScreen() {
                   padding: 16,
                 }}
               >
-                <div className="floaty">
-                  <PatientFace
-                    style={tweaks.avatarStyle}
-                    skin={history[0].caseGender === 'F' ? '#F0C4A8' : '#E8B68F'}
-                    hair="#3B2A1F"
-                    size={120}
-                    mood="neutral"
-                  />
-                </div>
+                <PatientFace
+                  style={tweaks.avatarStyle}
+                  skin={history[0].caseGender === 'F' ? '#F0C4A8' : '#E8B68F'}
+                  hair="#3B2A1F"
+                  size={100}
+                  mood="neutral"
+                />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 900, fontSize: 22 }}>
                     {history[0].caseName}, {history[0].caseAge}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', marginTop: 2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
                     {history[0].diagnosisLabel}
                   </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                    <span className="chip" style={{ background: VERDICT_COLOR[history[0].verdict] }}>
-                      {VERDICT_LABEL[history[0].verdict]}
-                    </span>
-                    <span className="chip">last review · {relativeDate(history[0].savedAt)}</span>
-                    {stats.weakest && (
-                      <span className="chip butter">focus · {stats.weakest.label.toLowerCase()}</span>
-                    )}
-                  </div>
+                  <span className="chip" style={{ background: VERDICT_COLOR[history[0].verdict], marginTop: 10 }}>
+                    {VERDICT_LABEL[history[0].verdict]}
+                  </span>
                 </div>
                 <button
                   type="button"
                   className="btn-plush primary"
-                  style={{ fontSize: 15, padding: '14px 18px' }}
+                  aria-label={`Review ${history[0].caseName}`}
                   onClick={() => store.viewEvalHistory(history[0].id)}
                 >
                   Review →
                 </button>
               </div>
             </div>
+          ) : (
+            <div className="plush-lg" style={{ background: 'var(--cream-2)', padding: 18 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 18,
+                  alignItems: 'center',
+                  background: 'white',
+                  borderRadius: 18,
+                  border: '3px dashed rgba(43,30,22,0.25)',
+                  padding: 16,
+                }}
+              >
+                <PatientFace style={tweaks.avatarStyle} skin="#E8B68F" hair="#3B2A1F" size={100} mood="neutral" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 900, fontSize: 22 }}>No case picked yet</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
+                    Choose a polyclinic — the next patient on the bench will walk straight in.
+                  </div>
+                </div>
+                <button type="button" className="btn-plush primary" onClick={() => store.setScreen('gpRoom')}>
+                  Start →
+                </button>
+              </div>
+            </div>
           )}
-
           <button
             type="button"
             className="btn-plush mint"
-            style={{ fontSize: 22, padding: '18px 0', alignSelf: 'stretch' }}
+            style={{ fontSize: 22, padding: '18px 0' }}
             onClick={() => store.setScreen('gpRoom')}
           >
             ▶ Start a session
           </button>
-
-          <button
-            type="button"
-            className="btn-plush ghost"
-            style={{
-              fontSize: 14,
-              padding: '12px 16px',
-              alignSelf: 'stretch',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.history.pushState({}, '', '/agentic-rounds');
-              }
-              store.setScreen('agenticRounds');
-            }}
-            hidden={!import.meta.env.DEV}
-            title="See how the simulator grades you — agents, citations, hard rules"
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="chip butter" style={{ fontSize: 10 }}>NEW</span>
-              <span style={{ fontWeight: 800 }}>Agentic rounds</span>
-              <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>· how the simulator grades you</span>
-            </span>
-            <span style={{ fontWeight: 800, color: 'var(--ink-2)' }}>→</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn-plush ghost"
-            style={{
-              fontSize: 14,
-              padding: '12px 16px',
-              alignSelf: 'stretch',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.history.pushState({}, '', '/agent-topology');
-              }
-              store.setScreen('agentTopology');
-            }}
-            hidden={!import.meta.env.DEV}
-            title="Live map of Opus 4.7 and the sub-rules + sessions it controls"
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="chip peach" style={{ fontSize: 10 }}>LIVE</span>
-              <span style={{ fontWeight: 800 }}>Agent topology</span>
-              <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>· Opus 4.7 → sub-rules &amp; sessions</span>
-            </span>
-            <span style={{ fontWeight: 800, color: 'var(--ink-2)' }}>→</span>
-          </button>
-
-          <div className="plush" style={{ padding: 16 }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-                marginBottom: 10,
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 12,
-                  color: 'var(--ink-2)',
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
+          <section className="plush" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+              <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--ink-2)', letterSpacing: '.06em' }}>
                 RECENT CASES
               </div>
-              <span
-                style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', cursor: 'pointer' }}
+              <button
+                type="button"
+                className="btn-plush ghost"
+                aria-label="See all training history"
+                style={{ fontSize: 12, padding: '5px 10px' }}
                 onClick={() => store.setScreen('history')}
               >
-                see all →
-              </span>
+                See all →
+              </button>
             </div>
-            {history.length === 0 ? (
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--ink-2)',
-                  background: 'var(--cream)',
-                  border: '2.5px dashed rgba(43,30,22,0.2)',
-                  borderRadius: 12,
-                  padding: '14px 16px',
-                  textAlign: 'center',
-                }}
-              >
-                No reviews yet — finish an encounter to see your AI feedback here.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {history.slice(0, 6).map((r) => {
-                  const color = VERDICT_COLOR[r.verdict];
-                  return (
-                    <div
-                      key={r.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '40px 1fr 110px 80px 28px',
-                        gap: 12,
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        background: 'var(--cream)',
-                        border: '2.5px solid var(--line)',
-                        borderRadius: 12,
-                        boxShadow: '0 2px 0 var(--line)',
-                      }}
-                    >
-                      <div
-                        className="tap"
-                        onClick={() => store.viewEvalHistory(r.id)}
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: color,
-                          border: '2.5px solid var(--line)',
-                          boxShadow: '0 2px 0 var(--line)',
-                          cursor: 'pointer',
-                        }}
-                      />
-                      <div className="tap" onClick={() => store.viewEvalHistory(r.id)} style={{ cursor: 'pointer' }}>
-                        <div style={{ fontWeight: 800, fontSize: 14 }}>
-                          {r.caseName} <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>· {r.caseAge}{r.caseGender}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-2)', fontWeight: 700 }}>
-                          {r.diagnosisLabel}
-                        </div>
-                      </div>
-                      <span
-                        className="tap chip"
-                        onClick={() => store.viewEvalHistory(r.id)}
-                        style={{ background: color, fontSize: 11, cursor: 'pointer' }}
-                      >
-                        {VERDICT_LABEL[r.verdict]}
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--ink-2)', fontWeight: 700 }}>
-                        {relativeDate(r.savedAt)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Delete review for ${r.caseName}?`)) onDelete(r.id);
-                        }}
-                        title="Delete this review"
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          fontSize: 16,
-                          fontWeight: 800,
-                          color: 'var(--ink-2)',
-                          cursor: 'pointer',
-                          padding: 4,
-                          fontFamily: 'inherit',
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  );
-                })}
+            {status === 'error' && history.length > 0 && (
+              <div role="alert" style={{ marginBottom: 10, fontWeight: 700 }}>
+                Could not refresh history.{' '}
+                <button type="button" className="btn-plush ghost" onClick={() => void refresh()}>
+                  Retry
+                </button>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* RIGHT — stats */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="plush" style={{ padding: 16, background: 'var(--butter)' }}>
+            {history.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {history.slice(0, 6).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="profile-recent-row"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      gap: 10,
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      background: 'var(--cream)',
+                      border: '2.5px solid var(--line)',
+                      borderRadius: 12,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="tap"
+                      aria-label={`Review ${entry.caseName}`}
+                      onClick={() => store.viewEvalHistory(entry.id)}
+                      style={{
+                        textAlign: 'left',
+                        background: 'transparent',
+                        border: 0,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        color: 'inherit',
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>
+                        {entry.caseName}{' '}
+                        <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>
+                          · {entry.caseAge}
+                          {entry.caseGender}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-2)', fontWeight: 700 }}>
+                        {entry.diagnosisLabel} · {VERDICT_LABEL[entry.verdict]} · {relativeDate(entry.savedAt)}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete review for ${entry.caseName}`}
+                      title="Delete this review"
+                      onClick={() => {
+                        if (window.confirm(`Delete review for ${entry.caseName}?`)) void remove(entry.id);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        fontSize: 16,
+                        fontWeight: 800,
+                        color: 'var(--ink-2)',
+                        cursor: 'pointer',
+                        padding: 4,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', textAlign: 'center' }}>
+                No reviews yet — finish an encounter to see your feedback here.
+              </div>
+            )}
+          </section>
+        </section>
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section className="plush" style={{ padding: 16, background: 'var(--butter)' }}>
             <div
-              style={{
-                fontWeight: 800,
-                fontSize: 11,
-                color: 'var(--ink-2)',
-                letterSpacing: '.06em',
-                textTransform: 'uppercase',
-                marginBottom: 10,
-              }}
+              style={{ fontWeight: 800, fontSize: 11, color: 'var(--ink-2)', letterSpacing: '.06em', marginBottom: 10 }}
             >
               YOUR TRAINING
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Stat big={stats.count > 0 ? String(stats.count) : '—'} sub="cases done" />
+              <Stat big={stats.sessionsCompleted ? String(stats.sessionsCompleted) : '—'} sub="sessions completed" />
               <Stat
-                big={stats.count > 0 ? stats.avgRating.toFixed(1) : '—'}
-                sub="avg rating"
-                out={stats.count > 0 ? ' / 5' : ''}
+                big={stats.averageScorePercent === null ? '—' : `${stats.averageScorePercent}%`}
+                sub="average score"
               />
             </div>
+          </section>
+          <section className="plush" style={{ padding: 16 }}>
             <div
-              style={{
-                marginTop: 12,
-                background: 'white',
-                border: '3px solid var(--line)',
-                borderRadius: 14,
-                padding: 12,
-                boxShadow: 'var(--plush-tiny)',
-              }}
+              style={{ fontWeight: 800, fontSize: 11, color: 'var(--ink-2)', letterSpacing: '.06em', marginBottom: 10 }}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: 'var(--ink-2)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '.06em',
-                }}
-              >
-                WEAKEST DOMAIN
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 900, marginTop: 2 }}>
-                {stats.weakest ? stats.weakest.label : '—'}
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  height: 12,
-                  background: 'var(--cream)',
-                  borderRadius: 8,
-                  border: '2px solid var(--line)',
-                  overflow: 'hidden',
-                  position: 'relative',
-                }}
-              >
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: `${stats.weakest?.pct ?? 0}%`,
-                    background: stats.weakest?.deep ?? 'var(--peach-deep)',
-                  }}
-                />
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginTop: 6,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: 'var(--ink-2)',
-                }}
-              >
-                <span>
-                  {stats.weakest ? `${stats.weakest.label} · ${stats.weakest.pct}%` : 'No reviews yet'}
-                </span>
-                <span>focus area</span>
-              </div>
+              WEAKEST DOMAIN
             </div>
-          </div>
-
-          <div className="plush" style={{ padding: 16 }}>
+            {weakestMeta && stats.weakestDomain ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 900 }}>{weakestMeta.label}</div>
+                <div
+                  style={{ marginTop: 8, height: 12, background: 'var(--cream)', borderRadius: 8, overflow: 'hidden' }}
+                >
+                  <div
+                    style={{
+                      width: `${stats.weakestDomain.percentage}%`,
+                      height: '100%',
+                      background: weakestMeta.deep,
+                    }}
+                  />
+                </div>
+                <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--ink-2)' }}>
+                  {stats.weakestDomain.percentage}% · focus area
+                </div>
+              </>
+            ) : (
+              <div style={{ fontWeight: 700, color: 'var(--ink-2)' }}>Not enough assessed data</div>
+            )}
+          </section>
+          <section className="plush" style={{ padding: 16 }}>
             <div
-              style={{
-                fontWeight: 800,
-                fontSize: 11,
-                color: 'var(--ink-2)',
-                letterSpacing: '.06em',
-                textTransform: 'uppercase',
-                marginBottom: 10,
-              }}
+              style={{ fontWeight: 800, fontSize: 11, color: 'var(--ink-2)', letterSpacing: '.06em', marginBottom: 10 }}
             >
               DOMAIN PROGRESS
             </div>
-            {stats.count === 0 ? (
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-                Domain breakdown unlocks after your first AI review.
-              </div>
-            ) : (
-              stats.domains.map((d) => (
-                <div key={d.label} style={{ marginBottom: 10 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      marginBottom: 4,
-                    }}
-                  >
-                    <span>{d.label}</span>
-                    <span>{d.pct}%</span>
-                  </div>
-                  <div
-                    style={{
-                      height: 14,
-                      background: 'var(--cream)',
-                      borderRadius: 8,
-                      border: '2.5px solid var(--line)',
-                      overflow: 'hidden',
-                      position: 'relative',
-                    }}
-                  >
+            {stats.hasAssessedDomains ? (
+              DOMAINS.map((domain) => {
+                const summary = stats.domains.find((item) => item.key === domain.key)!;
+                return (
+                  <div key={domain.key} style={{ marginBottom: 10 }}>
                     <div
                       style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: `${d.pct}%`,
-                        background: d.color,
-                        borderRight: '2.5px solid var(--line)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        marginBottom: 4,
                       }}
-                    />
+                    >
+                      <span>{domain.label}</span>
+                      <span>{summary.percentage === null ? 'Not assessed' : `${summary.percentage}%`}</span>
+                    </div>
+                    <div style={{ height: 14, background: 'var(--cream)', borderRadius: 8, overflow: 'hidden' }}>
+                      {summary.percentage !== null && (
+                        <div style={{ width: `${summary.percentage}%`, height: '100%', background: domain.color }} />
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
+            ) : (
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>Not enough assessed data</div>
             )}
-          </div>
-
-          <div
+          </section>
+          <section
             className="plush"
-            style={{ padding: 14, background: 'var(--mint)', display: 'flex', alignItems: 'center', gap: 12 }}
+            style={{ padding: 14, background: 'var(--mint)', display: 'flex', gap: 12, alignItems: 'center' }}
           >
-            <div style={{ fontSize: 36 }} className="floaty">
-              📚
-            </div>
+            <div style={{ fontSize: 32 }}>📚</div>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 14 }}>
-                {stats.streakDays === 0
-                  ? 'Streak: —'
-                  : `Streak: ${stats.streakDays} ${stats.streakDays === 1 ? 'day' : 'days'}`}
+              <div style={{ fontWeight: 900 }}>
+                {stats.streak.days
+                  ? `Streak: ${stats.streak.days} ${stats.streak.days === 1 ? 'day' : 'days'}`
+                  : 'Streak: —'}
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>
-                {stats.streakDays === 0
-                  ? 'Finish your first case to start a streak.'
-                  : 'One more case today keeps it alive.'}
+                {streakMessage(stats.sessionsCompleted, stats.streak)}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </section>
+        </aside>
+      </main>
     </div>
   );
 }

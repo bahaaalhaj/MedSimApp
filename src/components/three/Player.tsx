@@ -32,6 +32,8 @@ interface PlayerProps {
    *  the encounter screen only enables this when the user explicitly hits
    *  the Look-around button. Default: false (off). */
   enableLook?: boolean;
+  /** EncounterScreen owns the patient Examine shortcut globally. */
+  usesGlobalExamineShortcut?: boolean;
 }
 
 export function Player({
@@ -42,6 +44,7 @@ export function Player({
   locked = false,
   lookAt,
   enableLook = false,
+  usesGlobalExamineShortcut = false,
 }: PlayerProps) {
   const { camera } = useThree();
   const keys = useRef({ w: false, a: false, s: false, d: false, run: false });
@@ -77,7 +80,9 @@ export function Player({
       if (k) keys.current[k] = true;
       if (e.key === 'e' || e.key === 'E') {
         const active = interactionBus.getActive();
-        if (active) onInteract(active.kind, active.bedIndex);
+        // EncounterScreen's layout-independent global shortcut owns patient
+        // beds. Keep this path for generic 3D interactions such as desks.
+        if (active && !(usesGlobalExamineShortcut && active.kind === 'bed')) onInteract(active.kind, active.bedIndex);
       }
     };
     const onUp = (e: KeyboardEvent) => {
@@ -91,7 +96,7 @@ export function Player({
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup', onUp);
     };
-  }, [onInteract]);
+  }, [onInteract, usesGlobalExamineShortcut]);
 
   useFrame((_, dt) => {
     if (!document.pointerLockElement) return;

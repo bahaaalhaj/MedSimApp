@@ -11,8 +11,6 @@ import { EncounterScreen } from './components/EncounterScreen';
 import { EndConfirmScreen } from './components/EndConfirmScreen';
 import { DebriefScreen } from './components/DebriefScreen';
 import { HistoryScreen } from './components/HistoryScreen';
-import { AgenticRoundsScreen } from './components/AgenticRoundsScreen';
-import { AgentTopologyScreen } from './components/AgentTopologyScreen';
 import { BackgroundMusic } from './components/BackgroundMusic';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { RuntimeDiagnostics } from './components/RuntimeDiagnostics';
@@ -33,18 +31,6 @@ export default function App() {
   useEffect(() => {
     applyIntensity(tweaks.intensity);
   }, [tweaks.intensity]);
-
-  // Minimal path-based route: /agentic-rounds boots straight into the
-  // architecture page so the demo can deep-link to it.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const path = window.location.pathname.replace(/\/+$/, '');
-    if (import.meta.env.DEV && path === '/agentic-rounds') {
-      store.setScreen('agenticRounds');
-    } else if (import.meta.env.DEV && path === '/agent-topology') {
-      store.setScreen('agentTopology');
-    }
-  }, []);
 
   useEffect(() => {
     if (screen === 'auth' && hasIdentity) store.setScreen('gpRoom');
@@ -69,8 +55,6 @@ export default function App() {
       {visibleScreen === 'endConfirm' && <EndConfirmScreen />}
       {visibleScreen === 'debrief' && <DebriefScreen />}
       {visibleScreen === 'history' && <HistoryScreen />}
-      {visibleScreen === 'agenticRounds' && <AgenticRoundsScreen />}
-      {visibleScreen === 'agentTopology' && <AgentTopologyScreen />}
       <BackgroundMusic />
       <RuntimeDiagnostics />
     </div>

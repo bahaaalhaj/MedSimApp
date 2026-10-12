@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -25,7 +25,9 @@ const textExtensions = /\.(?:cjs|css|env|html|ini|js|json|md|py|ps1|sh|sql|ts|ts
 const secretHits: string[] = [];
 for (const path of tracked) {
   if (!textExtensions.test(path)) continue;
-  const text = readFileSync(resolve(root, path), 'utf8');
+  const absolutePath = resolve(root, path);
+  if (!existsSync(absolutePath)) continue;
+  const text = readFileSync(absolutePath, 'utf8');
   if (secretPatterns.some((pattern) => pattern.test(text))) secretHits.push(path);
 }
 if (secretHits.length) {

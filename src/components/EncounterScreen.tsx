@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import type { PerspectiveCamera } from 'three';
@@ -20,6 +20,7 @@ import { TopBar } from './primitives';
 import { ExamineOverlay } from './ExamineOverlay';
 import { DockedPatientAudioPanel } from './DockedPatientAudioPanel';
 import { CompletionGate } from '../game/CompletionGate';
+import { isEditableShortcutTarget, isExamineShortcut } from './encounter/examineShortcut';
 
 /** Adaptive FOV: keeps the horizontal FOV near 82° regardless of viewport
  *  aspect, plus a hold-Z (or scroll wheel) "lean in" zoom. */
@@ -174,6 +175,11 @@ export function EncounterScreen() {
   const [examineOpen, setExamineOpen] = useState(false);
   const [finishError, setFinishError] = useState('');
   const finishingGateRef = useRef(new CompletionGate());
+  const openExamine = useCallback(() => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    interactionBus.setActive(null);
+    setExamineOpen(true);
+  }, []);
 
   // If the user navigated straight here without a patient set, drop the
   // current selectedCaseId in. Without this the scene shows an empty room.
@@ -222,20 +228,13 @@ export function EncounterScreen() {
   // keyboard shortcut works the same as the on-screen Examine button.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'e' && e.key !== 'E') return;
-      // Don't fire while typing into an input/textarea (defensive — there
-      // aren't any today, but this guards against future text fields).
-      const tgt = e.target as HTMLElement | null;
-      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
-      if (examineOpen) return;
+      if (!isExamineShortcut(e) || isEditableShortcutTarget(e.target) || examineOpenRef.current) return;
       e.preventDefault();
-      setExamineOpen(true);
-      if (document.pointerLockElement) document.exitPointerLock();
-      interactionBus.setActive(null);
+      openExamine();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [examineOpen]);
+  }, [openExamine]);
 
   // Dispose conversation when the patient changes / leaves.
   const currentPatientCaseId = patient?.case.id ?? null;
@@ -248,12 +247,6 @@ export function EncounterScreen() {
   // Look-around is automatic while Examine is closed — PointerLockControls
   // mounts inside Player and engages on canvas click. When Examine opens
   // we tear it down so modal clicks can't bleed into the 3D scene.
-
-  const openExamine = () => {
-    if (document.pointerLockElement) document.exitPointerLock();
-    interactionBus.setActive(null);
-    setExamineOpen(true);
-  };
 
   const handleInteract = (kind: 'desk' | 'bed', bedIndex?: number) => {
     // E (examine) on the patient — open the cozy examine overlay so the
@@ -328,6 +321,7 @@ export function EncounterScreen() {
               locked
               lookAt={doctorLookAt}
               enableLook={!examineOpen}
+              usesGlobalExamineShortcut
             />
           </Suspense>
         </Canvas>

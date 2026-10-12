@@ -17,9 +17,24 @@ test('login validation rejects malformed input and accepts valid input', () => {
 });
 
 test('registration validation enforces name, password, confirmation, and terms', () => {
-  const errors = validateRegistration({ displayName: 'A', email: 'bad', password: 'short', confirmPassword: 'other', termsAccepted: false });
+  const errors = validateRegistration({
+    displayName: 'A',
+    email: 'bad',
+    password: 'short',
+    confirmPassword: 'other',
+    termsAccepted: false,
+  });
   assert.deepEqual(Object.keys(errors).sort(), ['confirm', 'displayName', 'email', 'password', 'terms'].sort());
-  assert.deepEqual(validateRegistration({ displayName: 'Dr Noor', email: 'noor@example.com', password: 'long-password', confirmPassword: 'long-password', termsAccepted: true }), {});
+  assert.deepEqual(
+    validateRegistration({
+      displayName: 'Dr Noor',
+      email: 'noor@example.com',
+      password: 'long-password',
+      confirmPassword: 'long-password',
+      termsAccepted: true,
+    }),
+    {},
+  );
 });
 
 test('welcome and onboarding lead to auth, then identity continues to specialty selection', () => {
@@ -61,6 +76,40 @@ test('outpatient completion snapshots once and transitions directly to debrief',
   assert.match(store, /navigateToDebrief[\s\S]*screen: 'debrief'/);
 });
 
+test('obsolete agent screens and development paths are absent from runtime navigation', () => {
+  const runtime = [
+    read('src/App.tsx'),
+    read('src/components/HomeScreen.tsx'),
+    read('src/game/types.ts'),
+    read('vite.config.ts'),
+  ].join('\n');
+  for (const term of [
+    'AgenticRoundsScreen',
+    'AgentTopologyScreen',
+    'agenticRounds',
+    'agentTopology',
+    '/agentic-rounds',
+    '/agent-topology',
+    'Opus 4.7',
+  ]) {
+    assert.doesNotMatch(runtime, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});
+
+test('profile and history expose truthful loading, retry, and keyboard review controls', () => {
+  const home = read('src/components/HomeScreen.tsx');
+  const history = read('src/components/HistoryScreen.tsx');
+  assert.match(home, /Loading your training history/);
+  assert.match(home, /could not be loaded/);
+  assert.match(home, />\s*Retry\s*</);
+  assert.match(home, /aria-label="See all training history"/);
+  assert.match(home, /aria-label=\{`Review \$\{entry\.caseName\}`\}/);
+  assert.match(home, /aria-label=\{`Delete review for \$\{entry\.caseName\}`\}/);
+  assert.match(history, /Last 12 reviews/);
+  assert.doesNotMatch(history, /all conditions|last 30 days/i);
+  assert.match(history, /Not enough assessed data/);
+});
+
 test('protected screens are replaced by auth without an account or guest identity', () => {
   const app = read('src/App.tsx');
   assert.match(app, /!isPublicScreen && !hasIdentity \? 'auth' : screen/);
@@ -99,9 +148,15 @@ test('auth API restores a session and performs a successful login with cookies a
     const url = String(input);
     calls.push({ url, init });
     if (url.endsWith('/session')) {
-      return Response.json({ authenticated: true, user: { id: 'u1', displayName: 'Dr Noor', email: 'noor@example.com', createdAt: '2026-01-01' }, csrfToken: 'csrf-test' });
+      return Response.json({
+        authenticated: true,
+        user: { id: 'u1', displayName: 'Dr Noor', email: 'noor@example.com', createdAt: '2026-01-01' },
+        csrfToken: 'csrf-test',
+      });
     }
-    return Response.json({ user: { id: 'u1', displayName: 'Dr Noor', email: 'noor@example.com', createdAt: '2026-01-01' } });
+    return Response.json({
+      user: { id: 'u1', displayName: 'Dr Noor', email: 'noor@example.com', createdAt: '2026-01-01' },
+    });
   };
   try {
     const session = await authApi.getSession();
@@ -117,10 +172,8 @@ test('auth API restores a session and performs a successful login with cookies a
 
 test('auth API exposes the backend generic login failure', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => Response.json(
-    { detail: { code: 'invalid_credentials', message: 'Invalid email or password.' } },
-    { status: 401 },
-  );
+  globalThis.fetch = async () =>
+    Response.json({ detail: { code: 'invalid_credentials', message: 'Invalid email or password.' } }, { status: 401 });
   try {
     await assert.rejects(
       authApi.login({ email: 'nobody@example.com', password: 'wrong', remember: false }),

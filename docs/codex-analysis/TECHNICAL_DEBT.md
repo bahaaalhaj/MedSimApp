@@ -29,7 +29,7 @@
 
 ### Oversized mixed-responsibility modules
 
-**Location:** `backend/server.py` (~62 KB), `Polyclinic.tsx` (~119 KB), `AgenticRoundsScreen.tsx` (~63 KB), `ExamineOverlay.tsx` (~45 KB), `polyclinicPatients.ts` (~394 KB)  
+**Location:** `backend/server.py` (~62 KB), `Polyclinic.tsx` (~119 KB), `ExamineOverlay.tsx` (~45 KB), `polyclinicPatients.ts` (~394 KB)
 **Problem:** Unrelated concerns share files and review boundaries.  
 **Why it matters:** Higher merge-conflict and regression risk; security and grading changes are difficult to isolate.  
 **Direction:** Split only along stable responsibilities with characterization tests first.
