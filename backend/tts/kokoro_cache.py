@@ -13,6 +13,13 @@ KOKORO_MODEL_FILE = "kokoro-v1_0.pth"
 KOKORO_VOICES = ("am_adam", "am_michael", "af_heart", "af_bella")
 KOKORO_FILES = ("config.json", KOKORO_MODEL_FILE, *(f"voices/{voice}.pt" for voice in KOKORO_VOICES))
 KOKORO_SETUP_COMMAND = "backend/.venv/Scripts/python.exe backend/prepare_kokoro.py"
+KOKORO_SHA256 = {
+    "kokoro-v1_0.pth": "496dba118d1a58f5f3db2efc88dbdc216e0483fc89fe6e47ee1f2c53f18ad1e4",
+    "voices/am_adam.pt": "ced7e284aba12472891be1da3ab34db84cc05cc02b5889535796dbf2d8b0cb34",
+    "voices/am_michael.pt": "9a443b79a4b22489a5b0ab7c651a0bcd1a30bef675c28333f06971abbd47bd37",
+    "voices/af_heart.pt": "0ab5709b8ffab19bfd849cd11d98f75b60af7733253ad0d67b12382a102cb4ff",
+    "voices/af_bella.pt": "8cb64e02fcc8de0327a8e13817e49c76c945ecf0052ceac97d3081480e8e48d6",
+}
 
 
 @dataclass(frozen=True)
@@ -71,18 +78,44 @@ def _digest(path: Path, algorithm: str, git_blob: bool = False) -> str:
     return digest.hexdigest()
 
 
-def _valid_cached_file(path: Path) -> bool:
+def _valid_cached_file(path: Path, relative: str) -> bool:
     try:
         target = path.resolve(strict=True)
+
         if not target.is_file() or target.stat().st_size == 0:
             return False
+
         blob_name = target.name.lower()
-        if len(blob_name) == 64 and all(char in "0123456789abcdef" for char in blob_name):
+
+        # Hugging Face symlink/blob cache
+        if len(blob_name) == 64 and all(
+            char in "0123456789abcdef" for char in blob_name
+        ):
             return _digest(target, "sha256") == blob_name
-        if len(blob_name) == 40 and all(char in "0123456789abcdef" for char in blob_name):
+
+        if len(blob_name) == 40 and all(
+            char in "0123456789abcdef" for char in blob_name
+        ):
             return _digest(target, "sha1", git_blob=True) == blob_name
+
+        # Windows symlink fallback: snapshot contains regular copied files
+        expected_sha256 = KOKORO_SHA256.get(relative)
+        if expected_sha256 is not None:
+            return _digest(target, "sha256") == expected_sha256
+
+        # config.json is additionally parsed again by inspect_kokoro_cache
+        if relative == "config.json":
+            config = json.loads(target.read_text(encoding="utf-8"))
+            return (
+                isinstance(config, dict)
+                and "istftnet" in config
+                and "plbert" in config
+                and "vocab" in config
+            )
+
         return False
-    except OSError:
+
+    except (OSError, ValueError, TypeError):
         return False
 
 
@@ -102,7 +135,7 @@ def inspect_kokoro_cache(cache_dir_value: str | None) -> KokoroCacheStatus:
         path = snapshot / Path(relative)
         if not path.exists():
             missing.append(relative)
-        elif not _valid_cached_file(path):
+        elif not _valid_cached_file(path,relative):
             invalid.append(relative)
     if missing or invalid:
         state = "tts-model-missing" if missing else "tts-model-invalid"
