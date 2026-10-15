@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import logging
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
@@ -51,6 +52,7 @@ def register_diagnostics_routes(
             gender = str(profile["gender"])
             is_pediatric = int(profile["age"]) < 14
         started = time.perf_counter()
+        logging.getLogger("medsim.tts").info("event=tts-request-accepted request=%s at_ms=%.3f", req.requestId, time.time() * 1000)
         try:
             manager = get_tts_manager()
             result = await manager.synthesize(TTSRequest(
@@ -71,7 +73,8 @@ def register_diagnostics_routes(
                 "X-Patient-TTS-Cache": "hit" if result.cache_hit else "miss",
                 "X-Patient-TTS-Source": result.provider,
                 "X-Patient-TTS-Initialization-Count": str(getattr(manager._provider, "load_count", 0)),
-                "Server-Timing": f"tts;dur={(time.perf_counter() - started) * 1000:.1f}",
+                "Server-Timing": ", ".join([f"tts;dur={(time.perf_counter() - started) * 1000:.1f}",
+                                           *(f"{name};dur={duration:.3f}" for name, duration in result.timings)]),
                 "X-Patient-TTS-Normalized": result.synthesized_text.encode("ascii", "ignore").decode("ascii")[:500],
             },
         )

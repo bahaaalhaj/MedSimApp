@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from unittest.mock import patch
 from collections import Counter
 from pathlib import Path
 
@@ -92,8 +93,11 @@ class BackendRouteContractTests(unittest.TestCase):
         self.assertEqual(duplicates, {})
 
     def test_health_response_field_names_are_stable(self) -> None:
-        with TestClient(server.app) as client:
-            response = client.get("/health")
+        with patch("medsim_backend.application.get_tts_manager") as manager:
+            manager.return_value.start_background_preload.return_value = None
+            with TestClient(server.app) as client:
+                response = client.get("/health")
+            manager.return_value.start_background_preload.assert_called_once()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.json()), {
             "ok", "patient_tts", "local_ai", "evaluation_mode", "patient_ready",

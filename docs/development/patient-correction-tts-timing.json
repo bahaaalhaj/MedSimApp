@@ -1,0 +1,54 @@
+{
+  "state": "completed",
+  "method": "verified offline weights, no network providers, one manager; not a browser measurement",
+  "device": "cpu",
+  "initializationCount": 1,
+  "warmUpCount": 1,
+  "initializationStartedAtMs": 1792075580532.4546,
+  "modelReadyAtMs": 1792075620694.2341,
+  "rows": [
+    {
+      "step": "cold-dynamic-without-preload",
+      "totalMs": 45020.331,
+      "cache": "miss",
+      "voice": "am_adam",
+      "timingsMs": {
+        "tts-init": 40161.099,
+        "tts-synthesis": 4818.032
+      },
+      "wav": true
+    },
+    {
+      "step": "preload-reuses-resident-model",
+      "totalMs": 1358.635
+    },
+    {
+      "step": "warm-new-dynamic",
+      "totalMs": 3650.767,
+      "cache": "miss",
+      "voice": "am_adam",
+      "timingsMs": {
+        "tts-init": 0.0,
+        "tts-synthesis": 3602.538
+      },
+      "wav": true
+    },
+    {
+      "step": "warm-memory-cache",
+      "totalMs": 1.653,
+      "cache": "hit",
+      "voice": "am_adam",
+      "timingsMs": {},
+      "wav": true
+    },
+    {
+      "step": "persistent-cache",
+      "totalMs": 47.117,
+      "cache": "hit",
+      "voice": "am_adam",
+      "timingsMs": {},
+      "wav": true
+    }
+  ],
+  "audioStorage": "temporary directory removed on exit"
+}

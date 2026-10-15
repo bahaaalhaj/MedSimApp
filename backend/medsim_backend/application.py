@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
@@ -12,13 +13,27 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .config import RuntimeSettings
+from tts import TTSConfigurationError, get_tts_manager
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Authentication and initial rendering must not compete with torch/Kokoro.
-    # Model loading remains deferred to the request paths that need it.
-    yield
+    # Import/authentication stay lightweight. Only the post-start background
+    # task may load a verified local model; it never downloads missing weights.
+    task = None
+    try:
+        task = get_tts_manager().start_background_preload()
+    except TTSConfigurationError:
+        pass  # Existing health/TTS routes report configuration failures.
+    try:
+        yield
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:

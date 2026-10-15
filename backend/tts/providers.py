@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import io
+import importlib.metadata
+import logging
 import os
 import re
 import threading
+import time
 import wave
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -21,6 +24,15 @@ class TTSConfigurationError(ValueError):
 
 class TTSProviderError(RuntimeError):
     pass
+
+
+def _require_local_english_model() -> None:
+    # Misaki's default English G2P calls spacy.cli.download when this package
+    # is absent. HF offline flags do not guard that separate download path.
+    try:
+        importlib.metadata.distribution("en_core_web_sm")
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise TTSProviderError("Install en_core_web_sm explicitly during TTS setup; runtime downloads are disabled.") from exc
 
 
 def select_kokoro_voice(case_id: str, gender: str, is_pediatric: bool = False) -> str:
@@ -77,6 +89,7 @@ class TTSResult:
     transcript_text: str
     synthesized_text: str
     cache_hit: bool = False
+    timings: tuple[tuple[str, float], ...] = ()
 
 
 def load_tts_settings(env: dict[str, str] | None = None) -> TTSSettings:
@@ -201,6 +214,8 @@ class KokoroTTSProvider(PatientTTSProvider):
         self._inference_lock = asyncio.Lock()
         self.load_count = 0
         self.warm_up_count = 0
+        self.initialization_started_at: float | None = None
+        self.model_ready_at: float | None = None
 
     def _load(self) -> Any:
         if self._pipeline is not None:
@@ -208,13 +223,18 @@ class KokoroTTSProvider(PatientTTSProvider):
         with self._load_lock:
             if self._pipeline is None:
                 try:
+                    self.initialization_started_at = time.time() * 1000
+                    logging.getLogger("medsim.tts").info("event=provider-initialization-start at_ms=%.3f", self.initialization_started_at)
                     enable_verified_offline_cache(self.settings.model_cache_dir)
+                    _require_local_english_model()
                     self.device = select_device(self.settings.device)
                     from kokoro import KPipeline
                     self._pipeline = KPipeline(
                         lang_code="a", repo_id="hexgrad/Kokoro-82M", device=self.device,
                     )
                     self.load_count += 1
+                    self.model_ready_at = time.time() * 1000
+                    logging.getLogger("medsim.tts").info("event=kokoro-model-ready at_ms=%.3f initialization_ms=%.3f", self.model_ready_at, self.model_ready_at - self.initialization_started_at)
                 except Exception as exc:
                     raise TTSProviderError(
                         f"Kokoro could not start: {exc}"
@@ -230,14 +250,23 @@ class KokoroTTSProvider(PatientTTSProvider):
             raise TTSProviderError("There is no patient text to synthesize.")
         voice = self._voice(request)
         speed = request.speed if request.speed is not None else self.settings.speed
+        timings: list[tuple[str, float]] = []
         async with self._inference_lock:
             def run() -> bytes:
+                started = time.perf_counter()
+                cold = self._pipeline is None
                 pipeline = self._load()
+                timings.append(("tts-init", round((time.perf_counter() - started) * 1000, 3) if cold else 0.0))
+                started = time.perf_counter()
+                logging.getLogger("medsim.tts").info("event=synthesis-start request=%s at_ms=%.3f cold=%s", request.request_id, time.time() * 1000, cold)
                 chunks = [audio for _graphemes, _phonemes, audio in pipeline(synthesized, voice=voice, speed=speed)]
                 if not chunks:
                     raise TTSProviderError("Kokoro returned no audio.")
                 import numpy as np
-                return _wav_bytes(np.concatenate(chunks), 24000)
+                audio = _wav_bytes(np.concatenate(chunks), 24000)
+                timings.append(("tts-synthesis", round((time.perf_counter() - started) * 1000, 3)))
+                logging.getLogger("medsim.tts").info("event=wav-complete request=%s at_ms=%.3f synthesis_ms=%.3f", request.request_id, time.time() * 1000, timings[-1][1])
+                return audio
             # A disconnected browser may cancel its request while native CPU
             # inference is still running. Keep the provider lock until that
             # thread actually exits so a second Kokoro invocation cannot start
@@ -248,7 +277,7 @@ class KokoroTTSProvider(PatientTTSProvider):
             except asyncio.CancelledError:
                 await task
                 raise
-        return TTSResult(audio, "audio/wav", 24000, self.name, voice, request.text, synthesized)
+        return TTSResult(audio, "audio/wav", 24000, self.name, voice, request.text, synthesized, timings=tuple(timings))
 
     async def warm_up(self) -> None:
         """Initialize model and kernels once; generated audio is discarded."""
@@ -256,7 +285,12 @@ class KokoroTTSProvider(PatientTTSProvider):
             def run() -> None:
                 pipeline = self._load()
                 next(iter(pipeline("Ready.", voice="af_heart", speed=self.settings.speed)), None)
-            await asyncio.to_thread(run)
+            task = asyncio.create_task(asyncio.to_thread(run))
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                await task  # Never release the inference lock while native work runs.
+                raise
             self.warm_up_count += 1
 
 
@@ -313,6 +347,7 @@ class TTSManager:
         self._fallback_provider: PatientTTSProvider | None = None
         self._lock = threading.Lock()
         self._preload_task: asyncio.Task[None] | None = None
+        self._startup_task: asyncio.Task[None] | None = None
         self._state = "deferred" if settings.provider == "kokoro" else "ready"
         self._error_category: str | None = None
         self._audio_cache: OrderedDict[tuple[str, str, str, float, str], TTSResult] = OrderedDict()
@@ -379,6 +414,91 @@ class TTSManager:
         self._state = "loading"
         self._preload_task = asyncio.create_task(self._preload_kokoro())
         return self._preload_task
+
+    def start_background_preload(self) -> asyncio.Task[None] | None:
+        """Lifespan hook: neither integrity hashing nor model loading blocks startup."""
+        if self.settings.provider != "kokoro":
+            return None
+        if self._startup_task is None:
+            self._startup_task = asyncio.create_task(self._prepare_startup_audio())
+        return self._startup_task
+
+    async def _prepare_startup_audio(self) -> None:
+        try:
+            status = await asyncio.to_thread(inspect_kokoro_cache, self.settings.model_cache_dir)
+            if not status.ready:
+                self._state, self._error_category = "failed", status.state
+                return
+            preload = self.start_preload()
+            if preload is not None:
+                await asyncio.shield(preload)
+            if self._state == "ready":
+                await self._prepare_common_templates()
+        except asyncio.CancelledError:
+            # warm_up keeps its lock until the native worker exits.
+            if self._preload_task is not None and not self._preload_task.done():
+                await self._preload_task
+            raise
+        except Exception:
+            self._error_category = "tts-preparation-failed"
+            logging.getLogger("medsim.tts").warning("Background voice preparation failed; text remains available.")
+
+    async def _prepare_common_templates(self) -> None:
+        # Patient-independent templates only, all four existing voices, bounded
+        # to sixteen entries. Other domain templates use the same on-demand cache.
+        from local_ai import LOCAL_AI_CASES
+        from patient_memory import PROTECTED_RESPONSES, unavailable_response
+        representatives: dict[str, TTSRequest] = {}
+        for case in LOCAL_AI_CASES.values():
+            patient = case["patient"]
+            request = TTSRequest("", case["caseId"], patient["gender"], patient["age"] < 14,
+                                 case_version=case["caseVersion"], cacheable=True)
+            voice = select_kokoro_voice(request.case_id, request.gender, request.is_pediatric)
+            representatives.setdefault(voice, request)
+        templates = (unavailable_response("medication"), PROTECTED_RESPONSES["diagnosis-request"],
+                     PROTECTED_RESPONSES["treatment-request"], PROTECTED_RESPONSES["prompt-injection"])
+        for request in list(representatives.values())[:4]:
+            for text in templates:
+                # Give foreground synthesis the next slot; never reserve a batch.
+                await asyncio.sleep(0.05)
+                while self._synthesis_slot.locked() or self._inflight:
+                    await asyncio.sleep(0.05)
+                try:
+                    await self._prepare_template(replace(request, text=text))
+                except (TTSProviderError, TTSConfigurationError):
+                    return
+
+    async def _prepare_template(self, request: TTSRequest) -> None:
+        provider = self.provider()
+        key = self._cache_key(request, provider)
+        if key is None or key in self._audio_cache:
+            return
+        metadata = self._persistent_metadata(request, provider)
+        if await asyncio.to_thread(self._persistent_cache.get, metadata) is not None:
+            return
+        if key in self._inflight:
+            await asyncio.shield(self._inflight[key])
+            return
+
+        async def prepare() -> TTSResult:
+            # The provider's inference lock still serializes native work. Do not
+            # occupy the foreground queue/synthesis slot for speculative audio:
+            # that could turn a slow template into a 4-second busy error.
+            result = await provider.synthesize(request)
+            self._remember(key, result)
+            try:
+                await asyncio.to_thread(self._persistent_cache.put, metadata, result.audio)
+            except (OSError, ValueError):
+                pass
+            return result
+
+        task = asyncio.create_task(prepare())
+        self._inflight[key] = task
+        try:
+            await task
+        finally:
+            if self._inflight.get(key) is task:
+                self._inflight.pop(key, None)
 
     async def _preload_kokoro(self) -> None:
         try:
@@ -464,7 +584,7 @@ class TTSManager:
         if cache_key is not None and cache_key in self._audio_cache:
             result = self._audio_cache.pop(cache_key)
             self._audio_cache[cache_key] = result
-            return replace(result, cache_hit=True)
+            return replace(result, cache_hit=True, timings=())
         if cache_key is not None and isinstance(provider, KokoroTTSProvider):
             metadata = self._persistent_metadata(request, provider)
             audio = await asyncio.to_thread(self._persistent_cache.get, metadata)

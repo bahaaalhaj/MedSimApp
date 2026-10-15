@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import asyncio
 import os
 import sys
@@ -47,7 +49,7 @@ class FakeProvider:
                 raise RuntimeError("offline")
             await asyncio.sleep(0.01)
             return ChatCompletion(
-                "I have only noticed the symptoms I mentioned, doctor.",
+                '{"fact_ids":["history:eye"],"text":"Itchy, watery."}',
                 "fixture/actual:free", request.request_id, 0, ("fixture/actual:free",),
             )
         finally:
@@ -100,9 +102,9 @@ class LocalAIEndpoints(unittest.TestCase):
 
     def test_typed_and_predefined_questions_stream(self):
         self.assertIn('"text":"It usually happens during spr', self.patient().text)
-        typed = self.patient(question="How are you feeling about all this?", source="typed", questionId=None)
+        typed = self.patient(question="Do you have itchy eyes or wheeze?", source="typed", questionId=None)
         self.assertEqual(typed.status_code, 200)
-        self.assertIn("noticed", typed.text)
+        self.assertIn("Itchy, watery", typed.text)
         self.assertIn('"provenance":"openrouter"', typed.text)
         self.assertIn('"actualModel":"fixture/actual:free"', typed.text)
 
@@ -266,7 +268,8 @@ class LocalAIEndpoints(unittest.TestCase):
         self.assertIn("It usually happens during spring", authored.text)
         self.assertIn('"provenance":"deterministic-authored"', authored.text)
         unknown = self.patient(question="What operation did you have in 2019?", source="typed", questionId=None, requestId="unknown-request-12345")
-        self.assertIn("don't know", unknown.text)
+        unknown_frames = [json.loads(frame[6:]) for frame in unknown.text.strip().split("\n\n")]
+        self.assertIn("not documented", "".join(frame.get("text", "") for frame in unknown_frames))
         self.assertIn('"provenance":"safe-unknown"', unknown.text)
         self.assertNotIn("Traceback", unknown.text)
 

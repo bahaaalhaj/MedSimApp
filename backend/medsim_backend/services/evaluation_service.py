@@ -61,6 +61,7 @@ class EvaluationService:
                 return copy.deepcopy(attempt["evaluationResult"])
             if attempt["evaluationActive"]:
                 raise HTTPException(status_code=409, detail="An evaluation is already in progress for this encounter.")
+            attempt.pop("dialogueContext", None)  # End of consultation; no dialogue context survives debrief.
             attempt["evaluationActive"] = True
             case = attempt["localAiCase"]
             investigation_case = self.investigation_cases[attempt["caseId"]]

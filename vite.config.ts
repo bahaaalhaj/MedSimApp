@@ -28,7 +28,7 @@ export default defineConfig({
     port: 5173,
     open: true,
     proxy: PROXY,
-    fs: { deny: ['**/backend/**', '**/docs/generated/*.server.json', '**/.env*'] },
+    fs: { deny: ['**/backend/**', '**/docs/generated/*.server.json', '**/docs/development/patient-memory*', '**/docs/development/patient-correction*', '**/.env*'] },
   },
   preview: {
     port: 5173,

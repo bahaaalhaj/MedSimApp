@@ -195,6 +195,30 @@ class OpenRouterProviderTests(unittest.TestCase):
         )
         self.assertIsInstance(build_provider(configured), DisabledLocalProvider)
 
+    def test_patient_http_errors_are_bounded_safe_and_never_chain_models(self):
+        for status, category in ((401, "configuration-invalid"), (402, "free-capacity-unavailable"),
+                                 (429, "rate-limited"), (500, "model-unavailable"), (503, "model-unavailable")):
+            calls = []
+
+            def handler(request):
+                calls.append(json.loads(request.content))
+                return httpx.Response(status, text="private upstream diagnostic")
+
+            provider = OpenRouterLLMProvider(settings(fallback_models=(PRO,), enable_pro_fallback=True), httpx.MockTransport(handler))
+            with self.subTest(status=status), self.assertRaises(LLMProviderError) as error:
+                asyncio.run(provider.complete_chat(ChatRequest("case-safe prompt", [], 80)))
+            self.assertEqual(error.exception.category, category)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0]["model"], MINI)
+            self.assertNotIn("tools", calls[0])
+            self.assertNotIn("private upstream", str(error.exception))
+
+    def test_malformed_patient_envelopes_fail_closed(self):
+        for body in (None, {}, {"choices": []}, {"choices": [{"message": {"content": ""}}]}):
+            provider = OpenRouterLLMProvider(settings(), httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+            with self.subTest(body=body), self.assertRaises(LLMProviderError):
+                asyncio.run(provider.complete_chat(ChatRequest("case-safe prompt", [], 80)))
+
 
 if __name__ == "__main__":
     unittest.main()

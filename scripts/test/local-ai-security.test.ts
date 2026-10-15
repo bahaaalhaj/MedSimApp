@@ -46,8 +46,9 @@ test('server owns prompts and bounds local context and output', () => {
   const provider = read('backend/local_llm.py');
   const client = read('src/voice/localPatient.ts');
   const browserPersona = read('src/voice/patientPersona.ts');
-  assert.match(server, /patient_system_prompt\(case, profile\)/);
-  assert.match(server, /patientMessages"\]\[-8:/);
+  assert.match(server, /grounding_prompt\(candidates, req.question/);
+  assert.match(server, /validate_grounded\(completion.text, memory, candidates/);
+  assert.doesNotMatch(server, /patient_system_prompt\(case, profile\)|patientMessages"\]\[-8:/);
   assert.match(server, /max_tokens=80/);
   assert.match(provider, /"reasoning": \{"effort": "none"\}/);
   assert.doesNotMatch(client, /systemPrompt|base_url|correctDiagnosis|rubric/);
@@ -70,6 +71,8 @@ test('server-only local AI manifest has all curated cases', () => {
   const manifest = JSON.parse(read('docs/generated/local-ai-manifest.server.json')) as { cases: unknown[] };
   assert.equal(manifest.cases.length, 72);
   assert.match(read('vite.config.ts'), /docs\/generated\/\*\.server\.json/);
+  assert.match(read('vite.config.ts'), /docs\/development\/patient-memory\*/);
+  assert.match(read('vite.config.ts'), /docs\/development\/patient-correction\*/);
 });
 
 test('learner runtime manifest and production imports contain no hidden clinical truth', () => {

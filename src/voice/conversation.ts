@@ -210,6 +210,7 @@ export class Conversation {
   private commitPatientResponse(clean: string, source: QuestionSource, questionId: string | undefined, response: PatientTextResponse) {
     this.state.setLastPatient(response.text, response.patientProvenance);
     const audioTurnId = `patient-${crypto.randomUUID()}`;
+    recordRuntimeDiagnostic('patient-text-complete', audioTurnId);
     // Text and transcript evidence are committed before optional TTS begins.
     this.options.onTranscript({ role: 'trainee', content: clean, timestampIso: new Date().toISOString(), questionSource: source });
     this.state.pushMessage({ role: 'assistant', content: response.text, audioTurnId });
