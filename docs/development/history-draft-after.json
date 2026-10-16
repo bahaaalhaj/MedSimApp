@@ -1,0 +1,156 @@
+[
+  {
+    "caseId": "im-003",
+    "question": "Why did you decide to see a doctor?",
+    "immediate": true,
+    "reason": "chief-complaint",
+    "factIds": [
+      "profile:chiefComplaint"
+    ],
+    "text": "My pharmacist said my blood pressure is too high. I feel fine.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "profile:chiefComplaint": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "im-003",
+    "question": "What happened at the pharmacy?",
+    "immediate": true,
+    "reason": "chief-complaint",
+    "factIds": [
+      "profile:chiefComplaint"
+    ],
+    "text": "My pharmacist said my blood pressure is too high. I feel fine.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "profile:chiefComplaint": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "im-003",
+    "question": "What medications are you taking?",
+    "immediate": true,
+    "reason": "complete-authored-history",
+    "factIds": [
+      "history:draft-current-medication"
+    ],
+    "text": "No regular medicines or supplements.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:draft-current-medication": "clinician-approved"
+    }
+  },
+  {
+    "caseId": "im-003",
+    "question": "Do you smoke?",
+    "immediate": true,
+    "reason": "authored-match",
+    "factIds": [
+      "history:draft-smoking"
+    ],
+    "text": "No tobacco use, now or in the past.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:draft-smoking": "clinician-approved"
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Do you get short of breath lying flat?",
+    "immediate": true,
+    "reason": "authored-concept",
+    "factIds": [
+      "history:orthopnea"
+    ],
+    "text": "Three pillows now.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:orthopnea": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Do you wake up gasping at night?",
+    "immediate": true,
+    "reason": "authored-concept",
+    "factIds": [
+      "history:pnd"
+    ],
+    "text": "Twice a week.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:pnd": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you gained weight?",
+    "immediate": true,
+    "reason": "authored-concept",
+    "factIds": [
+      "history:weight"
+    ],
+    "text": "Up 4 kg in 2 weeks.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:weight": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you ever had a heart attack?",
+    "immediate": true,
+    "reason": "authored-concept",
+    "factIds": [
+      "history:hx"
+    ],
+    "text": "Prior MI 4 years ago.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:hx": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Are your symptoms getting worse?",
+    "immediate": true,
+    "reason": "authored-progression",
+    "factIds": [
+      "history:onset"
+    ],
+    "text": "Progressive over 3 months.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:onset": "existing-authored-facts-not-clinician-validation"
+    }
+  },
+  {
+    "caseId": "peds-002",
+    "question": "What medications is your child taking?",
+    "immediate": true,
+    "reason": "complete-authored-history",
+    "factIds": [
+      "history:draft-current-medication"
+    ],
+    "text": "My child uses a reliever inhaler; we have used it many times with little help, and I cannot recall its name; no other medicines.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:draft-current-medication": "clinician-approved"
+    }
+  },
+  {
+    "caseId": "peds-002",
+    "question": "Does your child have drug allergies?",
+    "immediate": true,
+    "reason": "authored-match",
+    "factIds": [
+      "history:draft-drug-allergies"
+    ],
+    "text": "My child has no known drug allergies.",
+    "passesResponseGuard": true,
+    "reviewRequirements": {
+      "history:draft-drug-allergies": "clinician-approved"
+    }
+  }
+]

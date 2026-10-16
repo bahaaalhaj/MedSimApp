@@ -3,7 +3,7 @@ import { recordRuntimeDiagnostic } from '../runtimeDiagnostics.ts';
 import { canStartPatientText, ConversationState } from './ConversationState';
 import { OrderedAudioQueue, type AudioJob, type PatientAudioState } from './OrderedAudioQueue';
 import { PatientAudioPreferences } from './PatientAudioPreferences';
-import { PatientTextRequestLifecycle } from './PatientTextRequestLifecycle';
+import { PatientTextRequestLifecycle, type PatientTextRequest } from './PatientTextRequestLifecycle';
 import { WebAudioPlayback } from './WebAudioPlayback';
 import { requestPatientText, type PatientTextResponse } from './patientTextRequest';
 import { synthesizePatientAudio, type SynthesizedPatientAudio } from './ttsSynthesis';
@@ -46,6 +46,7 @@ export class Conversation {
   private readonly patientText: PatientTextRequestLifecycle<PatientTextResponse>;
   private readonly audioQueue: OrderedAudioQueue<SynthesizedPatientAudio>;
   private disposed = false;
+  private retryRequest: PatientTextRequest | null = null;
 
   constructor(audioCtx: AudioContext, listeners: ConversationListeners, private readonly options: ConversationOptions) {
     const openingTurnId = `opening-${options.caseId}-${options.caseVersion}`;
@@ -115,6 +116,7 @@ export class Conversation {
   getLastPatientText() { return this.state.getLastPatientText(); }
   getLastAudioError() { return this.state.getLastAudioError(); }
   getLastResponseError() { return this.state.getLastResponseError(); }
+  getRetryQuestion() { return this.state.getStatus() === 'error' ? this.retryRequest?.text ?? '' : ''; }
   getAudioTurnState(turnId: string) { return this.audioQueue.getState(turnId); }
   getAudioQueuePosition(turnId: string) { return this.audioQueue.getQueuePosition(turnId); }
   subscribeMessages(fn: (messages: ReadonlyArray<ConversationMessage>) => void) { return this.state.subscribeMessages(fn); }
@@ -151,10 +153,14 @@ export class Conversation {
     this.state.getListeners().onSubtitle?.({ who: 'you', text: clean });
     this.state.pushMessage({ role: 'user', content: clean });
     this.state.setStatus('preparing', 'Patient is preparing a response…');
+    const previous = this.retryRequest;
+    const request: PatientTextRequest = previous?.text === clean && previous.source === source && previous.questionId === questionId
+      ? previous : { text: clean, source, questionId, requestId: crypto.randomUUID() };
+    this.retryRequest = request;
 
     let result;
     try {
-      result = await this.patientText.run({ text: clean, source, questionId });
+      result = await this.patientText.run(request);
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         this.state.popMessage();
@@ -182,6 +188,7 @@ export class Conversation {
       this.state.getListeners().onError?.(error);
       return false;
     }
+    this.retryRequest = null;
     this.commitPatientResponse(clean, source, questionId, response);
     return true;
   }
@@ -201,6 +208,7 @@ export class Conversation {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.retryRequest = null;
     this.patientText.dispose();
     this.audioQueue.dispose();
     this.playback.dispose();

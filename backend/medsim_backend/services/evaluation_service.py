@@ -14,6 +14,8 @@ from local_llm import LLMProviderError, StructuredRequest, get_local_llm_provide
 
 from ..attempt_store import AttemptStore
 from ..schemas import EvaluationRequest
+from ..diagnostic_logging import log_event
+from ..consultation_management import assess_consultation_management
 from .investigation_service import InvestigationService
 
 
@@ -84,6 +86,9 @@ class EvaluationService:
                 "harmful_ordered": sum(item.get("role") == "harmful" for item in server_orders),
                 "results_released": sum(bool(item.get("released")) for item in server_orders),
             }
+            management_observation = copy.deepcopy({key: attempt.get(key) for key in (
+                'evidenceVersion', 'transcript', 'diagnosisSubmittedAt', 'submittedDiagnosisId', 'orders', 'completionChecks',
+            )})
         evidence = {
             "asked_question_ids": asked_ids, "transcript": copy.deepcopy(attempt["transcript"]), "examinations": copy.deepcopy(attempt["examinations"]),
             "treatments": copy.deepcopy(attempt["treatments"]), "prescriptions": copy.deepcopy(attempt["prescriptions"]),
@@ -101,6 +106,7 @@ class EvaluationService:
         actual_model: str | None = None
         correlation_id = secrets.token_urlsafe(12)
         error_category: str | None = None
+        provider_failure: Exception | None = None
         provider = get_local_llm_provider()
         readiness = None
         try:
@@ -114,16 +120,31 @@ class EvaluationService:
                     if validate_model_evaluation(case, completion.value):
                         model_result = completion.value
                     error_category = None if model_result is not None else "invalid-evaluator-schema"
-        except TimeoutError:
+        except TimeoutError as exc:
+            provider_failure = exc
             error_category = "evaluation-timeout"
         except LLMProviderError as exc:
+            provider_failure = exc
             error_category = exc.category
             actual_model = exc.actual_model
-        except Exception:
+        except Exception as exc:
+            provider_failure = exc
             error_category = "evaluation-unavailable"
         result = normalize_evaluation(case, evidence, server_orders, model_result)
+        result['consultation_management'] = assess_consultation_management(case, investigation_case, management_observation, result)
+        if payload.encounterTiming is not None:
+            # Report the frozen UI counter. It is not server-verified, is not
+            # sent to the model, and cannot change the authoritative scores.
+            elapsed_ms = payload.encounterTiming.finishedAtMs - payload.encounterTiming.startedAtMs
+            result['consultation_timing'] = {
+                'elapsed_ms': elapsed_ms, 'elapsed_minutes': elapsed_ms / 60000,
+                'source': 'client-observed', 'scored': False,
+            }
         if result["generation"].pop("rejected_model_evidence", False) and error_category is None:
             error_category = "ungrounded-evaluator-evidence"
+        if error_category:
+            log_event('evaluation-fallback', request_id=correlation_id, category=error_category,
+                      error=provider_failure, status=getattr(provider_failure, 'status_code', None))
         result["generation"].update({"error_category": error_category, "provider": readiness.provider if readiness else "deterministic", "configured_model": (readiness.model or None) if readiness else None, "actual_model": actual_model, "request_id": correlation_id})
         result["post_submission"] = copy.deepcopy(case.get("postSubmission"))
         if result["post_submission"] is not None:

@@ -1,5 +1,11 @@
 # Grounded patient dialogue
 
+Current default: [case-local semantic interpretation](patient-interpretation.md)
+lets unresolved/incomplete questions consider every safe fact of the active
+patient. The three-candidate-only policy below is historical and remains available
+only with `MEDSIM_SEMANTIC_DIALOGUE_ENABLED=false`. Supplemental history and its
+review state are described in `history-draft-verification.md`.
+
 The initial implementation is described below. The current schema is `1.1.0`;
 see [the focused correction report](patient-correction.md) for scoped missing-history
 responses, compound grounding, attempt-local context and background Kokoro preparation.

@@ -47,9 +47,9 @@ async function loadArtifactTool(): Promise<any> {
     return await import('@oai/artifact-tool');
   } catch (initialError) {
     const userProfile = process.env.USERPROFILE;
-    const runtimeModules = userProfile
+    const runtimeModules = process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES || (userProfile
       ? join(userProfile, '.cache', 'codex-runtimes', 'codex-primary-runtime', 'dependencies', 'node', 'node_modules')
-      : '';
+      : '');
     if (!runtimeModules || !existsSync(runtimeModules)) throw initialError;
     const entry = createRequire(import.meta.url).resolve('@oai/artifact-tool', { paths: [runtimeModules] });
     return import(pathToFileURL(entry).href);
@@ -363,7 +363,8 @@ async function normalizeXlsxContainer(path: string): Promise<void> {
     if (sourcePath && source !== null) unpacked[sourcePath] = encoder.encode(source);
   }
   const reproducibleFiles: Zippable = {};
-  const fixedTimestamp = new Date('1980-01-01T00:00:00.000Z');
+  // ZIP stores local calendar fields; UTC midnight can become 1979 west of UTC.
+  const fixedTimestamp = new Date(1980, 0, 1, 0, 0, 0);
   for (const name of Object.keys(unpacked).sort()) {
     reproducibleFiles[name] = [unpacked[name], { level: 6, mtime: fixedTimestamp }];
   }

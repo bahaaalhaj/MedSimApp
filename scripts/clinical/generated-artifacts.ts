@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CLINICAL_CASES, getServerPatientSource, toSafeCaseSummary } from '../../src/clinical/cases.ts';
 import { POLYCLINIC_CASES } from '../../src/data/polyclinicPatients.ts';
+import historyDrafts from '../../src/clinical/history-drafts.json' with { type: 'json' };
 import {
   CURATED_CASE_IDS,
   CURATED_CASE_IDS_BY_SPECIALTY,
@@ -138,7 +139,16 @@ export function buildLocalAiSemanticPayload() {
           severity: patient.severity,
           chiefComplaint: patient.chiefComplaint,
           arrivalBlurb: patient.arrivalBlurb,
-          history: patient.anamnesis.map(({ id, question, answer, relevant }) => ({ id, question, answer, relevant })),
+          // Supplemental facts are server-only. Do not add them to learner
+          // question buttons, canonical scoring history, or frozen rubrics.
+          history: [
+            ...patient.anamnesis.map(({ id, question, answer, relevant }) => ({ id, question, answer, relevant })),
+            ...historyDrafts.additions.filter((row) => row.caseId === clinicalCase.caseId)
+              .map(({ id, question, answer, relevant, coreHistoryDomain, reviewStatus, origin,
+                clinicianDecision, reviewerName, reviewerId, reviewedAt, reviewEvidence }) =>
+                ({ id, question, answer, relevant, coreHistoryDomain, reviewStatus, origin,
+                  clinicianDecision, reviewerName, reviewerId, reviewedAt, reviewEvidence, scoreable: false, predefined: false })),
+          ],
           variantPolicy: clinicalCase.variantPolicy,
         },
         evaluation: {

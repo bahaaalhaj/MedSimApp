@@ -6,6 +6,16 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '../..');
 const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
+test('Chat keeps a failed question editable with an accessible retry state and synchronous submit lock', () => {
+  const chat = read('src/components/examine/ChatTab.tsx');
+  assert.match(chat, /role="alert"/);
+  assert.match(chat, /setDraft\(text\)/);
+  assert.match(chat, /Your question was restored so you can retry/);
+  assert.match(chat, /Retry question/);
+  assert.match(chat, /sendingRef\.current/);
+  assert.ok(chat.indexOf('sendingRef.current = true') < chat.indexOf("await conversation.sendTextMessage(text, 'typed')"));
+});
+
 test('Examine preserves tab, keyboard, finish, and evidence contracts', () => {
   const overlay = [
     read('src/components/ExamineOverlay.tsx'),

@@ -1,4 +1,5 @@
 import type { ActivePatient, EndConfirmChecks } from './types';
+import { finishConsultationTiming } from './consultationTiming.ts';
 
 export function encounterKey(patient: ActivePatient): string {
   return `${patient.case.id}\u0000${patient.caseVersion}\u0000${patient.variantSeed}`;
@@ -18,7 +19,7 @@ export function hasEncounterActivity(patient: ActivePatient): boolean {
     || patient.submittedDiagnosisId !== null;
 }
 
-export function completeEncounter(patient: ActivePatient, checks: EndConfirmChecks, previousSnapshot: ActivePatient | null): ActivePatient | null {
-  const snapshot = { ...patient, encounterChecks: { ...checks } };
+export function completeEncounter(patient: ActivePatient, checks: EndConfirmChecks, previousSnapshot: ActivePatient | null, endedAt = Date.now()): ActivePatient | null {
+  const snapshot = { ...finishConsultationTiming(patient, endedAt), encounterChecks: { ...checks } };
   return hasEncounterActivity(snapshot) ? snapshot : previousSnapshot;
 }

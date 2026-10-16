@@ -69,7 +69,7 @@ class BackendRouteContractTests(unittest.TestCase):
             "AttemptPrescriptionRequest": {"medicationId", "dose", "duration", "prescribedAt"},
             "AttemptCompletionRequest": {"summaryCompleted", "safetyNettingCompleted", "ideasConcernsExpectationsCompleted"},
             "PatientTurnRequest": {"attemptId", "question", "source", "questionId", "requestId"},
-            "EvaluationRequest": {"attemptId", "caseId", "caseVersion", "variantSeed", "askedQuestionIds", "treatmentIds", "prescriptions", "submittedDiagnosisId", "transcript", "examinations", "completionChecks"},
+            "EvaluationRequest": {"attemptId", "caseId", "caseVersion", "variantSeed", "askedQuestionIds", "treatmentIds", "prescriptions", "submittedDiagnosisId", "transcript", "examinations", "completionChecks", "encounterTiming"},
             "PatientTTSRequestBody": {"text", "attemptId", "caseId", "gender", "isPediatric", "speed", "language", "caseVersion", "isOpeningGreeting", "cacheable", "requestId"},
         }
         self.assertEqual(

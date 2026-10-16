@@ -16,10 +16,13 @@ const bundled = buildSync({
 
 const flush = async () => { for (let index = 0; index < 5; index++) await new Promise<void>((done) => setImmediate(done)); };
 
-function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void> } = {}) {
+function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean } = {}) {
   const transcript: TranscriptRecord[] = [];
   const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
   let ttsFails = options.ttsFails ?? false;
+  let providerFails = options.providerFails ?? false;
+  let truncated = options.truncated ?? false;
+  const authorized: string[] = [];
   const module = { exports: {} as { Conversation: typeof Conversation } };
   runInNewContext(bundled, {
     module, exports: module.exports, crypto, performance, TextDecoder, AbortController,
@@ -30,8 +33,9 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
       calls.push({ url, body });
       if (url === '/agent/patient/stream') {
         await options.delayText;
+        if (providerFails) return new Response(`data: ${JSON.stringify({ error: 'The patient response service timed out. Your question was not answered. Please retry.', category: 'response-timeout', retryable: true })}\n\n`);
         return new Response('data: {"text":"It usually happens during spring."}\n\n'
-          + `data: ${JSON.stringify({ done: true, provenance, actualModel: null })}\n\n`,
+          + (truncated ? '' : `data: ${JSON.stringify({ done: true, provenance, actualModel: null, answerShownToTrainee: body.source === 'predefined' ? 'Spring.' : null, relevantPerCase: true })}\n\n`),
           { headers: { 'Content-Type': 'text/event-stream' } });
       }
       assert.equal(url, '/tts/synthesize');
@@ -56,10 +60,48 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
     initialMessage: { role: 'assistant', content: 'Hello, doctor.' },
     speakerGender: 'F', isPediatric: false, caseId: 'allergy-001', caseVersion: '1',
     ensureAttempt: async () => 'owner-bound-attempt-fixture',
-    onTranscript: (entry) => transcript.push(entry), onAuthorizedAnswer: () => undefined,
+    onTranscript: (entry) => transcript.push(entry), onAuthorizedAnswer: (id) => authorized.push(id),
   });
-  return { conversation, transcript, calls, restoreTts: () => { ttsFails = false; } };
+  return { conversation, transcript, calls, authorized, restoreTts: () => { ttsFails = false; }, restorePatient: () => { providerFails = false; truncated = false; } };
 }
+
+test('provider timeout stays a retryable system error; question and request ID survive without evidence or audio', async () => {
+  const { conversation, transcript, calls, restorePatient } = fixture('openrouter', { providerFails: true });
+  const question = 'Which season is worst?';
+  assert.equal(await conversation.sendTextMessage(question), false);
+  assert.equal(conversation.getStatus(), 'error');
+  assert.equal(conversation.getRetryQuestion(), question);
+  assert.match(conversation.getLastResponseError(), /service timed out.*not answered.*retry/i);
+  assert.equal(conversation.getMessages().length, 1);
+  assert.equal(transcript.length, 0);
+  assert.equal(calls.filter((c) => c.url === '/tts/synthesize').length, 0);
+  restorePatient();
+  await conversation.retryLastResponse();
+  await flush();
+  const requests = calls.filter((c) => c.url === '/agent/patient/stream');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].body.question, question);
+  assert.equal(requests[1].body.requestId, requests[0].body.requestId);
+  assert.equal(transcript.length, 2);
+  assert.equal(conversation.getRetryQuestion(), '');
+  assert.equal(calls.filter((c) => c.url === '/tts/synthesize').length, 1);
+  conversation.dispose();
+});
+
+test('interrupted SSE cannot commit partial text; retry uses the same server replay key and authorizes once', async () => {
+  const { conversation, transcript, calls, authorized, restorePatient } = fixture('deterministic-authored', { truncated: true });
+  assert.equal(await conversation.sendTextMessage('Which season?', 'predefined', 'season'), false);
+  assert.equal(transcript.length, 0);
+  assert.equal(authorized.length, 0);
+  restorePatient();
+  await conversation.retryLastResponse();
+  await flush();
+  const requests = calls.filter((c) => c.url === '/agent/patient/stream');
+  assert.equal(requests[0].body.requestId, requests[1].body.requestId);
+  assert.equal(transcript.length, 2);
+  assert.deepEqual(authorized, ['season']);
+  conversation.dispose();
+});
 
 test('every public provenance commits one answer then synthesizes once through the existing path', async () => {
   for (const provenance of ['deterministic-authored', 'openrouter', 'safe-unknown']) {

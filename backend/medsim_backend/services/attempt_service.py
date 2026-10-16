@@ -12,6 +12,7 @@ from local_ai import SAFE_UNKNOWN_RESPONSE, compose_patient_answer, opening_gree
 from tts import TTSRequest, get_tts_manager
 
 from ..attempt_store import ATTEMPT_TTL_SECONDS, AttemptStore
+from ..diagnostic_logging import log_event
 from ..schemas import (
     AttemptCompletionRequest,
     AttemptDiagnosisRequest,
@@ -69,7 +70,13 @@ class AttemptService:
     def schedule_case_audio(self, local_ai_case: dict[str, Any], profile: dict[str, Any]) -> None:
         task = asyncio.create_task(self.prepare_case_audio(local_ai_case, profile))
         self._tts_prepare_tasks.add(task)
-        task.add_done_callback(self._tts_prepare_tasks.discard)
+        def preparation_finished(completed: asyncio.Task[None]) -> None:
+            self._tts_prepare_tasks.discard(completed)
+            if not completed.cancelled():
+                error = completed.exception()
+                if error is not None:
+                    log_event('tts-preparation-failed', category='tts-preparation-failed', error=error)
+        task.add_done_callback(preparation_finished)
 
     async def create(self, payload: CreateClinicalAttemptRequest, request: Request) -> dict[str, Any]:
         clinical_case = self.investigation_cases.get(payload.caseId)
@@ -139,6 +146,8 @@ class AttemptService:
             existing = attempt.get("submittedDiagnosisId")
             if existing is not None and existing != payload.diagnosisId:
                 raise HTTPException(status_code=409, detail="a diagnosis has already been submitted")
+            if existing is None:
+                attempt['diagnosisSubmittedAt'] = time.time()
             attempt["submittedDiagnosisId"] = payload.diagnosisId
             correct_id = case["evaluation"]["correctDiagnosisId"]
             return {"submittedDiagnosisId": payload.diagnosisId, "correctDiagnosisId": correct_id, "diagnosisWasCorrect": payload.diagnosisId == correct_id}

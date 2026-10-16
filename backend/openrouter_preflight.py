@@ -4,8 +4,10 @@ from __future__ import annotations
 import asyncio
 import json
 
-import server  # Loads backend/.env.local before provider initialization.
-from local_llm import get_local_llm_provider, health_dict
+from medsim_backend.config import load_env_local
+
+load_env_local()  # Must precede the import-time provider singleton.
+from local_llm import get_local_llm_provider, health_dict, settings
 
 
 async def main() -> int:
@@ -17,7 +19,7 @@ async def main() -> int:
         "catalog_context_length": health["catalog_context_length"],
         "supports_structured_outputs": health["supports_structured_outputs"],
         "last_error_category": health["last_error_category"],
-        "local_model_enabled": server.llm_settings().local_llm_enabled,
+        "local_model_enabled": settings().local_llm_enabled,
     }
     print(json.dumps(safe, indent=2))
     return 0 if health["state"] == "ready" else 1

@@ -2,6 +2,7 @@
 // from the owner-bound attempt rather than being serialized by the browser.
 
 import type { ActivePatient, LearnerPatientCase } from '../game/types.ts';
+import { frozenConsultationTiming } from '../game/consultationTiming.ts';
 
 export interface DebriefRequest {
   investigation_attempt_id: string | null;
@@ -9,6 +10,7 @@ export interface DebriefRequest {
   case_version: string;
   variant_seed: string;
   encounter_log: {
+    consultation_timing?: { startedAtMs: number; finishedAtMs: number };
     examinations_performed: Array<{ action_id: string; performed_at: number }>;
     prescriptions: Array<{ medication_id: string; dose: string; duration: string; prescribed_at: number }>;
     submitted_diagnosis_id: string | null;
@@ -25,12 +27,14 @@ export function buildDebriefRequest(
   patient: ActivePatient,
   _endedAt: number = Date.now(),
 ): DebriefRequest {
+  const timing = frozenConsultationTiming(patient);
   return {
     investigation_attempt_id: patient.investigationAttemptId,
     case_id: c.id,
     case_version: patient.caseVersion,
     variant_seed: patient.variantSeed,
     encounter_log: {
+      ...(timing ? { consultation_timing: timing } : {}),
       examinations_performed: patient.examinationActions.map((item) => ({
         action_id: item.actionId,
         performed_at: item.performedAt,

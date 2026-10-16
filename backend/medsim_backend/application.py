@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import asyncio
 import time
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -13,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .config import RuntimeSettings
+from .diagnostic_logging import DiagnosticMiddleware, background_exception_handler, configure_terminal_logging, log_event
 from tts import TTSConfigurationError, get_tts_manager
 
 
@@ -21,23 +23,35 @@ async def lifespan(_app: FastAPI):
     # Import/authentication stay lightweight. Only the post-start background
     # task may load a verified local model; it never downloads missing weights.
     task = None
+    loop = asyncio.get_running_loop()
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(background_exception_handler)
     try:
-        task = get_tts_manager().start_background_preload()
-    except TTSConfigurationError:
-        pass  # Existing health/TTS routes report configuration failures.
-    try:
+        try:
+            task = get_tts_manager().start_background_preload()
+        except TTSConfigurationError as exc:
+            log_event('tts-preload-failed', category='tts-configuration-invalid', error=exc)
+        log_event('backend-started', level=logging.INFO)
         yield
+    except Exception as exc:
+        log_event('backend-lifecycle-failed', level=logging.ERROR, category='application-error', error=exc)
+        raise
     finally:
-        if task is not None and not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+        try:
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        finally:
+            loop.set_exception_handler(previous_handler)
+            log_event('backend-stopped', level=logging.INFO)
 
 
 def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
     """Build the compatibility application without eagerly loading providers."""
+    configure_terminal_logging()
     app = FastAPI(title="MedSim Backend", version="0.2.0", lifespan=lifespan)
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -75,4 +89,6 @@ def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
         allow_headers=["*"],
         allow_credentials=True,
     )
+    # Pure observer outside existing CORS/auth/rate-limit order; no response edits.
+    app.add_middleware(DiagnosticMiddleware)
     return app

@@ -13,12 +13,17 @@ from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from local_ai import SAFE_UNKNOWN_RESPONSE, PatientAnswerMatch, compose_patient_answer, deterministic_patient_match, exact_patient_answer, sanitize_patient_response
-from local_llm import ChatRequest, LLMProviderError, get_local_llm_provider
+from local_llm import ChatRequest, LLMProviderError, get_local_llm_provider, settings as llm_settings
 from patient_memory import ResolvedTurn, TurnPart, compose_fact, derive_memory, grounding_prompt, resolve_turn, retrieve, unavailable_response, validate_grounded
+from patient_interpretation import enabled as semantic_enabled, interpretation_prompt, validate_interpretation
 
 from ..attempt_store import AttemptStore
 from ..schemas import PatientTurnRequest
+from ..diagnostic_logging import log_event
 
+def semantic_timeout_seconds() -> float:
+    configured = llm_settings()
+    return configured.local_interpretation_timeout_seconds if configured.provider == "llama_cpp" else configured.hosted_semantic_timeout_seconds
 
 def sse(value: dict[str, Any]) -> str:
     return "data: " + json.dumps(value, separators=(",", ":")) + "\n\n"
@@ -61,7 +66,9 @@ class PatientDialogueService:
             profile = copy.deepcopy(attempt["patientProfile"])
             memory = derive_memory(case, profile)
             retrieval = retrieve(memory, req.question)
-            resolved = resolve_turn(memory, req.question, None if attempt.get("evaluationResult") or attempt.get("evaluationActive") else attempt.get("dialogueContext"), is_parent=profile["age"] < 14) if req.source == "typed" else None
+            dialogue_context = None if attempt.get("evaluationResult") or attempt.get("evaluationActive") else copy.deepcopy(attempt.get("dialogueContext"))
+            resolved = resolve_turn(memory, req.question, dialogue_context, is_parent=profile["age"] < 14) if req.source == "typed" else None
+            use_semantic = False
             parts: list[dict[str, Any]] = []
             authored_value: str | None = None
             matched_question_id: str | None = None
@@ -87,7 +94,7 @@ class PatientDialogueService:
                     protected = resolved.parts[0].status == "protected"
                     # Guard each clause independently: one withheld value must
                     # never discard another independently supported clause.
-                    resolved = ResolvedTurn(tuple(part if protected or sanitize_patient_response(part.text, case) == part.text
+                    resolved = ResolvedTurn(tuple(part if protected or sanitize_patient_response(part.text, case, authored_response=part.text if len(part.facts) == 1 and part.text == compose_fact(part.facts[0], req.question, is_parent=profile["age"] < 14) else None) == part.text
                         else TurnPart(part.intent, unavailable_response(part.intent, is_parent=profile["age"] < 14), reason="protected-value")
                         for part in resolved.parts))
                     parts = [part.audit() for part in resolved.parts]
@@ -106,7 +113,7 @@ class PatientDialogueService:
                 elif retrieval.immediate and retrieval.candidates:
                     fact = retrieval.candidates[0]
                     text = compose_fact(fact, req.question, is_parent=profile["age"] < 14)
-                    safe_text = sanitize_patient_response(text, case)
+                    safe_text = sanitize_patient_response(text, case, authored_response=text)
                     if safe_text == text:
                         matched_facts = (fact,)
                         deterministic_fallback = PatientAnswerMatch(text, "deterministic-authored", retrieval.confidence,
@@ -126,6 +133,13 @@ class PatientDialogueService:
                     authored_value = deterministic_fallback.authored_value
                     matched_question_id = deterministic_fallback.matched_question_id
                     match_confidence = deterministic_fallback.confidence
+                # Missing or incomplete lexical retrieval is not authoritative
+                # absence: interpret against ALL patient-safe facts of this case.
+                incomplete = not matched_facts or not retrieval.immediate or (resolved is not None and any(part.reason for part in resolved.parts))
+                known_absence = resolved is not None and all(part.intent == 'patient-measurement' and part.reason == 'patient-knowledge-unavailable' for part in resolved.parts)
+                use_semantic = semantic_enabled() and internal_provenance not in {"protected-refusal", "deterministic-fact"} and incomplete and not known_absence
+                if use_semantic:
+                    answer = None
             if attempt["patientRequestActive"]:
                 raise HTTPException(status_code=409, detail="A patient response is already in progress for this encounter.")
             attempt["patientRequestActive"] = True
@@ -136,6 +150,7 @@ class PatientDialogueService:
             actual_model: str | None = None
             attempted_models: list[str] = []
             provider_error_category: str | None = None
+            provider_failure: Exception | None = None
             record_authored_value = authored_value
             record_matched_question_id = matched_question_id
             record_match_confidence = match_confidence
@@ -143,29 +158,79 @@ class PatientDialogueService:
             record_matched_source = deterministic_fallback.matched_source
             record_facts = matched_facts
             record_internal_provenance = internal_provenance
+            record_parts = list(parts)
             validation_result = "deterministic"
             fallback_reason: str | None = ",".join(dict.fromkeys(part["fallbackReason"] for part in parts if part["fallbackReason"])) or None
             provider_latency_ms: float | None = None
+            failure_message = "The patient response service is unavailable. Your question was not answered. Please retry."
+            failure_retryable = True
             try:
                 if answer is not None:
                     response_text = answer
+                elif use_semantic:
+                    started = time.perf_counter()
+                    try:
+                        system = interpretation_prompt(memory, dialogue_context)
+                        provider = get_local_llm_provider()
+                        # The wall-clock budget also includes waiting on the
+                        # shared provider gate. Never chain a second model.
+                        completion = await asyncio.wait_for(provider.complete_chat(ChatRequest(
+                            system=system, messages=[{"role": "user", "content": req.question.strip()}],
+                            max_tokens=200, temperature=0.0, request_id=correlation_id,
+                            task="patient-interpretation")), timeout=semantic_timeout_seconds())
+                        attempted_models = list(completion.attempted_models)
+                        actual_model = completion.actual_model
+                        interpreted = validate_interpretation(completion.text, memory, case, is_parent=profile["age"] < 14)
+                        validation_result = interpreted.reason
+                        if interpreted.turn is None:
+                            raise LLMProviderError("model-unavailable", "The patient response could not be validated. Your question was not answered. Please retry.", True)
+                        else:
+                            turn = interpreted.turn
+                            record_parts = [part.audit() for part in turn.parts]
+                            response_text = turn.text
+                            record_facts = turn.facts
+                            record_authored_value = record_facts[0].authored_value if record_facts else None
+                            record_matched_question_id = record_facts[0].source_question_id if record_facts else None
+                            record_match_confidence = 0.0  # Semantic relevance is not a calibrated probability.
+                            provenance = "openrouter" if record_facts else "safe-unknown"
+                            record_internal_provenance = "openrouter-interpreted" if record_facts else "semantic-clarification" if validation_result == "valid-semantic-clarify" else "semantic-unknown"
+                            record_intent_id = "semantic-history" if record_facts else turn.parts[0].intent
+                            record_matched_source = "authored-history" if record_facts else "safe-unknown"
+                            fallback_reason = "partial-history" if any(part.reason == "partial-history" for part in turn.parts) else None
+                    except Exception as exc:
+                        provider_failure = exc
+                        provider_error_category, _message, failure_retryable = safe_error_category(exc)
+                        if provider_error_category == "response-timeout":
+                            failure_message = "The patient response service timed out. Your question was not answered. Please retry."
+                        elif provider_error_category == "rate-limited":
+                            failure_message = "The patient response service is rate limited. Your question was not answered. Wait before retrying."
+                        fallback_reason = provider_error_category
+                        if validation_result == "deterministic":
+                            validation_result = "semantic-provider-failed"
+                    finally:
+                        provider_latency_ms = round((time.perf_counter() - started) * 1000, 3)
                 else:
                     provider = get_local_llm_provider()
                     # Do not send transcript, whole history, evaluation, or other cases.
                     # Filter even candidate text through the existing leak guard.
                     candidates = tuple(fact for fact in retrieval.candidates
-                        if sanitize_patient_response(compose_fact(fact, req.question, is_parent=profile["age"] < 14), case)
+                        if sanitize_patient_response(compose_fact(fact, req.question, is_parent=profile["age"] < 14), case, authored_response=compose_fact(fact, req.question, is_parent=profile["age"] < 14))
                         == compose_fact(fact, req.question, is_parent=profile["age"] < 14))
                     messages = [{"role": "user", "content": req.question.strip()}]
                     started = time.perf_counter()
                     try:
                         if not candidates:
-                            raise ValueError("no safe candidates")
-                        completion = await provider.complete_chat(ChatRequest(system=grounding_prompt(candidates, req.question, is_parent=profile["age"] < 14), messages=messages, max_tokens=80, temperature=0.1, request_id=correlation_id))
-                        attempted_models = list(completion.attempted_models)
-                        actual_model = completion.actual_model
-                        grounded, selected, validation_result = validate_grounded(completion.text, memory, candidates, req.question, is_parent=profile["age"] < 14)
-                        if grounded is not None and sanitize_patient_response(grounded, case) == grounded:
+                            # No request was needed: this is actual unavailable
+                            # case information, not a failed provider invocation.
+                            response_text = deterministic_fallback.response
+                            provenance = deterministic_fallback.provenance
+                        else:
+                            completion = await provider.complete_chat(ChatRequest(system=grounding_prompt(candidates, req.question, is_parent=profile["age"] < 14), messages=messages, max_tokens=80, temperature=0.1, request_id=correlation_id))
+                            attempted_models = list(completion.attempted_models)
+                            actual_model = completion.actual_model
+                            grounded, selected, validation_result = validate_grounded(completion.text, memory, candidates, req.question, is_parent=profile["age"] < 14)
+                            if grounded is None or sanitize_patient_response(grounded, case, authored_response=compose_fact(selected[0], req.question, is_parent=profile["age"] < 14)) != grounded:
+                                raise LLMProviderError("model-unavailable", "The patient response could not be validated. Please retry.", True)
                             response_text = grounded
                             provenance = "openrouter"
                             record_internal_provenance = "openrouter-grounded"
@@ -175,23 +240,36 @@ class PatientDialogueService:
                             record_match_confidence = retrieval.confidence
                             record_intent_id = "grounded-history"
                             record_matched_source = "authored-history"
-                        else:
-                            response_text = deterministic_fallback.response
-                            provenance = deterministic_fallback.provenance
-                            fallback_reason = validation_result if grounded is None else "protected-output"
                     except Exception as exc:
-                        provider_error_category, _message, _retryable = safe_error_category(exc)
-                        response_text = deterministic_fallback.response
-                        provenance = deterministic_fallback.provenance
-                        record_authored_value = deterministic_fallback.authored_value
-                        record_matched_question_id = deterministic_fallback.matched_question_id
-                        record_match_confidence = deterministic_fallback.confidence
+                        provider_failure = exc
+                        provider_error_category, _message, failure_retryable = safe_error_category(exc)
                         fallback_reason = provider_error_category
                         validation_result = "provider-failed"
                     finally:
                         provider_latency_ms = round((time.perf_counter() - started) * 1000, 3)
+                if provider_error_category:
+                    log_event('patient-response-failed', request_id=correlation_id,
+                              category=provider_error_category, error=provider_failure,
+                              status=getattr(provider_failure, 'status_code', None),
+                              retryable=failure_retryable, latency_ms=provider_latency_ms,
+                              validation=validation_result)
+                    # Operational failures are NOT patient speech or grading
+                    # evidence. Keep a bounded private diagnostic, not a replayed
+                    # clinical answer; the same request ID may be retried safely.
+                    with self.store.lock:
+                        current = self.store.get(request, req.attemptId)
+                        failures = current.setdefault("patientFailures", {})
+                        failures[correlation_id] = {"category": provider_error_category,
+                            "validationResult": validation_result, "providerLatencyMs": provider_latency_ms,
+                            "retryable": failure_retryable}
+                        if len(failures) > 16:
+                            failures.pop(next(iter(failures)))
+                    yield sse({"error": failure_message, "category": provider_error_category,
+                               "retryable": failure_retryable, "correlationId": correlation_id})
+                    return
                 with self.store.lock:
                     current = self.store.get(request, req.attemptId)
+                    current.get("patientFailures", {}).pop(correlation_id, None)
                     current["patientMessages"] = [*current["patientMessages"], {"role": "user", "content": req.question.strip()}, {"role": "assistant", "content": response_text}][-16:]
                     current["patientResponses"][correlation_id] = {
                         "text": response_text, "provenance": provenance, "actualModel": actual_model, "attemptedModels": attempted_models,
@@ -201,10 +279,11 @@ class PatientDialogueService:
                         # Internal only: public SSE retains its existing fields/enums.
                         "internalProvenance": record_internal_provenance,
                         "matchedFactIds": [fact.fact_id for fact in record_facts],
+                        "factReviewRequirements": {fact.fact_id: fact.review_status for fact in record_facts},
                         "caseId": memory.case_id, "caseVersion": memory.case_version,
                         "memorySchemaVersion": memory.schema_version,
                         "validationResult": validation_result, "fallbackReason": fallback_reason,
-                        "parts": parts,
+                        "parts": record_parts,
                         "providerLatencyMs": provider_latency_ms,
                         "answerShownToTrainee": authored_value if req.source == "predefined" else None,
                         "relevantPerCase": bool(history_item.get("relevant")) if history_item is not None else None,
@@ -214,6 +293,8 @@ class PatientDialogueService:
                     # Model selection is dialogue assistance, never scoring authority.
                     # Keep its support ID internally without awarding an authored action.
                     recorded_question_id = req.questionId or (record_matched_question_id if provenance != "openrouter" else None)
+                    if recorded_question_id and any(row["id"] == recorded_question_id and not row.get("scoreable", True) for row in case["patient"]["history"]):
+                        recorded_question_id = None
                     if recorded_question_id and recorded_question_id not in current["askedQuestionIds"]:
                         current["askedQuestionIds"].append(recorded_question_id)
                     if record_facts and not current.get("evaluationResult") and not current.get("evaluationActive"):
@@ -222,14 +303,14 @@ class PatientDialogueService:
                             current["dialogueContext"] = {"caseId": memory.case_id, "caseVersion": memory.case_version,
                                 "factIds": [f.fact_id for f in clinical_facts[:4]],
                                 "domains": sorted({d for f in clinical_facts[:4] for d in f.domains})}
-                    elif resolved is not None:
+                    elif req.source == "typed":
                         current.pop("dialogueContext", None)
                     current["transcript"] = [*current["transcript"], {"role": "trainee", "content": req.question.strip(), "timestampIso": str(time.time()), "questionSource": req.source}, {
                         "role": "patient", "content": response_text, "timestampIso": str(time.time()), "questionSource": None,
                         # Retain audit support with the existing bounded transcript,
                         # even after the shorter response replay cache evicts a turn.
                         "dialogueProvenance": {key: current["patientResponses"][correlation_id][key] for key in (
-                            "internalProvenance", "matchedFactIds", "matchedQuestionId", "authoredValue",
+                            "internalProvenance", "matchedFactIds", "factReviewRequirements", "matchedQuestionId", "authoredValue",
                             "caseId", "caseVersion", "memorySchemaVersion", "actualModel",
                             "providerLatencyMs", "validationResult", "fallbackReason", "matchConfidence", "parts",
                         )},
@@ -241,12 +322,15 @@ class PatientDialogueService:
                     await asyncio.sleep(0)
                 yield sse({"done": True, "correlationId": correlation_id, "provenance": provenance, "actualModel": actual_model, "matchConfidence": record_match_confidence, "intentId": record_intent_id, "matchedSource": record_matched_source, "answerShownToTrainee": authored_value if req.source == "predefined" else None, "relevantPerCase": bool(history_item.get("relevant")) if history_item is not None else None})
             except asyncio.CancelledError:
+                log_event('patient-response-cancelled', level=logging.INFO,
+                          request_id=correlation_id, category='client-disconnected')
                 raise
             except Exception as exc:
                 category, _message, _retryable = safe_error_category(exc)
-                logging.getLogger("medsim.local_ai").warning("patient inference failed: %s", category)
-                yield sse({"text": SAFE_UNKNOWN_RESPONSE, "correlationId": correlation_id})
-                yield sse({"done": True, "correlationId": correlation_id, "provenance": "safe-unknown", "actualModel": None})
+                log_event('patient-response-failed', level=logging.ERROR, request_id=correlation_id,
+                          category=category, error=exc, status=getattr(exc, 'status_code', None), retryable=_retryable)
+                yield sse({"error": "The patient response service is unavailable. Your question was not answered. Please retry.",
+                           "category": category, "retryable": _retryable, "correlationId": correlation_id})
             finally:
                 with self.store.lock:
                     try:

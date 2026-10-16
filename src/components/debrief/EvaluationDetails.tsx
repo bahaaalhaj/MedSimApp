@@ -1,8 +1,10 @@
 import { ActionChips } from './ActionChips';
 import { CriterionCard, type CriterionCitation } from './CriterionCard';
 import { DomainRing } from './DomainRing';
+import { ConsultationManagement } from './ConsultationManagement';
 import type { CaseEvaluationInput, CriterionResult } from '../../agents/evaluationSchema';
 import type { ActivePatient, LearnerPatientCase } from '../../game/types';
+import { elapsedConsultationMs, formatConsultationTime, frozenConsultationTiming } from '../../game/consultationTiming';
 
 interface EvaluationDetailsProps {
   evaluation: CaseEvaluationInput;
@@ -17,8 +19,9 @@ export function EvaluationDetails({ evaluation, patient, c, resolveCitation }: E
   const cmItems = evaluation.criteria.filter((x) => x.domain === 'clinical_management');
   const ipItems = evaluation.criteria.filter((x) => x.domain === 'interpersonal');
   const labelByCriterionId = new Map<string, string>();
-  const elapsedSec = patient.arrivedAt ? Math.round((Date.now() - patient.arrivedAt) / 1000) : 0;
-  const elapsedLabel = `${Math.floor(elapsedSec / 60)} min ${elapsedSec % 60} sec`;
+  const elapsedMs = evaluation.consultation_timing?.elapsed_ms
+    ?? (frozenConsultationTiming(patient) ? elapsedConsultationMs(patient) : null);
+  const elapsedLabel = elapsedMs === null ? 'Duration not recorded' : `${formatConsultationTime(elapsedMs)} min:sec`;
   const postSubmission = evaluation.post_submission;
 
   return (
@@ -32,6 +35,8 @@ export function EvaluationDetails({ evaluation, patient, c, resolveCitation }: E
         </div>
         <div className="chip" style={{ marginTop: 12 }}>{evaluation.generation.mode === 'model-assisted' ? 'Model-assisted feedback' : 'Deterministic evidence grading'}</div>
       </div>
+
+      <ConsultationManagement assessment={evaluation.consultation_management} />
 
       {(dgItems.length + cmItems.length + ipItems.length) > 0 && (
         <div className="plush" style={{ padding: 18, marginBottom: 22 }}>
@@ -94,6 +99,7 @@ export function EvaluationDetails({ evaluation, patient, c, resolveCitation }: E
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>
             {`${elapsedLabel} \u00B7 ${patient.askedQuestionIds.length} history questions \u00B7 ${patient.orderedTestIds.length} tests \u00B7 ${patient.givenTreatmentIds.length} treatments`}
           </div>
+          {elapsedMs !== null && <div style={{ fontSize: 11, color: 'var(--ink-2)', marginTop: 4 }}>No time limit · duration recorded, not scored.</div>}
         </div>
       </div>
     </>

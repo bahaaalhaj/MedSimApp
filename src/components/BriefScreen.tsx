@@ -247,31 +247,18 @@ export function BriefScreen() {
                   textTransform: 'uppercase',
                 }}
               >
-                YOUR TIME
+                CONSULTATION TIME
               </div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--peach-deep)' }}>8:00</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--peach-deep)' }}>No time limit</div>
             </div>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 8,
-                    height: 30,
-                    borderRadius: 4,
-                    background: 'var(--mint)',
-                    border: '2.5px solid var(--line)',
-                  }}
-                />
-              ))}
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>Timer starts when you enter.</div>
           </div>
 
           <button
             type="button"
             className="btn-plush primary breathe"
             style={{ fontSize: 22, padding: '18px 0' }}
-            onClick={() => store.setScreen('encounter')}
+            onClick={() => store.beginPolyclinicConsultation()}
           >
             ✊ Knock and enter
           </button>

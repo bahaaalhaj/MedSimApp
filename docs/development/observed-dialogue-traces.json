@@ -1,0 +1,416 @@
+[
+  {
+    "caseId": "card-003",
+    "question": "What brings you in today?",
+    "before": {
+      "text": "I get short of breath walking to the mailbox and my ankles are swollen.",
+      "factIds": [
+        "profile:chiefComplaint"
+      ],
+      "reason": "chief-complaint",
+      "immediate": true
+    },
+    "after": {
+      "text": "I get short of breath walking to the mailbox and my ankles are swollen.",
+      "factIds": [
+        "profile:chiefComplaint"
+      ],
+      "reason": "chief-complaint",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "How long have you had these symptoms?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [],
+      "reason": "no-safe-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "Progressive over 3 months.",
+      "factIds": [
+        "history:onset"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Do you get short of breath lying flat?",
+    "before": {
+      "text": "Three pillows now.",
+      "factIds": [
+        "history:orthopnea"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    },
+    "after": {
+      "text": "Three pillows now.",
+      "factIds": [
+        "history:orthopnea"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Do you wake up gasping for breath at night?",
+    "before": {
+      "text": "Twice a week.",
+      "factIds": [
+        "history:pnd"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    },
+    "after": {
+      "text": "Twice a week.",
+      "factIds": [
+        "history:pnd"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you noticed any weight gain recently?",
+    "before": {
+      "text": "Up 4 kg in 2 weeks.",
+      "factIds": [
+        "history:weight"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    },
+    "after": {
+      "text": "Up 4 kg in 2 weeks.",
+      "factIds": [
+        "history:weight"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you ever had a heart attack?",
+    "before": {
+      "text": "Prior MI 4 years ago.",
+      "factIds": [
+        "history:hx"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    },
+    "after": {
+      "text": "Prior MI 4 years ago.",
+      "factIds": [
+        "history:hx"
+      ],
+      "reason": "authored-concept",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you travelled recently?",
+    "before": {
+      "text": "No travel.",
+      "factIds": [
+        "history:travel"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "No travel.",
+      "factIds": [
+        "history:travel"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "What brings you in today?",
+    "before": {
+      "text": "A bullseye rash on my leg and joint pain.",
+      "factIds": [
+        "profile:chiefComplaint"
+      ],
+      "reason": "chief-complaint",
+      "immediate": true
+    },
+    "after": {
+      "text": "A bullseye rash on my leg and joint pain.",
+      "factIds": [
+        "profile:chiefComplaint"
+      ],
+      "reason": "chief-complaint",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Have you been camping or travelling recently?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [
+        "history:draft-smoking",
+        "history:draft-family"
+      ],
+      "reason": "ambiguous",
+      "immediate": false
+    },
+    "after": {
+      "text": "Forest camping.",
+      "factIds": [
+        "history:travel"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Did you notice a tick bite?",
+    "before": {
+      "text": "Removed tick 10 days ago.",
+      "factIds": [
+        "history:tick"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "Removed tick 10 days ago.",
+      "factIds": [
+        "history:tick"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "When did you remove the tick?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [
+        "history:tick"
+      ],
+      "reason": "ambiguous",
+      "immediate": false
+    },
+    "after": {
+      "text": "Removed tick 10 days ago.",
+      "factIds": [
+        "history:tick"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Can you describe the rash on your leg?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [
+        "history:rash"
+      ],
+      "reason": "ambiguous",
+      "immediate": false
+    },
+    "after": {
+      "text": "Red ring with clearing center.",
+      "factIds": [
+        "history:rash"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Which joints are painful?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [
+        "history:joints"
+      ],
+      "reason": "ambiguous",
+      "immediate": false
+    },
+    "after": {
+      "text": "Knees ache.",
+      "factIds": [
+        "history:joints"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Have you had a fever?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [
+        "history:fever"
+      ],
+      "reason": "ambiguous",
+      "immediate": false
+    },
+    "after": {
+      "text": "Low-grade.",
+      "factIds": [
+        "history:fever"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Have you had a headache?",
+    "before": {
+      "text": "Mild.",
+      "factIds": [
+        "history:headache"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "Mild.",
+      "factIds": [
+        "history:headache"
+      ],
+      "reason": "authored-match",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Have you noticed any facial weakness?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [],
+      "reason": "no-safe-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "No facial weakness, fainting, or palpitations.",
+      "factIds": [
+        "history:draft-relevant-negative-symptoms"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Have you had palpitations or fainting?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [
+        "history:draft-smoking",
+        "history:draft-family"
+      ],
+      "reason": "ambiguous",
+      "immediate": false
+    },
+    "after": {
+      "text": "No facial weakness, fainting, or palpitations.",
+      "factIds": [
+        "history:draft-relevant-negative-symptoms"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "What medications are you taking?",
+    "before": {
+      "text": "I have taken paracetamol for the aches; no regular medicines or supplements.",
+      "factIds": [
+        "history:draft-current-medication"
+      ],
+      "reason": "complete-authored-history",
+      "immediate": true
+    },
+    "after": {
+      "text": "I have taken paracetamol for the aches; no regular medicines or supplements.",
+      "factIds": [
+        "history:draft-current-medication"
+      ],
+      "reason": "complete-authored-history",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Do you have any drug allergies?",
+    "before": {
+      "text": "No known drug allergies.",
+      "factIds": [
+        "history:draft-drug-allergies"
+      ],
+      "reason": "exact-authored",
+      "immediate": true
+    },
+    "after": {
+      "text": "No known drug allergies.",
+      "factIds": [
+        "history:draft-drug-allergies"
+      ],
+      "reason": "exact-authored",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Does the rash look like a red ring with a clearer centre?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [],
+      "reason": "no-safe-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "Red ring with clearing center.",
+      "factIds": [
+        "history:rash"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  },
+  {
+    "caseId": "id-004",
+    "question": "Are your knees aching?",
+    "before": {
+      "text": "I don't know, doctor.",
+      "factIds": [],
+      "reason": "no-safe-match",
+      "immediate": true
+    },
+    "after": {
+      "text": "Knees ache.",
+      "factIds": [
+        "history:joints"
+      ],
+      "reason": "authored-topic",
+      "immediate": true
+    }
+  }
+]

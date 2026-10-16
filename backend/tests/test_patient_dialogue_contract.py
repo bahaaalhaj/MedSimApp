@@ -35,7 +35,7 @@ class PatientDialogueContractTests(unittest.TestCase):
         self.assertEqual(len(server.LOCAL_AI_CASES), 72)
         for case in server.LOCAL_AI_CASES.values():
             for row in case["patient"]["history"]:
-                self.assertEqual(exact_patient_answer(case, row["id"]), row["answer"])
+                self.assertEqual(exact_patient_answer(case, row["id"]), row["answer"] if row.get("predefined", True) else None)
 
     def test_sse_terminal_order_metadata_and_idempotent_transcript(self):
         body = {"attemptId": self.attempt_id, "source": "predefined", "questionId": "season",

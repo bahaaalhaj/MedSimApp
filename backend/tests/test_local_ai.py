@@ -29,8 +29,9 @@ from local_llm import ChatCompletion, LLMHealth, StructuredCompletion, set_local
 
 
 class FakeProvider:
-    def __init__(self, *, fail=False, malformed=False):
+    def __init__(self, *, fail=False, malformed=False, unknown=False):
         self.fail = fail
+        self.unknown = unknown
         self.malformed = malformed
         self.active = 0
         self.peak = 0
@@ -49,7 +50,7 @@ class FakeProvider:
                 raise RuntimeError("offline")
             await asyncio.sleep(0.01)
             return ChatCompletion(
-                '{"fact_ids":["history:eye"],"text":"Itchy, watery."}',
+                (('{"status":"unknown","fact_ids":[],"partial":false}' if self.unknown else '{"status":"answer","fact_ids":["history:eye"],"partial":false}') if getattr(request, 'task', '') == 'patient-interpretation' else '{"fact_ids":["history:eye"],"text":"Itchy, watery."}'),
                 "fixture/actual:free", request.request_id, 0, ("fixture/actual:free",),
             )
         finally:
@@ -262,15 +263,16 @@ class LocalAIEndpoints(unittest.TestCase):
         })
         self.assertEqual(bad_role.status_code, 422)
 
-    def test_unavailable_models_return_authored_or_safe_unknown_text(self):
+    def test_unavailable_models_keep_authored_answers_but_surface_provider_errors(self):
         set_local_llm_provider_for_tests(FakeProvider(fail=True))
         authored = self.patient(question="What season is worst?", source="typed", questionId=None)
         self.assertIn("It usually happens during spring", authored.text)
         self.assertIn('"provenance":"deterministic-authored"', authored.text)
         unknown = self.patient(question="What operation did you have in 2019?", source="typed", questionId=None, requestId="unknown-request-12345")
         unknown_frames = [json.loads(frame[6:]) for frame in unknown.text.strip().split("\n\n")]
-        self.assertIn("not documented", "".join(frame.get("text", "") for frame in unknown_frames))
-        self.assertIn('"provenance":"safe-unknown"', unknown.text)
+        self.assertEqual("".join(frame.get("text", "") for frame in unknown_frames),'')
+        self.assertIn('error',unknown_frames[-1])
+        self.assertTrue(unknown_frames[-1]['retryable'])
         self.assertNotIn("Traceback", unknown.text)
 
     def test_authored_matcher_is_confident_and_never_leaks_diagnosis(self):
@@ -324,13 +326,15 @@ class LocalAIEndpoints(unittest.TestCase):
         self.assertIn('"provenance":"safe-unknown"', response.text)
         self.assertEqual(self.provider.patient_calls, 0)
 
-    def test_clearly_unavailable_domain_skips_hosted_provider(self):
+    def test_unavailable_domain_can_be_verified_semantically(self):
+        unknown = FakeProvider(unknown=True)
+        set_local_llm_provider_for_tests(unknown)
         response = self.patient(
             question="What operation did you have in 2019?",
             source="typed", questionId=None, requestId="unknown-domain-12345",
         )
         self.assertIn('"provenance":"safe-unknown"', response.text)
-        self.assertEqual(self.provider.patient_calls, 0)
+        self.assertEqual(unknown.patient_calls, 1)
 
     def test_malformed_unknown_evaluator_output_falls_back(self):
         set_local_llm_provider_for_tests(FakeProvider(malformed=True))

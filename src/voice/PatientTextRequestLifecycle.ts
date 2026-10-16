@@ -2,6 +2,7 @@ export type PatientTextRequest = {
   text: string;
   source: 'typed' | 'predefined';
   questionId?: string;
+  requestId?: string;
 };
 
 export type PatientTextRequestResult<T> =

@@ -29,9 +29,12 @@ test('hosted defaults reject paid and dynamic-router model selection', () => {
   const example = read('backend/.env.example');
   assert.match(provider, /nex-agi\/nex-n2\.5-mini:free/);
   assert.match(provider, /nex-agi\/nex-n2\.5-pro:free/);
+  assert.match(provider, /google\/gemma-4-26b-a4b-it:free/);
+  assert.match(provider, /nvidia\/nemotron-3\.5-super-vl:free/);
   assert.doesNotMatch(example, /OPENROUTER_MODEL=openrouter\/(?:free|auto)/);
   assert.match(example, /OPENROUTER_ALLOW_PAID_MODELS=false/);
-  assert.match(example, /OPENROUTER_FALLBACK_MODELS=nex-agi\/nex-n2\.5-pro:free/);
+  assert.match(example, /^OPENROUTER_MODEL=nvidia\/nemotron-3\.5-super-vl:free$/m);
+  assert.match(example, /^OPENROUTER_FALLBACK_MODELS=$/m);
   assert.match(example, /OPENROUTER_PRO_FALLBACK_ENABLED=false/);
   assert.match(example, /OPENROUTER_TIMEOUT_SECONDS=7/);
   assert.match(example, /MEDSIM_LOCAL_LLM_ENABLED=false/);

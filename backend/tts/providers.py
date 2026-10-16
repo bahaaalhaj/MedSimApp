@@ -14,6 +14,8 @@ from collections import OrderedDict
 from dataclasses import dataclass, replace
 from typing import Any
 
+from medsim_backend.diagnostic_logging import log_event
+
 from .audio_cache import PersistentAudioCache
 from .kokoro_cache import enable_verified_offline_cache, inspect_kokoro_cache, kokoro_cache_revision
 
@@ -410,6 +412,7 @@ class TTSManager:
         if not cache.ready:
             self._state = "failed"
             self._error_category = cache.state
+            log_event('tts-preload-failed', category=cache.state)
             return None
         self._state = "loading"
         self._preload_task = asyncio.create_task(self._preload_kokoro())
@@ -428,6 +431,7 @@ class TTSManager:
             status = await asyncio.to_thread(inspect_kokoro_cache, self.settings.model_cache_dir)
             if not status.ready:
                 self._state, self._error_category = "failed", status.state
+                log_event('tts-preload-failed', category=status.state)
                 return
             preload = self.start_preload()
             if preload is not None:
@@ -439,9 +443,9 @@ class TTSManager:
             if self._preload_task is not None and not self._preload_task.done():
                 await self._preload_task
             raise
-        except Exception:
+        except Exception as exc:
             self._error_category = "tts-preparation-failed"
-            logging.getLogger("medsim.tts").warning("Background voice preparation failed; text remains available.")
+            log_event('tts-preparation-failed', category='tts-preparation-failed', error=exc)
 
     async def _prepare_common_templates(self) -> None:
         # Patient-independent templates only, all four existing voices, bounded
@@ -465,7 +469,8 @@ class TTSManager:
                     await asyncio.sleep(0.05)
                 try:
                     await self._prepare_template(replace(request, text=text))
-                except (TTSProviderError, TTSConfigurationError):
+                except (TTSProviderError, TTSConfigurationError) as exc:
+                    log_event('tts-preparation-failed', category='tts-preparation-failed', error=exc)
                     return
 
     async def _prepare_template(self, request: TTSRequest) -> None:
@@ -488,8 +493,8 @@ class TTSManager:
             self._remember(key, result)
             try:
                 await asyncio.to_thread(self._persistent_cache.put, metadata, result.audio)
-            except (OSError, ValueError):
-                pass
+            except (OSError, ValueError) as exc:
+                log_event('tts-cache-write-failed', category='tts-cache-write-failed', error=exc)
             return result
 
         task = asyncio.create_task(prepare())
@@ -507,9 +512,10 @@ class TTSManager:
                 await provider.warm_up()
             self._state = "ready"
             self._error_category = None
-        except Exception:
+        except Exception as exc:
             self._state = "failed"
             self._error_category = "tts-initialization-failed"
+            log_event('tts-preload-failed', category='tts-initialization-failed', error=exc)
 
     def _cache_key(self, request: TTSRequest, provider: PatientTTSProvider) -> tuple[str, str, str, float, str] | None:
         if not (request.is_opening_greeting or request.cacheable) or not request.case_version or not isinstance(provider, KokoroTTSProvider):
@@ -566,10 +572,10 @@ class TTSManager:
                     if isinstance(provider, KokoroTTSProvider):
                         try:
                             await asyncio.to_thread(self._persistent_cache.put, self._persistent_metadata(request, provider), result.audio)
-                        except (OSError, ValueError):
+                        except (OSError, ValueError) as exc:
                             # Persistent caching is optional; do not discard a
                             # successful live response if persistence fails.
-                            pass
+                            log_event('tts-cache-write-failed', category='tts-cache-write-failed', error=exc)
                 return result
             finally:
                 self._synthesis_slot.release()
@@ -609,8 +615,9 @@ class TTSManager:
                         completed.exception()  # retrieve background failures after client cancellation
                 task.add_done_callback(clear_inflight)
             return await asyncio.shield(task)
-        except TTSProviderError:
+        except TTSProviderError as exc:
             if self.settings.fallback == "kokoro" and self.settings.provider != "kokoro":
+                log_event('tts-fallback', category='tts-fallback', error=exc)
                 if self._fallback_provider is None:
                     with self._lock:
                         if self._fallback_provider is None:
@@ -625,7 +632,8 @@ class TTSManager:
                 await self.synthesize(replace(request, cacheable=True, request_id=""))
             except asyncio.CancelledError:
                 raise
-            except (TTSConfigurationError, TTSProviderError):
+            except (TTSConfigurationError, TTSProviderError) as exc:
+                log_event('tts-preparation-failed', category='tts-preparation-failed', error=exc)
                 return
 
 

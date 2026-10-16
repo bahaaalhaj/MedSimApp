@@ -21,6 +21,7 @@ import { ExamineOverlay } from './ExamineOverlay';
 import { DockedPatientAudioPanel } from './DockedPatientAudioPanel';
 import { CompletionGate } from '../game/CompletionGate';
 import { isEditableShortcutTarget, isExamineShortcut } from './encounter/examineShortcut';
+import { ConsultationTimer } from './encounter/ConsultationTimer';
 
 /** Adaptive FOV: keeps the horizontal FOV near 82° regardless of viewport
  *  aspect, plus a hold-Z (or scroll wheel) "lean in" zoom. */
@@ -293,6 +294,7 @@ export function EncounterScreen() {
   return (
     <div className="screen" style={{ background: 'var(--cream)', position: 'relative' }}>
       <TopBar here={4} steps={['Polyclinic', 'GP', 'Case', 'Brief', 'Encounter']} />
+      {patient && <ConsultationTimer timing={patient} />}
 
       <div
         style={{

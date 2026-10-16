@@ -20,7 +20,10 @@ def core_history(case: dict, memory) -> dict:
     history = {row["id"]: row for row in case["patient"]["history"]}
     result = {}
     for domain in CORE_HISTORY:
-        if domain == "current-medication":
+        draft = [f for f in authored if f.core_history_domain == domain]
+        if draft:
+            facts = draft
+        elif domain == "current-medication":
             # A specific NSAID/supplement question is not a complete drug list.
             facts = [f for f in authored if "medication" in f.domains and re.search(r"\b(?:medications?|meds|medicines?|tablets)\b", f.question, re.I)]
         elif domain == "drug-allergies":
@@ -36,10 +39,14 @@ def core_history(case: dict, memory) -> dict:
             facts = [f for f in authored if domain in f.domains]
         partial = [f for f in authored if "medication" in f.domains] if domain == "current-medication" and not facts else []
         supported = facts or partial
+        # Explicit supplemental domains retain their actual review status.
+        # Unknown/mixed states must never be silently promoted to approval.
+        review = ("clinician-approved" if draft and all(f.review_status == "clinician-approved" for f in draft)
+                  else "requires-clinical-review" if draft or not facts else "existing-authored-facts-not-clinician-validation")
         result[domain] = {"status": supported[0].status.value if supported else "not-documented",
                           "factIds": [f.fact_id for f in supported],
                           "coverage": "explicit-authored-statement" if facts else "partial-scoped-history" if partial else "not-documented-or-unmapped",
-                          "reviewRequirement": "existing-authored-facts-not-clinician-validation" if facts else "requires-clinical-review"}
+                          "reviewRequirement": review}
     return result
 
 
@@ -54,7 +61,7 @@ def coverage_report() -> dict:
         for fact in memory.facts:
             if fact.source_question_id and fact.allowed_for_patient_dialogue:
                 response = compose_fact(fact, fact.question, is_parent=case["patient"]["age"] < 14)
-                if sanitize_patient_response(response, case) != response:
+                if sanitize_patient_response(response, case, authored_response=response) != response:
                     withheld.append(fact.source_question_id)
         available = sorted({domain for fact in memory.facts if fact.allowed_for_patient_dialogue for domain in fact.domains})
         cases.append({
@@ -69,10 +76,11 @@ def coverage_report() -> dict:
             "coreHistory": core_history(case, memory),
             "authoredAnswerAudit": [{"factId": f.fact_id, "question": f.question, "domains": list(f.domains),
                                      "status": f.status.value, "sourceField": f.source_case_field,
-                                     "mappingReview": "requires-clinical-review" if not f.domains else "question-label-derived"}
+                                     "mappingReview": "explicit-draft-domain" if f.core_history_domain else "requires-clinical-review" if not f.domains else "question-label-derived",
+                                     "reviewStatus": f.review_status}
                                     for f in memory.facts if f.source_question_id],
             "sourceMappings": [{"factId": f.fact_id, "sourceField": f.source_case_field,
-                                "state": f.status.value, "allowed": f.allowed_for_patient_dialogue}
+                                "state": f.status.value, "allowed": f.allowed_for_patient_dialogue, "reviewStatus": f.review_status}
                                for f in memory.facts if f.status != FactState.UNDOCUMENTED],
         })
     semantic = json.dumps(list(LOCAL_AI_CASES.values()), sort_keys=True, separators=(",", ":"))
@@ -86,9 +94,13 @@ def coverage_report() -> dict:
         "authoredQuestionCount": sum(c["authoredQuestionCount"] for c in cases),
         "typedResponseGuardWithheldCount": sum(len(c["typedResponseGuardWithheldQuestionIds"]) for c in cases),
         "coreHistoryContract": list(CORE_HISTORY),
-        "coreHistoryGapCount": sum(item["reviewRequirement"] == "requires-clinical-review" for c in cases for item in c["coreHistory"].values()),
-        "coreHistoryGapCounts": {domain: sum(c["coreHistory"][domain]["reviewRequirement"] == "requires-clinical-review" for c in cases) for domain in CORE_HISTORY},
-        "canonicalAudit": "src/clinical/cases.ts constructs history from legacy anamnesis; generated patient history retains all 435 authored answers. Patient projection fields audited: displayName, age, gender, severity, chiefComplaint, arrivalBlurb, history, variantPolicy. Canonical chronology/presentingComplaint derive from chiefComplaint/arrivalBlurb; pertinentNegatives/riskModifiers derive from history. Management expectations, rubric/differential negatives, vitals, examinations and investigation results are not a source of current patient self-history.",
+        "coreHistoryGapCount": sum(item["coverage"] != "explicit-authored-statement" for c in cases for item in c["coreHistory"].values()),
+        "coreHistoryGapCounts": {domain: sum(c["coreHistory"][domain]["coverage"] != "explicit-authored-statement" for c in cases) for domain in CORE_HISTORY},
+        "pendingClinicalReviewCount": sum(f.review_status != "clinician-approved" if f.core_history_domain else f.review_status == "requires-clinical-review"
+                                          for case in LOCAL_AI_CASES.values() for f in derive_memory(case).facts if f.source_question_id),
+        "approvedClinicalReviewCount": sum(f.review_status == "clinician-approved" for case in LOCAL_AI_CASES.values()
+                                           for f in derive_memory(case).facts if f.source_question_id and f.core_history_domain),
+        "canonicalAudit": "435 original history answers plus 446 supplemental synthetic additions from src/clinical/history-drafts.json. Review status records project-owner-reported clinician approval; it is not independently verified or an approval of the complete cases/guidelines. Additions enter only the server manifest and remain non-scoreable; original canonical history, learner questions and scoring are unchanged. Coverage and clinical review status are independent. Hidden management, differential negatives, vitals and test results are not sources of patient self-history.",
         "stateCounts": {state.value: totals[state.value] for state in FactState},
         "note": "Counts describe explicit authored values, not medical verification. Protected counts are excluded field markers, never copied answer keys. Missing domains are not negative findings.",
         "cases": cases,
@@ -104,9 +116,11 @@ def main() -> None:
     if args.validate_core_history:
         report = coverage_report()
         print(json.dumps({"caseCount": report["caseCount"], "authoredQuestionCount": report["authoredQuestionCount"],
-                          "gapCounts": report["coreHistoryGapCounts"], "reviewRequirement": "requires-clinical-review",
-                          "gaps": {c["caseId"]: [d for d, v in c["coreHistory"].items() if v["reviewRequirement"] == "requires-clinical-review"] for c in report["cases"]}}, indent=2))
-        raise SystemExit(2 if report["coreHistoryGapCount"] else 0)
+                          "gapCounts": report["coreHistoryGapCounts"], "reviewRequirement": "requires-clinical-review" if report["coreHistoryGapCount"] or report["pendingClinicalReviewCount"] else "supplemental-review-complete",
+                          "pendingClinicalReviewCount": report["pendingClinicalReviewCount"],
+                          "approvedClinicalReviewCount": report["approvedClinicalReviewCount"],
+                          "gaps": {c["caseId"]: [d for d, v in c["coreHistory"].items() if v["coverage"] != "explicit-authored-statement"] for c in report["cases"]}}, indent=2))
+        raise SystemExit(2 if report["coreHistoryGapCount"] or report["pendingClinicalReviewCount"] else 0)
     text = json.dumps(coverage_report(), indent=2, ensure_ascii=True) + "\n"
     if args.output:
         # Reports can never be placed under a browser delivery directory.

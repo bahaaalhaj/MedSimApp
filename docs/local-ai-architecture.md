@@ -4,7 +4,7 @@
 
 MedSim defaults to a backend-only OpenRouter provider and keeps local llama.cpp as an explicit offline option. OpenRouter receives only synthetic patient-safe facts or bounded learner evidence; it never receives browser credentials, unrelated case-bank data, internal paths, or real patient data. Kokoro remains local and patient text remains authoritative.
 
-The OpenRouter catalogue was checked on 2026-09-15 through `/api/v1/models`. No Qwen-branded model ID ending in `:free` was available. A focused live comparison selected `nex-agi/nex-n2.5-mini:free` as primary and `nex-agi/nex-n2.5-pro:free` as the only fallback. These are configuration observations, not clinical or educational approval, and free availability can change.
+The historical 2026-09-15 configuration selected Nex Mini/Pro; those IDs were absent from the catalogue on 2026-10-16. The requested `google/gemma-4-26b-a4b-it` ID exists but is paid. Its separate `:free` variant was verified at zero prompt/completion prices, but live patient requests encountered upstream Google AI Studio rate limits. The current explicit primary is `nvidia/nemotron-3.5-super-vl:free`, also catalogue-verified at zero prices, with optional reasoning and structured outputs. Actual authenticated inference returned zero cost and zero reasoning tokens, but this does not prove reliable live dialogue under the existing deadline. See `development/openrouter-hosted-validation.md` for measured results. There is no configured fallback or automatic model chain. These are runtime observations, not clinical approval or a guarantee of future availability.
 
 Free availability varies. OpenRouter documents 50 free-model requests per day for accounts with less than 10 purchased credits and 1,000 per day after that threshold. Internet connectivity and provider capacity are required. Configure the API key's lowest available spending limit and model allowlist in the OpenRouter dashboard even though MedSim also enforces `:free`.
 
@@ -22,14 +22,16 @@ One patient request may be active per attempt. Completed patient requests are id
 MEDSIM_LLM_PROVIDER=openrouter
 OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_MODEL=nex-agi/nex-n2.5-mini:free
-OPENROUTER_FALLBACK_MODELS=nex-agi/nex-n2.5-pro:free
+OPENROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free
+OPENROUTER_FALLBACK_MODELS=
 OPENROUTER_PRO_FALLBACK_ENABLED=false
 OPENROUTER_TIMEOUT_SECONDS=7
 OPENROUTER_PATIENT_TIMEOUT_SECONDS=3
+OPENROUTER_SEMANTIC_TIMEOUT_SECONDS=3.2
 OPENROUTER_MAX_RETRIES=0
 OPENROUTER_ALLOW_PAID_MODELS=false
 MEDSIM_LOCAL_LLM_ENABLED=false
+MEDSIM_SEMANTIC_DIALOGUE_ENABLED=true
 
 # Optional offline settings
 MEDSIM_LLM_BASE_URL=http://127.0.0.1:8080/v1
@@ -43,7 +45,11 @@ MEDSIM_LLM_GPU_OFFLOAD=auto
 MEDSIM_LLM_EVALUATION_MODE=hybrid
 ```
 
-The hosted URL is restricted to HTTPS on `openrouter.ai`. High-confidence authored, predefined, protected, and clearly unavailable questions return before inference. Ambiguous typed questions use `reasoning.effort=none`, temperature 0.1, an 80-token ceiling, and one Mini request capped by `OPENROUTER_PATIENT_TIMEOUT_SECONDS` at 3 seconds. The separate general timeout is used by optional evaluator enrichment. Pro remains a valid explicit primary model but is disabled by default and never chained after Mini.
+The hosted URL is restricted to HTTPS on `openrouter.ai`. Deterministic predefined, protected, identity and fully resolved answers remain immediate. Semantic interpretation selects IDs from active-patient facts, uses temperature 0 and 200 output tokens, and is validated before the server composes authored replies. The legacy limited-candidate path retains its 80-token request. All hosted patient requests keep `reasoning.effort=none`. The selected configuration remains a 3-second inner hosted deadline and a 3.2-second outer semantic deadline including the shared inference gate. Controlled 3.2/5/8-second experiments paired inner deadlines of 3/4.8/7.8 seconds; configuration validation requires 0.2 seconds of headroom and caps the outer budget at 8 seconds. The separate 7-second general timeout belongs to optional evaluator enrichment, not patient dialogue. Local interpretation retains its separate configurable budget. See [hosted dialogue reliability](development/hosted-dialogue-reliability.md) for measurements, limitations, and commands.
+
+Provider failures and invalid model selections emit the existing SSE error event, not clinical uncertainty. They do not commit dialogue context, transcript, scoring evidence, or audio. Chat restores the failed question with an accessible retry state; an unchanged manual retry retains its request ID so a lost terminal event can replay the server's cached success without a second clinical turn. Validated unavailable patient information still produces a normal clinical uncertainty answer. Hosted evaluator compatibility remains **unverified**; deterministic evaluation fallback is unchanged.
+
+The allowlist retains the legacy Nex IDs for compatibility and adds the two individually verified free IDs; other models and dynamic routers remain rejected. Health verifies current zero prompt/completion prices and rejects mandatory reasoning. Requests additionally cap prompt, completion and per-request prices at zero, require parameter support and disable provider fallback. Legacy fallback environment fields cannot cause a second model request. JSON mode (`response_format`) alone is not reported as native strict-schema support; `structured_outputs` must be advertised.
 
 ## Commands
 
@@ -51,8 +57,8 @@ The hosted URL is restricted to HTTPS on `openrouter.ai`. High-confidence author
 # Hosted catalogue readiness; no completion request
 powershell -ExecutionPolicy Bypass -File scripts/check-openrouter.ps1
 
-# Default hosted backend and frontend
-backend/.venv/Scripts/python.exe backend/server.py
+# Hosted backend: load existing private configuration BEFORE singleton imports.
+backend/.venv/Scripts/python.exe -c "import sys; sys.path.insert(0, 'backend'); from medsim_backend.config import load_env_local; load_env_local(); import server, uvicorn; uvicorn.run(server.app, host='127.0.0.1', port=8787)"
 npm run dev
 
 # Optional offline preflight and explicit 1.7B opt-in

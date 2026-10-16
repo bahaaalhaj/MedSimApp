@@ -130,7 +130,8 @@ function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): 
     givenTreatmentIds: [],
     submittedDiagnosisId: null,
     arrivedAt: now,
-    deadlineMs: now + 8 * 60 * 1000,
+    consultationStartedAt: now,
+    consultationFinishedAt: null,
     caseVersion: getCaseVersion(c.id),
     rubricVersion: getRubricVersion(c.id),
     variantSeed,
@@ -261,6 +262,15 @@ class Store {
       polyclinic: { ...this.state.polyclinic, patient: toActivePatient(c) },
     });
     void this.initializeInvestigationAttempt();
+  };
+
+  /** Start the count-up on the explicit entry gesture; returning does not reset it. */
+  beginPolyclinicConsultation = () => {
+    const current = this.state.polyclinic.patient;
+    if (!current || current.case.id !== this.state.selectedCaseId) {
+      this.loadPolyclinicPatient(this.state.selectedCaseId);
+    }
+    this.set({ screen: 'encounter' });
   };
 
   /** Clear the patient — triggers the walk-out animation in the 3D scene.

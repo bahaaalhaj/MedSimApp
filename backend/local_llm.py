@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import shutil
+import ssl
 import subprocess
 from dataclasses import asdict, dataclass
 from functools import lru_cache
@@ -28,6 +29,7 @@ class ChatRequest:
     max_tokens: int
     temperature: float = 0.2
     request_id: str = ""
+    task: str = "patient-answer"
 
 
 @dataclass(frozen=True)
@@ -101,6 +103,7 @@ class LocalLLMSettings:
     thinking: bool = False
     timeout_seconds: float = 7.0
     patient_timeout_seconds: float = 3.0
+    hosted_semantic_timeout_seconds: float = 3.2
     gpu_offload: str = "not-applicable"
     model_path: str = ""
     evaluation_mode: str = "hybrid"
@@ -110,6 +113,7 @@ class LocalLLMSettings:
     max_retries: int = 1
     allow_paid_models: bool = False
     local_llm_enabled: bool = False
+    local_interpretation_timeout_seconds: float = 12.0
 
     @classmethod
     def from_env(cls) -> "LocalLLMSettings":
@@ -123,6 +127,7 @@ class LocalLLMSettings:
                 patient_model=os.environ.get("OPENROUTER_MODEL", "").strip(),
                 timeout_seconds=float(os.environ.get("OPENROUTER_TIMEOUT_SECONDS", "7")),
                 patient_timeout_seconds=float(os.environ.get("OPENROUTER_PATIENT_TIMEOUT_SECONDS", "3")),
+                hosted_semantic_timeout_seconds=float(os.environ.get("OPENROUTER_SEMANTIC_TIMEOUT_SECONDS", "3.2")),
                 api_key=os.environ.get("OPENROUTER_API_KEY", "").strip(),
                 fallback_models=tuple(item.strip() for item in os.environ.get("OPENROUTER_FALLBACK_MODELS", "").split(",") if item.strip()),
                 enable_pro_fallback=os.environ.get("OPENROUTER_PRO_FALLBACK_ENABLED", "false").lower() in truthy,
@@ -139,6 +144,7 @@ class LocalLLMSettings:
                 max_concurrency=int(os.environ.get("MEDSIM_LLM_MAX_CONCURRENCY", "1")),
                 thinking=os.environ.get("MEDSIM_LLM_THINKING", "false").lower() in truthy,
                 timeout_seconds=float(os.environ.get("MEDSIM_LLM_TIMEOUT_SECONDS", "60")),
+                local_interpretation_timeout_seconds=float(os.environ.get("MEDSIM_LOCAL_INTERPRETATION_TIMEOUT_SECONDS", "12")),
                 gpu_offload=os.environ.get("MEDSIM_LLM_GPU_OFFLOAD", "auto").strip(),
                 model_path=os.environ.get("MEDSIM_LLM_MODEL_PATH", "").strip(),
                 evaluation_mode=os.environ.get("MEDSIM_LLM_EVALUATION_MODE", "hybrid").strip(),
@@ -157,9 +163,10 @@ class LocalLLMSettings:
             if self.allow_paid_models:
                 raise ValueError("Paid OpenRouter models are not permitted")
             candidates = ((self.patient_model,) if self.patient_model else ()) + self.fallback_models
-            allowed = {"nex-agi/nex-n2.5-mini:free", "nex-agi/nex-n2.5-pro:free"}
+            allowed = {"nex-agi/nex-n2.5-mini:free", "nex-agi/nex-n2.5-pro:free",
+                       "google/gemma-4-26b-a4b-it:free", "nvidia/nemotron-3.5-super-vl:free"}
             if any(item not in allowed for item in candidates):
-                raise ValueError("OpenRouter models must be one of the two approved specific Nex :free IDs")
+                raise ValueError("OpenRouter models must be approved explicit free IDs")
             if len(self.fallback_models) > 1 or len(set(candidates)) != len(candidates):
                 raise ValueError("Configure at most one distinct approved fallback model")
             if not 0 <= self.max_retries <= 4:
@@ -172,8 +179,12 @@ class LocalLLMSettings:
             raise ValueError("MEDSIM_LLM_MAX_CONCURRENCY must be 1")
         if not 5 <= self.timeout_seconds <= 300:
             raise ValueError("LLM timeout must be between 5 and 300 seconds")
-        if not 0.5 <= self.patient_timeout_seconds <= 3:
-            raise ValueError("OPENROUTER_PATIENT_TIMEOUT_SECONDS must be between 0.5 and 3 seconds")
+        if not 1 <= self.hosted_semantic_timeout_seconds <= 8:
+            raise ValueError("OPENROUTER_SEMANTIC_TIMEOUT_SECONDS must be finite and between 1 and 8 seconds")
+        if not 0.5 <= self.patient_timeout_seconds <= self.hosted_semantic_timeout_seconds - 0.2:
+            raise ValueError("OPENROUTER_PATIENT_TIMEOUT_SECONDS must be at least 0.5 seconds and leave 0.2 seconds within the total semantic deadline")
+        if not 1 <= self.local_interpretation_timeout_seconds <= 30:
+            raise ValueError("MEDSIM_LOCAL_INTERPRETATION_TIMEOUT_SECONDS must be between 1 and 30 seconds")
         if self.evaluation_mode not in {"hybrid", "hybrid-local"}:
             raise ValueError("evaluation mode must be hybrid")
 
@@ -231,6 +242,20 @@ class OpenRouterLLMProvider:
         self.settings = settings
         self._transport = transport
         self._last_error_category: str | None = None
+        self._ssl_context: ssl.SSLContext | None = None
+        self._ssl_environment: tuple[str | None, str | None] | None = None
+
+    def _client(self, timeout: float) -> httpx.AsyncClient:
+        if self._transport is not None:
+            return httpx.AsyncClient(timeout=timeout, transport=self._transport)
+        # Reuse only verified TLS configuration, never an event-loop-bound client.
+        # Rebuilding CA stores on every turn consumed ~1 second of the 3s budget
+        # on the affected machine. Keep cold setup within the existing deadline.
+        environment = (os.environ.get("SSL_CERT_FILE"), os.environ.get("SSL_CERT_DIR"))
+        if self._ssl_context is None or environment != self._ssl_environment:
+            self._ssl_context = httpx.create_ssl_context()
+            self._ssl_environment = environment
+        return httpx.AsyncClient(timeout=timeout, verify=self._ssl_context)
 
     def _headers(self, request_id: str = "") -> dict[str, str]:
         headers = {"Authorization": f"Bearer {self.settings.api_key}", "Content-Type": "application/json", "X-Title": "MedSim"}
@@ -241,7 +266,7 @@ class OpenRouterLLMProvider:
     async def _catalogue(self) -> list[dict[str, Any]]:
         for attempt in range(self.settings.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=min(self.settings.timeout_seconds, 15), transport=self._transport) as client:
+                async with self._client(min(self.settings.timeout_seconds, 15)) as client:
                     response = await client.get(f"{self.settings.base_url}/models", headers=self._headers())
                 if response.status_code >= 400:
                     error = _http_error(response.status_code)
@@ -284,6 +309,7 @@ class OpenRouterLLMProvider:
                     )
                     supports_reasoning_control = all(
                         bool({"reasoning", "reasoning_effort"} & set(entry.get("supported_parameters", [])))
+                        and not entry.get("reasoning", {}).get("mandatory", False)
                         for entry in selected if entry is not None
                     )
                     if not is_free:
@@ -295,7 +321,7 @@ class OpenRouterLLMProvider:
                     else:
                         params = item.get("supported_parameters", [])
                         context_length = item.get("context_length") if isinstance(item.get("context_length"), int) else None
-                        structured = "structured_outputs" in params or "response_format" in params
+                        structured = "structured_outputs" in params
                         state = "ready"
                         self._last_error_category = None
             except LLMProviderError as exc:
@@ -315,8 +341,8 @@ class OpenRouterLLMProvider:
         )
 
     def _candidates(self) -> tuple[str, ...]:
-        # Exactly one explicitly selected model is called. Pro remains a valid
-        # primary configuration, but is never chained after Mini.
+        # Exactly one explicitly selected model is called; legacy fallback
+        # settings never produce a second model or automatic routing.
         return (self.settings.patient_model,) if self.settings.patient_model else ()
 
     def _base_payload(self, request: ChatRequest | StructuredRequest, model: str) -> dict[str, Any]:
@@ -325,7 +351,8 @@ class OpenRouterLLMProvider:
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
             "reasoning": {"effort": "none"},
-            "provider": {"allow_fallbacks": False, "require_parameters": True},
+            "provider": {"allow_fallbacks": False, "require_parameters": True,
+                         "max_price": {"prompt": 0, "completion": 0, "request": 0}},
         }
 
     async def complete_chat(self, request: ChatRequest) -> ChatCompletion:
@@ -337,15 +364,15 @@ class OpenRouterLLMProvider:
             payload.update({
                 "messages": [{"role": "system", "content": request.system}, *request.messages],
                 "stream": False,
-                "max_tokens": min(request.max_tokens, 100),
+                "max_tokens": min(request.max_tokens, 256 if request.task == "patient-interpretation" else 100),
             })
             try:
                 # Patient dialogue has a separate, strict wall-clock budget.
                 # Evaluator enrichment may use the longer general timeout, but
                 # a learner must never wait that long for conversational text.
-                patient_timeout = min(self.settings.patient_timeout_seconds, 3.0)
+                patient_timeout = self.settings.patient_timeout_seconds
                 async with asyncio.timeout(patient_timeout):
-                    async with httpx.AsyncClient(timeout=patient_timeout, transport=self._transport) as client:
+                    async with self._client(patient_timeout) as client:
                         response = await client.post(
                             f"{self.settings.base_url}/chat/completions",
                             headers=self._headers(request.request_id), json=payload,
@@ -396,7 +423,7 @@ class OpenRouterLLMProvider:
             })
             try:
                 async with asyncio.timeout(self.settings.timeout_seconds):
-                    async with httpx.AsyncClient(timeout=self.settings.timeout_seconds, transport=self._transport) as client:
+                    async with self._client(self.settings.timeout_seconds) as client:
                         response = await client.post(f"{self.settings.base_url}/chat/completions", headers=self._headers(request.request_id), json=payload)
                 if response.status_code >= 400:
                     raise _http_error(response.status_code)
@@ -424,8 +451,9 @@ class OpenRouterLLMProvider:
 
 
 class OpenAICompatibleLocalProvider:
-    def __init__(self, settings: LocalLLMSettings):
+    def __init__(self, settings: LocalLLMSettings, transport: httpx.AsyncBaseTransport | None = None):
         self.settings = settings
+        self._transport = transport
         self._last_error_category: str | None = None
 
     def _model_file_size(self) -> int | None:
@@ -440,7 +468,7 @@ class OpenAICompatibleLocalProvider:
         state = "unavailable"
         model = self.settings.patient_model
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=3.0, transport=self._transport, trust_env=False) as client:
                 response = await client.get(f"{self.settings.base_url}/models")
                 if response.status_code == 503:
                     state = "loading"
@@ -449,10 +477,11 @@ class OpenAICompatibleLocalProvider:
                     response.raise_for_status()
                     data = response.json().get("data", [])
                     served = [str(item.get("id", "")) for item in data if isinstance(item, dict)]
-                    if served:
-                        model = served[0]
-                    state = "ready"
-                    self._last_error_category = None
+                    if model in served:
+                        state = "ready"
+                        self._last_error_category = None
+                    else:
+                        self._last_error_category = "model-unavailable"
         except (httpx.ConnectError, httpx.NetworkError):
             self._last_error_category = "server-unavailable"
         except httpx.TimeoutException:
@@ -481,19 +510,26 @@ class OpenAICompatibleLocalProvider:
         payload = {
             "model": self.settings.patient_model,
             "messages": [{"role": "system", "content": request.system}, *request.messages],
-            "max_tokens": min(request.max_tokens, 100), "temperature": request.temperature, "stream": False,
+            "max_tokens": min(request.max_tokens, 256 if request.task == "patient-interpretation" else 100), "temperature": request.temperature, "stream": False,
             "chat_template_kwargs": {"enable_thinking": self.settings.thinking},
         }
+        timeout = self.settings.timeout_seconds
+        if request.task == "patient-interpretation":
+            from patient_interpretation import INTERPRETATION_SCHEMA
+            payload["response_format"] = {"type": "json_schema", "json_schema": {
+                "name": "patient_interpretation", "strict": True, "schema": INTERPRETATION_SCHEMA}}
+            timeout = min(timeout, self.settings.local_interpretation_timeout_seconds)
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(self.settings.timeout_seconds, connect=5.0)) as client:
-                response = await client.post(f"{self.settings.base_url}/chat/completions", json=payload)
-                response.raise_for_status()
-                body = response.json()
+            async with asyncio.timeout(timeout):
+                async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=min(5.0, timeout)), transport=self._transport, trust_env=False) as client:
+                    response = await client.post(f"{self.settings.base_url}/chat/completions", json=payload)
+                    response.raise_for_status()
+                    body = response.json()
             text = body["choices"][0]["message"]["content"]
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("empty patient response")
             return ChatCompletion(text, str(body.get("model") or self.settings.patient_model), request.request_id, 0, (self.settings.patient_model,))
-        except httpx.TimeoutException as exc:
+        except (httpx.TimeoutException, TimeoutError) as exc:
             raise LLMProviderError("response-timeout", "The local model response timed out.", True) from exc
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise LLMProviderError("model-unavailable", "The local model server is unavailable.", True) from exc
@@ -511,7 +547,7 @@ class OpenAICompatibleLocalProvider:
             "response_format": {"type": "json_schema", "json_schema": {"name": "medsim_evaluation", "strict": True, "schema": schema}},
         }
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(self.settings.timeout_seconds, connect=5.0)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(self.settings.timeout_seconds, connect=5.0), transport=self._transport, trust_env=False) as client:
                 response = await client.post(f"{self.settings.base_url}/chat/completions", json=payload)
                 response.raise_for_status()
                 body = response.json()

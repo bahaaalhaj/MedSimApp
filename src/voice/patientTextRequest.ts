@@ -27,7 +27,7 @@ export async function requestPatientText(
   let patientMatchedSource: string | null = null;
   let answerShownToTrainee: string | null = null;
   let relevantPerCase = false;
-  for await (const chunk of streamLocalPatient(attemptId, request.text, request.source, request.questionId, signal)) {
+  for await (const chunk of streamLocalPatient(attemptId, request.text, request.source, request.questionId, signal, request.requestId)) {
     if (!response) onStreaming();
     response += chunk.text;
     if (chunk.provenance) patientProvenance = chunk.provenance;

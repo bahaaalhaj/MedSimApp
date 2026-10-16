@@ -4,6 +4,12 @@ Route registration and server-owned behavior live in ``medsim_backend``.
 This module remains the supported startup target and preserves current imports.
 """
 
+from medsim_backend.config import load_env_local
+
+# Provider settings are captured on import. Load private configuration first for
+# both the supported direct command and ASGI imports, not only runtime creation.
+load_env_local()
+
 from local_ai import LOCAL_AI_CASES
 from local_llm import get_local_llm_provider
 from medsim_backend.runtime import (

@@ -57,6 +57,7 @@ export function useLocalDebrief(
             caseId: request.case_id,
             caseVersion: request.case_version,
             variantSeed: request.variant_seed,
+            encounterTiming: request.encounter_log.consultation_timing,
           }),
         });
         if (!response.ok) {

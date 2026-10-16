@@ -1,0 +1,100 @@
+[
+  {
+    "caseId": "im-003",
+    "question": "Why did you decide to see a doctor?",
+    "immediate": true,
+    "reason": "chief-complaint",
+    "factIds": [
+      "profile:chiefComplaint"
+    ],
+    "text": "My pharmacist said my blood pressure is too high. I feel fine."
+  },
+  {
+    "caseId": "im-003",
+    "question": "What happened at the pharmacy?",
+    "immediate": true,
+    "reason": "chief-complaint",
+    "factIds": [
+      "profile:chiefComplaint"
+    ],
+    "text": "My pharmacist said my blood pressure is too high. I feel fine."
+  },
+  {
+    "caseId": "im-003",
+    "question": "What medications are you taking?",
+    "immediate": true,
+    "reason": "unavailable-domain",
+    "factIds": [],
+    "text": null
+  },
+  {
+    "caseId": "im-003",
+    "question": "Do you smoke?",
+    "immediate": true,
+    "reason": "unavailable-domain",
+    "factIds": [],
+    "text": null
+  },
+  {
+    "caseId": "card-003",
+    "question": "Do you get short of breath lying flat?",
+    "immediate": true,
+    "reason": "no-safe-match",
+    "factIds": [],
+    "text": null
+  },
+  {
+    "caseId": "card-003",
+    "question": "Do you wake up gasping at night?",
+    "immediate": true,
+    "reason": "authored-match",
+    "factIds": [
+      "history:pnd"
+    ],
+    "text": "Twice a week."
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you gained weight?",
+    "immediate": false,
+    "reason": "ambiguous",
+    "factIds": [
+      "history:weight"
+    ],
+    "text": null
+  },
+  {
+    "caseId": "card-003",
+    "question": "Have you ever had a heart attack?",
+    "immediate": true,
+    "reason": "no-safe-match",
+    "factIds": [],
+    "text": null
+  },
+  {
+    "caseId": "card-003",
+    "question": "Are your symptoms getting worse?",
+    "immediate": true,
+    "reason": "unavailable-domain",
+    "factIds": [],
+    "text": null
+  },
+  {
+    "caseId": "peds-002",
+    "question": "What medications is your child taking?",
+    "immediate": true,
+    "reason": "authored-match",
+    "factIds": [
+      "history:inhaler"
+    ],
+    "text": "Used many times, little help."
+  },
+  {
+    "caseId": "peds-002",
+    "question": "Does your child have drug allergies?",
+    "immediate": true,
+    "reason": "unavailable-domain",
+    "factIds": [],
+    "text": null
+  }
+]

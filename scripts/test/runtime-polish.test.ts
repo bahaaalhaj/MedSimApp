@@ -9,7 +9,9 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 test('patient text has one bounded hosted deadline and no sequential Pro request', () => {
   const provider = read('backend/local_llm.py');
   assert.match(provider, /patient_timeout_seconds: float = 3\.0/);
-  assert.match(provider, /min\(self\.settings\.patient_timeout_seconds, 3\.0\)/);
+  assert.match(provider, /hosted_semantic_timeout_seconds: float = 3\.2/);
+  assert.match(provider, /patient_timeout = self\.settings\.patient_timeout_seconds/);
+  assert.match(provider, /self\.hosted_semantic_timeout_seconds - 0\.2/);
   assert.match(provider, /return \(self\.settings\.patient_model,\)/);
 });
 

@@ -32,6 +32,22 @@ const postSubmissionReference = z.object({
   verificationStatus: z.enum(['unverified', 'source-verified', 'clinician-verified', 'superseded']),
 });
 
+export const consultationManagementAssessment = z.object({
+  version: z.literal('1.0.0'),
+  mode: z.literal('formative-observation'),
+  affects_clinical_score: z.literal(false),
+  time_policy: z.literal('context-only'),
+  overall: z.enum(['documented', 'review-recommended', 'partial-evidence']),
+  indicators: z.array(z.object({
+    id: z.enum(['focused-questioning', 'repetition-review', 'priority-sequencing', 'plan-and-safety']),
+    status: z.enum(['documented', 'review-recommended', 'not-assessable']),
+    evidence: z.string().min(1).max(1000),
+    counts: z.record(z.number().int().nonnegative()),
+    evidence_refs: z.array(z.string().max(160)).max(64),
+  }).strict()).length(4).refine((rows) => new Set(rows.map((row) => row.id)).size === 4),
+  limitations: z.array(z.string().max(500)).max(8),
+}).strict();
+
 /** The browser validates the backend result again before rendering or persisting it. */
 export const caseEvaluationInput = z.object({
   case_id: z.string().min(1),
@@ -47,6 +63,13 @@ export const caseEvaluationInput = z.object({
   improvements: z.array(z.string()),
   narrative: z.string().min(1),
   generation,
+  consultation_management: consultationManagementAssessment.optional(),
+  consultation_timing: z.object({
+    elapsed_ms: z.number().finite().nonnegative(),
+    elapsed_minutes: z.number().finite().nonnegative(),
+    source: z.literal('client-observed'),
+    scored: z.literal(false),
+  }).optional(),
   post_submission: z.object({
     correctDiagnosis: z.object({ diagnosisId: z.string(), label: z.string() }),
     references: z.array(postSubmissionReference),
@@ -62,3 +85,4 @@ export type CaseEvaluationInput = z.infer<typeof caseEvaluationInput>;
 export type CriterionResult = z.infer<typeof criterionResult>;
 export type DomainScore = z.infer<typeof domainScore>;
 export type VerdictBand = z.infer<typeof verdictBand>;
+export type ConsultationManagementAssessment = z.infer<typeof consultationManagementAssessment>;

@@ -11,6 +11,7 @@ from local_llm import get_local_llm_provider, health_dict, settings as llm_setti
 from tts import TTSConfigurationError, TTSProviderError, TTSRequest, get_tts_manager
 
 from ..schemas import PatientTTSRequestBody
+from ..diagnostic_logging import log_event
 
 
 def register_diagnostics_routes(
@@ -24,8 +25,13 @@ def register_diagnostics_routes(
         try:
             tts_status = get_tts_manager().health()
         except TTSConfigurationError as exc:
+            log_event('tts-health-failed', category='tts-configuration-invalid', error=exc)
             tts_status = {"configured": False, "error": str(exc)}
         llm = health_dict(await get_local_llm_provider().health())
+        if llm['state'] != 'ready' or llm['safety_status'].startswith('unsafe'):
+            log_event('provider-health-unavailable', category=llm['last_error_category'] or 'model-unavailable')
+        if tts_status.get('state') == 'failed':
+            log_event('tts-health-failed', category=tts_status.get('error_category') or 'tts-provider-failed')
         return {
             "ok": True,
             "patient_tts": tts_status,
@@ -62,6 +68,8 @@ def register_diagnostics_routes(
                 cacheable=req.cacheable, request_id=req.requestId,
             ))
         except (TTSConfigurationError, TTSProviderError) as exc:
+            log_event('tts-response-failed', request_id=req.requestId, error=exc,
+                      category='tts-configuration-invalid' if isinstance(exc, TTSConfigurationError) else 'tts-provider-failed')
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         return Response(
             content=result.audio,

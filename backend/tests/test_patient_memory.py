@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import sys
 import time
 import unittest
@@ -152,7 +153,7 @@ class GroundedPatientEndpointTests(unittest.TestCase):
 
     def test_immediate_paths_skip_models_and_record_internal_provenance(self):
         for question, category in (("Which season is worst?", "deterministic-authored"), ("What is your name?", "deterministic-fact"),
-                                   ("What operations have you had?", "safe-unknown"), ("What diagnosis do you have?", "protected-refusal")):
+                                   ("What diagnosis do you have?", "protected-refusal")):
             with patch("medsim_backend.services.patient_dialogue_service.get_local_llm_provider") as provider:
                 started = time.perf_counter()
                 text, terminal = self.turn(question)
@@ -166,7 +167,7 @@ class GroundedPatientEndpointTests(unittest.TestCase):
 
     def test_valid_ambiguous_model_selection_records_exact_grounding_once(self):
         provider = AsyncMock()
-        provider.complete_chat.return_value = ChatCompletion(json.dumps({"fact_ids": ["history:eye"], "text": "Itchy, watery."}), "nex-agi/nex-n2.5-mini:free", "fixture", 0, ("nex-agi/nex-n2.5-mini:free",))
+        provider.complete_chat.return_value = ChatCompletion(json.dumps({"status": "answer", "fact_ids": ["history:eye"], "partial": False}), "nex-agi/nex-n2.5-mini:free", "fixture", 0, ("nex-agi/nex-n2.5-mini:free",))
         with patch("medsim_backend.services.patient_dialogue_service.get_local_llm_provider", return_value=provider):
             first = self.turn("Do you have itchy eyes or wheeze?", requestId="grounded-repeat-turn")
             second = self.turn("Do you have itchy eyes or wheeze?", requestId="grounded-repeat-turn")
@@ -175,18 +176,19 @@ class GroundedPatientEndpointTests(unittest.TestCase):
         self.assertEqual(first[1]["provenance"], "openrouter")
         provider.complete_chat.assert_awaited_once()
         request = provider.complete_chat.call_args.args[0]
-        self.assertEqual((request.max_tokens, request.temperature), (80, 0.1))
+        self.assertEqual((request.max_tokens, request.temperature), (200, 0.0))
         self.assertEqual(len(request.messages), 1)
-        self.assertNotIn("Spring", request.system)
+        self.assertIn("Spring", request.system)
+        self.assertNotIn("correctDiagnosisId", request.system)
         attempt = server._INVESTIGATION_ATTEMPTS[self.attempt_id]
         self.assertEqual(len(attempt["transcript"]), 3)
         self.assertEqual(attempt["askedQuestionIds"], [])
         record = attempt["patientResponses"]["grounded-repeat-turn"]
         self.assertEqual(record["matchedFactIds"], ["history:eye"])
-        self.assertEqual(record["internalProvenance"], "openrouter-grounded")
+        self.assertEqual(record["internalProvenance"], "openrouter-interpreted")
         self.assertEqual(attempt["transcript"][-1]["dialogueProvenance"]["matchedFactIds"], ["history:eye"])
 
-    def test_model_errors_and_invalid_grounding_fall_back_without_awarding_evidence(self):
+    def test_model_errors_and_invalid_grounding_are_system_errors_without_awarding_evidence(self):
         for error in (LLMProviderError("response-timeout", "timeout", True),
                       *[LLMProviderError("model-unavailable", "unavailable", True, status) for status in (401, 402, 429, 500)],
                       "bad-json", '{"fact_ids":["history:eye"],"text":"I have pneumonia."}',
@@ -198,13 +200,15 @@ class GroundedPatientEndpointTests(unittest.TestCase):
                 provider.complete_chat.return_value = ChatCompletion(error, "nex-agi/nex-n2.5-mini:free", "fixture", 0, ())
             with patch("medsim_backend.services.patient_dialogue_service.get_local_llm_provider", return_value=provider):
                 text, terminal = self.turn("Do you have itchy eyes or wheeze?")
-            self.assertEqual(text, SAFE_UNKNOWN_RESPONSE)
-            self.assertEqual(terminal["provenance"], "safe-unknown")
+            self.assertEqual(text, '')
+            self.assertIn('error',terminal)
+            self.assertTrue(terminal['retryable'])
             provider.complete_chat.assert_awaited_once()
             self.assertEqual(server._INVESTIGATION_ATTEMPTS[self.attempt_id]["askedQuestionIds"], [])
+            self.assertEqual(len(server._INVESTIGATION_ATTEMPTS[self.attempt_id]['transcript']),1)
 
     def test_absence_does_not_claim_unnoticed_symptoms_and_text_does_not_need_tts(self):
-        with patch("medsim_backend.services.patient_dialogue_service.get_local_llm_provider") as provider:
+        with patch.dict(os.environ, {"MEDSIM_SEMANTIC_DIALOGUE_ENABLED": "false"}), patch("medsim_backend.services.patient_dialogue_service.get_local_llm_provider") as provider:
             text, _ = self.turn("Do you have a surgical history?")
         provider.assert_not_called()
         self.assertEqual(text, unavailable_response("surgery"))
@@ -213,6 +217,8 @@ class GroundedPatientEndpointTests(unittest.TestCase):
     def test_all_predefined_spoken_answers_match_legacy_composition(self):
         case = LOCAL_AI_CASES["allergy-001"]
         for row in case["patient"]["history"]:
+            if not row.get("predefined", True):
+                continue
             text, terminal = self.turn(row["question"], source="predefined", questionId=row["id"])
             self.assertEqual(text, compose_patient_answer(row["answer"], row["question"]))
             self.assertEqual(terminal["answerShownToTrainee"], row["answer"])

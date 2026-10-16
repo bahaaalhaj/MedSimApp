@@ -233,7 +233,9 @@ export interface ActivePatient {
   submittedDiagnosisId: string | null;
   diagnosisResult?: { correctDiagnosisId: string; diagnosisWasCorrect: boolean };
   arrivedAt: number;
-  deadlineMs: number;
+  /** Client-observed duration; optional for saved encounters from older versions. */
+  consultationStartedAt?: number | null;
+  consultationFinishedAt?: number | null;
   /** Immutable provenance captured when the encounter starts. */
   caseVersion: string;
   rubricVersion: string;

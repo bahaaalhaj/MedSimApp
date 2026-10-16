@@ -19,6 +19,8 @@ from local_llm import (  # noqa: E402
 
 MINI = "nex-agi/nex-n2.5-mini:free"
 PRO = "nex-agi/nex-n2.5-pro:free"
+GEMMA = "google/gemma-4-26b-a4b-it:free"
+NVIDIA = "nvidia/nemotron-3.5-super-vl:free"
 
 
 def settings(**overrides):
@@ -41,8 +43,8 @@ def completion(model: str, content: str = "I have noticed that in spring, doctor
 
 
 class OpenRouterProviderTests(unittest.TestCase):
-    def test_primary_selection_can_pin_mini_or_pro(self):
-        for primary in (MINI, PRO):
+    def test_primary_selection_can_pin_explicit_approved_free_models(self):
+        for primary in (MINI, PRO, GEMMA, NVIDIA):
             captured = {}
 
             def handler(request):
@@ -67,9 +69,9 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual((health.state, health.last_error_category), ("configuration-missing", "missing-api-key"))
         self.assertFalse(called)
 
-    def test_only_specific_free_nex_models_are_accepted(self):
-        for model in ("openrouter/free", "openrouter/auto", "qwen/paid", "other/model:free"):
-            with self.subTest(model=model), self.assertRaisesRegex(ValueError, "approved specific Nex"):
+    def test_only_specific_approved_free_models_are_accepted(self):
+        for model in ("openrouter/free", "openrouter/auto", "qwen/paid", "other/model:free", GEMMA.removesuffix(':free'), NVIDIA.removesuffix(':free')):
+            with self.subTest(model=model), self.assertRaisesRegex(ValueError, "approved explicit free"):
                 settings(patient_model=model)
         with self.assertRaisesRegex(ValueError, "Paid"):
             settings(allow_paid_models=True)
@@ -109,6 +111,23 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertNotIn("models", captured)
         self.assertFalse(captured["provider"]["allow_fallbacks"])
         self.assertTrue(captured["provider"]["require_parameters"])
+        self.assertEqual(captured['provider']['max_price'], {'prompt':0,'completion':0,'request':0})
+
+    def test_gemma_catalogue_price_and_reasoning_requirements_fail_closed(self):
+        for pricing, reasoning, params, category in (
+            ({'prompt':'0','completion':'0'}, {'mandatory':False,'default_enabled':False}, ['reasoning','response_format'], None),
+            ({'prompt':'0.00000009','completion':'0.0000003'}, {'mandatory':False}, ['reasoning'], 'paid-model-blocked'),
+            ({'prompt':'0','completion':'0'}, {'mandatory':True}, ['reasoning'], 'unsupported-parameters'),
+            ({'prompt':'0','completion':'0'}, {}, ['response_format'], 'unsupported-parameters'),
+        ):
+            def handler(request):
+                return httpx.Response(200,json={'data':[{'id':GEMMA,'context_length':262144,
+                    'pricing':pricing,'reasoning':reasoning,'supported_parameters':params}]})
+            health=asyncio.run(OpenRouterLLMProvider(settings(patient_model=GEMMA),httpx.MockTransport(handler)).health())
+            self.assertEqual(health.state,'ready' if category is None else 'unavailable')
+            self.assertEqual(health.last_error_category,category)
+            if category is None:
+                self.assertFalse(health.supports_structured_outputs)  # JSON mode alone is not strict schema support.
 
     def test_primary_failure_never_chains_a_second_model(self):
         models = []
@@ -142,10 +161,10 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(models, [MINI])
         self.assertEqual(raised.exception.category, "response-timeout")
 
-    def test_patient_deadline_cannot_exceed_three_seconds(self):
+    def test_default_patient_budget_leaves_outer_cleanup_headroom(self):
         configured = settings()
         self.assertLessEqual(configured.patient_timeout_seconds, 3)
-        with self.assertRaisesRegex(ValueError, "between 0.5 and 3"):
+        with self.assertRaisesRegex(ValueError, "leave 0.2 seconds"):
             settings(patient_timeout_seconds=3.01)
 
     def test_configured_fallback_is_never_randomly_routed(self):
@@ -187,6 +206,7 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(captured["reasoning"], {"effort": "none"})
         self.assertNotIn("models", captured)
         self.assertFalse(captured["provider"]["allow_fallbacks"])
+        self.assertEqual(captured['provider']['max_price'], {'prompt':0,'completion':0,'request':0})
 
     def test_local_provider_is_disabled_unless_explicitly_enabled(self):
         configured = LocalLLMSettings(

@@ -4,7 +4,7 @@
     "sourceFile": "src/clinical/cases.ts",
     "generatorCommand": "npm run clinical:generate",
     "canonicalSourceChecksum": "sha256:782798a2db90fac7da32189e5e2706207aec4eaaff6127d1ab90c32afe59db14",
-    "semanticChecksum": "sha256:3b8169983c72d2840818c70eac41ed0c56b84f03bb90a6d6804c868306de25eb"
+    "semanticChecksum": "sha256:915f5ca7ba875e7b7e9439c136b2049e71d37bd3f1222c9858abf1378a53d308"
   },
   "schemaVersion": "1.0.0",
   "canonicalSource": "src/clinical/cases.ts",
@@ -30,7 +30,7 @@
     },
     {
       "path": "docs/generated/local-ai-manifest.server.json",
-      "semanticChecksum": "sha256:11d6d795fe7006ec7cb69b68c450b208f1265ce7dfc37e89c2c0c5b7fbc94056"
+      "semanticChecksum": "sha256:9857ca3dc6176ba230fcebaaf858602b33fe80f87fbc1c3c74a018f19800577f"
     },
     {
       "path": "docs/generated/case-reference-matrix.csv",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PublicPatientProfile(BaseModel):
@@ -92,6 +92,19 @@ class CompletionEvidence(BaseModel):
     ideasConcernsExpectationsCompleted: bool = False
 
 
+class EncounterTimingEvidence(BaseModel):
+    """Descriptive client clock observations; must never become scoring authority."""
+    model_config = ConfigDict(extra='forbid')
+    startedAtMs: float = Field(ge=0, le=8.64e15, allow_inf_nan=False, strict=True)
+    finishedAtMs: float = Field(ge=0, le=8.64e15, allow_inf_nan=False, strict=True)
+
+    @model_validator(mode='after')
+    def chronological(self):
+        if self.finishedAtMs < self.startedAtMs:
+            raise ValueError('finish must not precede start')
+        return self
+
+
 class EvaluationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     attemptId: str = Field(min_length=20, max_length=100)
@@ -105,6 +118,7 @@ class EvaluationRequest(BaseModel):
     transcript: list[TranscriptEvidence] = Field(default_factory=list, max_length=256)
     examinations: list[ExaminationEvidence] = Field(default_factory=list, max_length=64)
     completionChecks: CompletionEvidence | None = None
+    encounterTiming: EncounterTimingEvidence | None = None
 
 
 class PatientTTSRequestBody(BaseModel):

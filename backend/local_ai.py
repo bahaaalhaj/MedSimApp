@@ -79,7 +79,7 @@ AUTHORITATIVE PATIENT FACTS:
 def exact_patient_answer(case: dict[str, Any], question_id: str | None) -> str | None:
     if not question_id:
         return None
-    item = next((item for item in case["patient"]["history"] if item["id"] == question_id), None)
+    item = next((item for item in case["patient"]["history"] if item["id"] == question_id and item.get("predefined", True)), None)
     return str(item["answer"]) if item else None
 
 
@@ -236,7 +236,7 @@ def deterministic_patient_answer(case: dict[str, Any], question: str) -> tuple[s
     return match.response, match.provenance
 
 
-def sanitize_patient_response(text: str, case: dict[str, Any]) -> str:
+def sanitize_patient_response(text: str, case: dict[str, Any], *, authored_response: str | None = None) -> str:
     clean = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S)
     clean = re.sub(r"</?(?:think|analysis|system|assistant|user)[^>]*>", "", clean, flags=re.I)
     clean = re.sub(r"^[A-Za-z ]{1,20}:\s*", "", clean.strip())
@@ -250,7 +250,10 @@ def sanitize_patient_response(text: str, case: dict[str, Any]) -> str:
         protected.add(" ".join(words))
     suspicious = ("system prompt", "hidden rubric", "answer key", "language model", "as an ai", "the diagnosis", "my diagnosis")
     lowered = clean.lower()
-    if not clean or any(term in lowered for term in suspicious) or any(term and term in lowered for term in protected):
+    # Only the server's exact composed source can authorize a previously known
+    # condition (e.g. a relative's illness). Untrusted/model wording cannot.
+    authorized = authored_response is not None and text == authored_response and clean == authored_response
+    if not clean or any(term in lowered for term in suspicious) or (not authorized and any(term and term in lowered for term in protected)):
         return SAFE_UNKNOWN_RESPONSE
     sentences = re.split(r"(?<=[.!?])\s+", clean)
     return " ".join(sentences[:2])
@@ -361,7 +364,7 @@ def _deterministic_assessment(
     if source == "history":
         if "asked_question_ids" not in evidence:
             return None
-        authored_ids = [str(row["id"]) for row in case["patient"]["history"]]
+        authored_ids = [str(row["id"]) for row in case["patient"]["history"] if row.get("scoreable", True)]
         asked = [value for value in evidence.get("asked_question_ids", []) if value in authored_ids]
         if history_index == 0:
             target = min(3, len(authored_ids))
@@ -369,7 +372,7 @@ def _deterministic_assessment(
             text = f"Recorded authored history questions: {', '.join(asked)}." if asked else "No authored history question was recorded."
             return verdict, text, [f"history:{value}" for value in asked]
         red_flag_words = ("chest", "breath", "weak", "vision", "headache", "fever", "collapse", "blood", "vomit")
-        focused = [row["id"] for row in case["patient"]["history"] if any(word in row["question"].lower() for word in red_flag_words)]
+        focused = [row["id"] for row in case["patient"]["history"] if row.get("scoreable", True) and any(word in row["question"].lower() for word in red_flag_words)]
         covered = [value for value in asked if value in focused]
         target = min(2, len(focused))
         if not focused:

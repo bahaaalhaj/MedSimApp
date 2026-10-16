@@ -47,7 +47,7 @@ DOMAIN_ALIASES: dict[str, tuple[str, ...]] = {
     "alcohol": ("alcohol", "beer", "wine", "drinking", "alcoholic drinks"),
     "substances": ("substances", "recreational drugs", "substance use"),
     "occupation": ("occupation", "job", "work", "workplace", "living"),
-    "travel": ("travel", "travelled", "traveled", "abroad", "trip"),
+    "travel": ("travel", "travelled", "traveled", "travelling", "traveling", "camping", "abroad", "trip"),
     "exposure": ("exposure", "contacts", "sick contacts", "infection exposure", "daycare", "pets"),
     "diet": ("diet", "salt", "appetite", "food", "eating"),
     "activity": ("activity", "exercise", "exertion", "active"),
@@ -154,7 +154,7 @@ def unavailable_response(domain: str, *, is_parent: bool = False, uncertain: boo
         subject = "my child's" if is_parent else "my"
         return f"I'm not sure about {subject} {topic}."
     subject = "my child's" if is_parent else "my"
-    return f"Information about {subject} {topic} is not documented in this case."
+    return f"I'm not sure about {subject} {topic}, doctor."
 
 
 @dataclass(frozen=True)
@@ -173,6 +173,8 @@ class PatientFact:
     case_version: str
     question: str = ""
     domains: tuple[str, ...] = ()
+    review_status: str = "existing-authored-facts-not-clinician-validation"
+    core_history_domain: str | None = None
 
 
 @dataclass(frozen=True)
@@ -208,6 +210,10 @@ def derive_memory(case: dict[str, Any], profile: dict[str, Any] | None = None) -
                                  f"patient.{field}", None, True, "public", (), cid, version, domains=(domain,)))
     for row in patient["history"]:
         row_domains = domains(f"{row['id']} {row['question']}")
+        if row.get("coreHistoryDomain"):
+            row_domains = ({"current-medication": ("medication",), "drug-allergies": ("allergies",),
+                            "major-medical-history": ("medical-history",), "relevant-negative-symptoms": ("associated",)}
+                           .get(row["coreHistoryDomain"], (row["coreHistoryDomain"],)))
         if row["id"] == "hx" or normalize(row["question"]) == "history":
             row_domains = tuple(dict.fromkeys((*row_domains, "medical-history")))
         value = str(row["answer"])
@@ -220,6 +226,7 @@ def derive_memory(case: dict[str, Any], profile: dict[str, Any] | None = None) -
             "sensitive-patient-history" if set(row_domains) & {"sexual", "menstrual", "obstetric", "substances"} else "patient-history",
             tuple(alias for domain in row_domains for alias in DOMAIN_ALIASES[domain]),
             cid, version, str(row["question"]), row_domains,
+            row.get("reviewStatus", "existing-authored-facts-not-clinician-validation"), row.get("coreHistoryDomain"),
         ))
     available_domains = {domain for fact in facts if fact.allowed_for_patient_dialogue for domain in fact.domains}
     for domain in DOMAIN_ALIASES:
@@ -241,6 +248,106 @@ class Retrieval:
     reason: str
 
 
+# Concepts are retrieval labels, not medical assertions. They only select an
+# explicitly authored source. Family/medicine scopes are handled separately.
+CONCEPT_PATTERNS = {
+    "orthopnea": r"orthopn[oe]+a|extra pillows|(?:breath|breathless|breathe).*(?:lying|lie|flat)|(?:lying|lie|flat).*(?:breath|breathe)|sleep.*propped",
+    "pnd": r"\bpnd\b|wake(?:n|s)?(?: up)?.*(?:gasp|breath)|waking.*(?:gasp|breath)|gasping.*night",
+    "weight": r"weight (?:changes?|gain|loss)|(?:gain|lost|lose|put on).*(?:weight|kg|kilos|pounds)|\bup \d+ kg",
+    "heart-attack": r"heart attack|myocardial infarction|\bmi\b",
+    "wheeze": r"\bwheez(?:e|es|ing)?\b",
+    "cough": r"\bcough(?:ing)?\b",
+    "hemoptysis": r"ha?emoptysis|blood in (?:sputum|phlegm)|cough(?:ing)? up blood",
+}
+
+
+def concepts(value: str) -> set[str]:
+    return {key for key, pattern in CONCEPT_PATTERNS.items() if re.search(pattern, value, re.I)}
+
+
+# Query topics and source anchors are separate: knees in a skin-patch location
+# are not evidence of knee pain. These labels never supply an answer value.
+HISTORY_TOPICS = {
+    "tick": (r"\bticks?\b", r"\bticks?\b"),
+    "rash": (r"\brash\b|red ring|bullseye|bull's.eye", r"\brash\b|red ring|bullseye"),
+    "joint": (r"\bjoints?\b|\bknees?\b.*(?:ach|pain|hurt)|(?:ach|pain|hurt).*\bknees?\b", r"\bjoints?\b|\bknees?\b.*(?:ach|pain|hurt)|(?:ach|pain|hurt).*\bknees?\b"),
+    "fever": (r"\bfever\b|\bfebrile\b", r"\bfever\b|\bfebrile\b"),
+    "facial-weakness": (r"facial weakness|face.*droop|droop.*face", r"facial weakness|face.*droop|droop.*face"),
+    "palpitations": (r"\bpalpitations?\b|heart racing|racing heart", r"\bpalpitations?\b|heart racing|racing heart"),
+    "fainting": (r"\bfaint(?:ing|ed)?\b|\bsyncope\b|pass(?:ed|ing)? out", r"\bfaint(?:ing|ed)?\b|\bsyncope\b|pass(?:ed|ing)? out"),
+    "eye": (r"itchy eyes|watery eyes|eye symptoms", r"itchy.*eyes|watery.*eyes|eye symptoms"),
+    "wheeze": (CONCEPT_PATTERNS["wheeze"], CONCEPT_PATTERNS["wheeze"]),
+}
+
+
+def topic_match(safe: list[PatientFact], question: str, query_domains: set[str]) -> Retrieval | None:
+    if query_domains - {"location", "onset", "duration", "associated", "frequency", "character", "severity", "headache-vision"}:
+        return None
+    topics = {topic for topic, (query, _source) in HISTORY_TOPICS.items() if re.search(query, question, re.I)}
+    if not topics:
+        return None
+    matches = []
+    for fact in safe:
+        if set(fact.domains) & {"family", "medication", "allergies", "medical-history"}:
+            continue
+        source = f"{fact.source_question_id} {fact.question} {fact.authored_value or ''}"
+        if not all(re.search(HISTORY_TOPICS[topic][1], source, re.I) for topic in topics):
+            continue
+        # A duration, frequency or anatomical site must occur in this source,
+        # not merely somewhere else in the same patient's history.
+        if query_domains & {"duration", "onset"} or re.search(r"\bwhen\b", question, re.I):
+            if not re.search(r"\b(?:\d+|one|two|three|four|five|six|ten)\s*(?:hours?|days?|weeks?|months?|years?)\b|yesterday|today|this morning|since childhood", fact.authored_value or "", re.I):
+                continue
+        if "frequency" in query_domains and "frequency" not in fact.domains:
+            continue
+        if "location" in query_domains and not re.search(r"\b(?:knees?|hands?|fingers?|elbows?|legs?|ankles?|wrists?|shoulders?|hips?|back|face|arms?|feet)\b", fact.authored_value or "", re.I):
+            continue
+        # A question about knees cannot borrow a statement about finger joints.
+        if "joint" in topics:
+            anatomy = r"\b(knee|ankle|finger|hand|wrist|elbow|shoulder|hip|toe)s?\b"
+            asked_sites = {m.group(1).lower() for m in re.finditer(anatomy, question, re.I)}
+            source_sites = {m.group(1).lower() for m in re.finditer(anatomy, source, re.I)}
+            if not asked_sites <= source_sites:
+                continue
+        matches.append(fact)
+    original = [fact for fact in matches if not fact.core_history_domain]
+    matches = original or matches
+    if len(matches) == 1:
+        return Retrieval(tuple(matches), 0.98, True, "authored-topic")
+    # Unmatched compound topics must not fall through to a single-topic answer.
+    if len(topics) > 1:
+        if matches:
+            return Retrieval(tuple(matches[:3]), 0.7, False, "ambiguous-topic")
+        partial = [f for f in safe if not set(f.domains) & {"family", "medication", "allergies", "medical-history"}
+                   and any(re.search(HISTORY_TOPICS[topic][1], f"{f.source_question_id} {f.question} {f.authored_value or ''}", re.I) for topic in topics)]
+        if partial and not query_domains & {"duration", "onset", "frequency", "location"}:
+            return Retrieval(tuple(partial[:3]), 0.7, False, "ambiguous-topic")
+        return Retrieval((), 1.0, True, "unavailable-topic")
+    if not matches:
+        return Retrieval((), 1.0, True, "unavailable-topic")
+    return Retrieval(tuple(matches[:3]), 0.7, False, "ambiguous-topic")
+
+
+def current_concern_question(memory: PatientMemory, question: str) -> bool:
+    """A bounded opening/status intent, never a qualified symptom question.
+
+    These grammatical forms select the active presenting concern for every case;
+    they contain no patient-specific answers or benchmark-specific exceptions.
+    """
+    text = normalize(question)
+    greeting = r"(?:(?:hello|hi|good morning|good afternoon|good evening) )?"
+    subject = r"(?:you|your child|your son|your daughter|he|she)"
+    timing = r"(?: (?:today|now|right now|at the moment))?"
+    pattern = greeting + r"(?:how (?:are you|is (?:your child|your son|your daughter|he|she))(?: feeling| doing)?|how (?:do you|does (?:your child|your son|your daughter|he|she)) feel|(?:what is|what's) bothering " + subject + r")" + timing
+    if not re.fullmatch(pattern,text):
+        return False
+    if re.search(r"\b(?:your child|your son|your daughter|he|she)\b",text):
+        age = next(f.authored_value for f in memory.facts if f.fact_id == 'profile:age')
+        if int(age) >= 14:
+            return False  # Do not answer for an adult's child or another person.
+    return True
+
+
 def retrieve(memory: PatientMemory, question: str) -> Retrieval:
     if protected_intent(question):
         return Retrieval((), 1.0, True, "protected")
@@ -249,7 +356,7 @@ def retrieve(memory: PatientMemory, question: str) -> Retrieval:
     pharmacy_event = (re.search(r"pharmac(?:y|ist)|pressure was checked", question, re.I)
                       and re.search(r"pharmac(?:y|ist)", chief.authored_value or "", re.I)
                       and not re.search(r"reading|measured|how (?:high|much)|what was.*pressure", question, re.I))
-    if "chief-complaint" in query_domains or pharmacy_event:
+    if "chief-complaint" in query_domains or pharmacy_event or current_concern_question(memory,question):
         return Retrieval((chief,), 1.0, True, "chief-complaint")
     if "family" in query_domains:
         # A condition qualifies the family question; it is not the patient's BP.
@@ -266,6 +373,38 @@ def retrieve(memory: PatientMemory, question: str) -> Retrieval:
     exact = [fact for fact in safe if normalize(fact.question) == normalize(question)]
     if len(exact) == 1:
         return Retrieval(tuple(exact), 1.0, True, "exact-authored")
+    # "These symptoms" is a general qualifier of duration/onset, not a
+    # separate associated-symptom requirement that can block a known timeline.
+    if query_domains & {"duration", "onset", "progression", "frequency"}:
+        query_domains.discard("associated")
+    topical = topic_match(safe, question, query_domains)
+    if topical is not None:
+        return topical
+    # Do not resolve a family member's condition to the patient's own symptoms.
+    query_concepts = concepts(question)
+    if query_concepts and not re.search(r"\b(?:and|or)\b", question, re.I) and not query_domains & {"family", "medication", "allergies", "surgery"}:
+        matched = [f for f in safe if not set(f.domains) & {"family", "medication", "allergies"}
+                   and query_concepts <= concepts(f.question + " " + (f.authored_value or ""))]
+        # Prefer an original, focused source over a supplemental broad history.
+        original = [f for f in matched if not f.core_history_domain]
+        matched = original or matched
+        if len(matched) == 1:
+            return Retrieval(tuple(matched), 0.98, True, "authored-concept")
+        if matched:
+            return Retrieval(tuple(matched[:3]), 0.7, False, "ambiguous-concept")
+        return Retrieval((), 1.0, True, "unavailable-concept")
+    # Full current medication/history answers take precedence over a scoped
+    # NSAID or inhaler question for broad questions only.
+    broad_domain = ("current-medication" if query_domains == {"medication"} and re.search(r"medications?|medicines?|meds|tablets|drugs", question, re.I)
+                    else "major-medical-history" if query_domains == {"medical-history"} else None)
+    broad = [f for f in safe if f.core_history_domain == broad_domain] if broad_domain else []
+    if len(broad) == 1:
+        return Retrieval(tuple(broad), 1.0, True, "complete-authored-history")
+    if re.search(r"(?:getting|got|become|becoming) worse|worsen(?:ing|ed)?|progress(?:ion|ive)?|deteriorat", question, re.I):
+        progression = [f for f in safe if not f.core_history_domain and not set(f.domains) & {"family", "medication"}
+                       and re.search(r"progressive|getting worse|worsening|deteriorat", f.authored_value or "", re.I)]
+        if len(progression) == 1:
+            return Retrieval(tuple(progression), 0.98, True, "authored-progression")
     available = {domain for fact in safe for domain in fact.domains}
     if query_domains - available - {"chief-complaint"}:
         return Retrieval((), 1.0, True, "unavailable-domain")
@@ -331,7 +470,8 @@ class TurnPart:
         return {"intent": self.intent, "factIds": [f.fact_id for f in self.facts],
                 "confidence": self.confidence, "status": self.status,
                 "provenance": "deterministic-authored" if self.facts else "safe-unknown",
-                "fallbackReason": self.reason}
+                "fallbackReason": self.reason,
+                "reviewRequirements": {f.fact_id: f.review_status for f in self.facts}}
 
 
 @dataclass(frozen=True)
@@ -397,6 +537,14 @@ def resolve_turn(memory: PatientMemory, question: str, context: dict[str, Any] |
         response = (PARENT_PROTECTED_RESPONSES if is_parent else PROTECTED_RESPONSES)[category]
         return ResolvedTurn((TurnPart(category, response, status="protected", reason=category),))
     text = normalize(question)
+    # Patient knowledge is not the clinician's measurement panel. A complete,
+    # unqualified BP question with no authored BP history needs no inference.
+    bp_question = re.fullmatch(r"(?:what(?:'s| is)|do you know|can you tell me) (?:your |your child's |his |her )?(?:current )?(?:blood pressure|bp)(?: reading)?(?: today| right now)?",text)
+    bp_history = tuple(f for f in memory.facts if f.source_question_id and f.allowed_for_patient_dialogue
+                       and 'blood-pressure-history' in f.domains and 'family' not in f.domains)
+    if bp_question and not bp_history:
+        return ResolvedTurn((TurnPart('patient-measurement',unavailable_response('blood-pressure-history',is_parent=is_parent),
+                                      reason='patient-knowledge-unavailable'),))
     valid_context = context and context.get("caseId") == memory.case_id and context.get("caseVersion") == memory.case_version
     previous = tuple(f for f in memory.facts if valid_context and f.fact_id in context.get("factIds", [])[:4]
                      and f.allowed_for_patient_dialogue)
@@ -407,6 +555,12 @@ def resolve_turn(memory: PatientMemory, question: str, context: dict[str, Any] |
         "has it been measured again": "blood-pressure-history", "and your father": "family",
     }.get(text)
     if followup:
+        # An exact authored question is authoritative even if it is also a
+        # conversational follow-up form. A preceding source cannot replace it.
+        exact = tuple(f for f in memory.facts if f.source_question_id and f.allowed_for_patient_dialogue
+                      and normalize(f.question) == text)
+        if len(exact) == 1:
+            return ResolvedTurn((_part(memory,question,followup,is_parent=is_parent,candidates=exact),))
         if not previous:
             return ResolvedTurn((TurnPart(followup, unavailable_response(followup, is_parent=is_parent), reason="no-active-context"),))
         if followup == "blood-pressure-history":

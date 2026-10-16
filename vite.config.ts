@@ -28,7 +28,7 @@ export default defineConfig({
     port: 5173,
     open: true,
     proxy: PROXY,
-    fs: { deny: ['**/backend/**', '**/docs/generated/*.server.json', '**/docs/development/patient-memory*', '**/docs/development/patient-correction*', '**/.env*'] },
+    fs: { deny: ['**/backend/**', '**/docs/generated/*.server.json', '**/docs/development/patient-memory*', '**/docs/development/patient-correction*', '**/docs/development/history-draft*', '**/docs/development/observed-dialogue*', '**/docs/development/patient-interpretation*', '**/src/clinical/history-drafts.json', '**/.env*'] },
   },
   preview: {
     port: 5173,
