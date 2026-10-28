@@ -22,6 +22,7 @@ export interface TranscriptRecord {
 }
 
 export interface ConversationOptions {
+  restoredMessages?: ConversationMessage[];
   initialMessage: { role: 'assistant'; content: string };
   speakerGender: 'M' | 'F'; isPediatric: boolean; caseId: string; caseVersion: string;
   ensureAttempt: () => Promise<string | null>;

@@ -30,8 +30,9 @@ interface CachedConversation {
 const store = new Map<number, CachedConversation>();
 
 /** Peek at an existing conversation without creating one. */
-export function getExistingConversation(bedIndex: number): Conversation | null {
-  return store.get(bedIndex)?.conv ?? null;
+export function getExistingConversation(bedIndex: number, encounterKey?: string): Conversation | null {
+  const entry = store.get(bedIndex);
+  return entry && (encounterKey === undefined || entry.encounterKey === encounterKey) ? entry.conv : null;
 }
 
 export function getOrCreatePatientConversation(
@@ -63,6 +64,10 @@ export function getOrCreatePatientConversation(
     ? parentGenderFor(patientCase)
     : patientCase.gender;
   const conv = new Conversation(ctx, listeners, {
+    restoredMessages: gameStore.getState().polyclinic.patient?.transcript.map((row, index) => ({
+      role: row.role === 'trainee' ? 'user' as const : 'assistant' as const, content: row.content,
+      audioTurnId: row.role === 'patient' ? row.audioTurnId ?? `restored-${index}` : undefined,
+    })),
     initialMessage: buildInitialLine(patientCase),
     speakerGender,
     isPediatric: isPediatric(patientCase),
@@ -103,9 +108,9 @@ export function getOrCreatePatientConversation(
   return conv;
 }
 
-export function disposePatientConversation(bedIndex: number) {
+export function disposePatientConversation(bedIndex: number, encounterKey?: string) {
   const entry = store.get(bedIndex);
-  if (entry) {
+  if (entry && (encounterKey === undefined || entry.encounterKey === encounterKey)) {
     entry.conv.dispose();
     store.delete(bedIndex);
   }

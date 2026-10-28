@@ -15,7 +15,7 @@ import {
   useGameState,
   POLYCLINIC_BED_INDEX,
 } from '../game/store';
-import { disposePatientConversation } from '../voice/conversationStore';
+import { disposePatientConversation, getExistingConversation, getOrCreatePatientConversation } from '../voice/conversationStore';
 import { TopBar } from './primitives';
 import { ExamineOverlay } from './ExamineOverlay';
 import { DockedPatientAudioPanel } from './DockedPatientAudioPanel';
@@ -173,7 +173,8 @@ export function EncounterScreen() {
   const patient = state.polyclinic.patient;
 
   const [pointerLocked, setPointerLocked] = useState(false);
-  const [examineOpen, setExamineOpen] = useState(false);
+  const examineOpen = Boolean(state.examineOpen);
+  const setExamineOpen = store.setExamineOpen;
   const [finishError, setFinishError] = useState('');
   const finishingGateRef = useRef(new CompletionGate());
   const openExamine = useCallback(() => {
@@ -182,12 +183,11 @@ export function EncounterScreen() {
     setExamineOpen(true);
   }, []);
 
-  // If the user navigated straight here without a patient set, drop the
-  // current selectedCaseId in. Without this the scene shows an empty room.
   useEffect(() => {
-    if (!patient) store.loadPolyclinicPatient(state.selectedCaseId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const controller = new AbortController();
+    void store.refreshInvestigationResults(controller.signal);
+    return () => controller.abort();
+  }, [patient?.investigationAttemptId]);
 
   // Release pointer lock on unmount (e.g. navigating away mid-session).
   useEffect(() => {
@@ -237,13 +237,18 @@ export function EncounterScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [openExamine]);
 
-  // Dispose conversation when the patient changes / leaves.
+  // The encounter owns initialization; opening Examine before the 3D panel's
+  // effect runs must still start text/audio. Old cleanup cannot dispose a new slot.
   const currentPatientCaseId = patient?.case.id ?? null;
   useEffect(() => {
+    if (!patient) return;
+    const conversation = getExistingConversation(POLYCLINIC_BED_INDEX, patient.variantSeed)
+      ?? getOrCreatePatientConversation(POLYCLINIC_BED_INDEX, patient.case, patient.caseVersion, patient.variantSeed, {});
+    void conversation.init().catch(() => undefined);
     return () => {
-      disposePatientConversation(POLYCLINIC_BED_INDEX);
+      disposePatientConversation(POLYCLINIC_BED_INDEX, patient.variantSeed);
     };
-  }, [currentPatientCaseId]);
+  }, [currentPatientCaseId, patient?.variantSeed]);
 
   // Look-around is automatic while Examine is closed — PointerLockControls
   // mounts inside Player and engages on canvas click. When Examine opens

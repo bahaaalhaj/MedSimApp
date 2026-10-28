@@ -79,6 +79,7 @@ class TTSRequest:
     is_opening_greeting: bool = False
     cacheable: bool = False
     request_id: str = ""
+    session_scope: str = ""
 
 
 @dataclass(frozen=True)
@@ -260,14 +261,14 @@ class KokoroTTSProvider(PatientTTSProvider):
                 pipeline = self._load()
                 timings.append(("tts-init", round((time.perf_counter() - started) * 1000, 3) if cold else 0.0))
                 started = time.perf_counter()
-                logging.getLogger("medsim.tts").info("event=synthesis-start request=%s at_ms=%.3f cold=%s", request.request_id, time.time() * 1000, cold)
+                log_event('tts-synthesis-start', level=logging.INFO, request_id=request.request_id)
                 chunks = [audio for _graphemes, _phonemes, audio in pipeline(synthesized, voice=voice, speed=speed)]
                 if not chunks:
                     raise TTSProviderError("Kokoro returned no audio.")
                 import numpy as np
                 audio = _wav_bytes(np.concatenate(chunks), 24000)
                 timings.append(("tts-synthesis", round((time.perf_counter() - started) * 1000, 3)))
-                logging.getLogger("medsim.tts").info("event=wav-complete request=%s at_ms=%.3f synthesis_ms=%.3f", request.request_id, time.time() * 1000, timings[-1][1])
+                log_event('tts-synthesis-completed', level=logging.INFO, request_id=request.request_id, latency_ms=timings[-1][1])
                 return audio
             # A disconnected browser may cancel its request while native CPU
             # inference is still running. Keep the provider lock until that
@@ -357,7 +358,7 @@ class TTSManager:
         self._queue_slots = asyncio.Semaphore(4)
         self._synthesis_slot = asyncio.Lock()
         self._inflight: dict[tuple[str, str, str, float, str], asyncio.Task[TTSResult]] = {}
-        self._latest_request_by_case: dict[str, str] = {}
+        self._latest_request_by_scope: OrderedDict[str, str] = OrderedDict()
         self._persistent_cache = PersistentAudioCache(settings.audio_cache_dir, settings.audio_cache_max_bytes)
 
     def provider(self) -> PatientTTSProvider:
@@ -561,7 +562,7 @@ class TTSManager:
             except TimeoutError as exc:
                 raise TTSProviderError("Patient speech synthesis is busy; text remains available.") from exc
             try:
-                if request.request_id and self._latest_request_by_case.get(request.case_id) != request.request_id:
+                if request.request_id and self._latest_request_by_scope.get(request.session_scope or request.case_id) != request.request_id:
                     raise TTSProviderError("This speech request was superseded by a newer patient response.")
                 result = await provider.synthesize(request)
                 if isinstance(provider, KokoroTTSProvider):
@@ -585,7 +586,11 @@ class TTSManager:
     async def synthesize(self, request: TTSRequest) -> TTSResult:
         provider = self.provider()
         if request.request_id:
-            self._latest_request_by_case[request.case_id] = request.request_id
+            scope = request.session_scope or request.case_id
+            self._latest_request_by_scope[scope] = request.request_id
+            self._latest_request_by_scope.move_to_end(scope)
+            if len(self._latest_request_by_scope) > 256:
+                self._latest_request_by_scope.popitem(last=False)
         cache_key = self._cache_key(request, provider)
         if cache_key is not None and cache_key in self._audio_cache:
             result = self._audio_cache.pop(cache_key)

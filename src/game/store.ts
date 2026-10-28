@@ -14,7 +14,10 @@ import { DEFAULT_CLINIC } from './clinic';
 import type { PaletteName } from '../styles/palettes';
 import type { Case as MedSimCase } from '../data/cases';
 import { getAssignableCases, getCase, getCaseClinic, getCaseVersion, getPatientCase, getRubricVersion } from '../data/cases';
-import { clearAllConversationStorage, ensureAudioContext } from '../voice/conversationStore';
+import { clearAllConversationStorage, clearAllPatientConversations, ensureAudioContext } from '../voice/conversationStore';
+import { hasEncounterActivity } from './encounterState';
+import { PilotHistory, type PilotRoute } from './pilotNavigation';
+import { recoverAttempt, restorePatient } from './attemptRecovery';
 import type { EncounterTranscriptEntry } from './types';
 import type { TrainingMode } from '../clinical/types';
 import { completeEncounter, encounterKey, isSameEncounter } from './encounterState';
@@ -139,6 +142,101 @@ function toActivePatient(c: MedSimCase, variantSeed = `${Date.now()}-${c.id}`): 
 }
 
 class Store {
+  private history: PilotHistory | null = null;
+  private owner: string | null = null;
+  private applyingRoute = false;
+  private replacingNavigation = false;
+  private recoveryController: AbortController | null = null;
+  private checkpointKey() { return `medsim:recovery:${this.owner}`; }
+  private currentRoute(): PilotRoute {
+    const patient = this.state.polyclinic.patient ?? this.state.lastEncounter;
+    return { screen: this.state.screen, caseId: this.state.selectedCaseId,
+      attemptId: patient?.investigationAttemptId ?? undefined,
+      reviewId: this.state.viewedEvalHistoryId ?? undefined, examine: this.state.examineOpen || undefined,
+      onboardingStep: this.state.screen === 'onboarding' ? this.state.onboardingStep : undefined };
+  }
+  private allowNavigation = (route: PilotRoute) => {
+    const patient = this.state.polyclinic.patient;
+    return !patient || !hasEncounterActivity(patient) || !['encounter', 'endConfirm'].includes(this.state.screen)
+      || ['encounter', 'endConfirm', 'debrief'].includes(route.screen)
+      || window.confirm('Pause this unfinished encounter and leave the room? You can resume it during this server session. Unsynced actions may be lost on refresh.');
+  };
+  startNavigation = (owner: string | null) => {
+    if (this.owner === owner && this.history) return;
+    this.history?.dispose();
+    this.recoveryController?.abort();
+    if (this.owner && this.owner !== owner) this.resetForIdentityExit();
+    this.owner = owner;
+    this.history = new PilotHistory(window, (route) => { void this.applyRoute(route); }, this.allowNavigation);
+    this.applyingRoute = true;
+    try { this.set({ recoverableEncounter: Boolean(owner && sessionStorage.getItem(this.checkpointKey())) }); } catch { /* unavailable storage */ }
+    void this.applyRoute(this.history.current());
+  };
+  stopNavigation = () => {
+    this.recoveryController?.abort();
+    this.history?.dispose();
+    this.history = null;
+  };
+  resumeEncounter = () => {
+    try {
+      const route = JSON.parse(sessionStorage.getItem(this.checkpointKey()) ?? 'null') as PilotRoute | null;
+      if (route?.attemptId) { this.history?.write(route); void this.applyRoute(route); }
+    } catch { this.set({ navigationNotice: 'Recovery storage is unavailable. Open saved history or choose a new case.' }); }
+  };
+  retryRecovery = () => { if (this.history) void this.applyRoute(this.history.current()); };
+  dismissRecovery = () => {
+    this.recoveryController?.abort();
+    this.set({ recoveryStatus: 'ready', navigationNotice: undefined });
+    this.setScreen('gpRoom');
+  };
+  private async applyRoute(route: PilotRoute) {
+    this.recoveryController?.abort();
+    const controller = new AbortController();
+    this.recoveryController = controller;
+    this.applyingRoute = true;
+    try {
+      if (!this.owner && !['splash', 'onboarding', 'auth'].includes(route.screen)) {
+        this.set({ screen: 'auth', recoveryStatus: 'ready', navigationNotice: 'Sign in or choose guest mode before opening a training page.' });
+        this.history?.write(this.currentRoute(), true);
+        return;
+      }
+      const requested = ['encounter', 'endConfirm', 'debrief'].includes(route.screen) && !route.reviewId;
+      let screen = route.screen === 'auth' && this.owner ? 'gpRoom' : route.screen;
+      if (requested) {
+        const reference = route.attemptId;
+        const existing = this.state.polyclinic.patient ?? this.state.lastEncounter;
+        if (!reference && !existing) throw new Error('No encounter is attached to this page. Use Resume encounter, saved history, or choose a new case.');
+        if (reference && (existing?.investigationAttemptId !== reference || route.screen !== this.state.screen)) {
+          this.set({ recoveryStatus: 'loading', navigationNotice: undefined });
+          const view = await recoverAttempt(reference, controller.signal);
+          if (controller.signal.aborted) return;
+          if (!getAssignableCases(this.state.trainingMode).some((item) => item.id === view.caseId)) throw new Error('This case is no longer assignable. Open saved history or choose a new case.');
+          const base = toActivePatient(getCase(view.caseId), view.variantSeed);
+          const patient = restorePatient(view, base, base.case);
+          const finished = view.evaluationActive || view.evaluationResult || route.screen === 'debrief'
+            || (!this.state.polyclinic.patient && existing?.investigationAttemptId === reference);
+          if (finished && screen !== 'debrief') {
+            screen = 'debrief';
+            this.set({ navigationNotice: 'This consultation is finished. Review the debrief or choose a new case.' });
+          }
+          this.set({ selectedCaseId: view.caseId,
+            polyclinic: { ...this.state.polyclinic, patient: finished ? null : patient },
+            lastEncounter: finished ? patient : null, endConfirm: patient.encounterChecks ?? { sum: false, safe: false, ice: false } });
+        } else if (!this.state.polyclinic.patient && screen !== 'debrief') {
+          screen = 'debrief';
+          this.set({ navigationNotice: 'This consultation is finished. Its debrief is available; start a new case to practise again.' });
+        }
+      }
+      this.set({ screen, selectedCaseId: route.caseId && getAssignableCases(this.state.trainingMode).some((item) => item.id === route.caseId) ? route.caseId : this.state.selectedCaseId,
+        viewedEvalHistoryId: route.reviewId ?? null, examineOpen: screen === 'encounter' && Boolean(route.examine), recoveryStatus: 'ready',
+        onboardingStep: route.onboardingStep ?? this.state.onboardingStep });
+      this.history?.write(this.currentRoute(), true);
+    } catch (error) {
+      if (!controller.signal.aborted) this.set({ recoveryStatus: 'error', navigationNotice: error instanceof Error ? error.message : 'Recovery is unavailable. Your saved history is separate.' });
+    } finally {
+      if (this.recoveryController === controller) this.applyingRoute = false;
+    }
+  }
   private state: GameState = {
     screen: 'splash',
     tweaks: { ...DEFAULT_TWEAKS },
@@ -164,12 +262,45 @@ class Store {
   };
 
   private set(next: Partial<GameState>) {
+    if (next.screen === 'auth' && this.owner) next = { ...next, screen: 'gpRoom' };
+    if (!this.applyingRoute && next.screen && next.screen !== this.state.screen && !this.allowNavigation({ screen: next.screen })) return;
+    if (next.screen && next.screen !== 'encounter') next = { ...next, examineOpen: false };
+    if (next.screen && next.screen !== 'debrief') next = { ...next, viewedEvalHistoryId: null };
     this.state = { ...this.state, ...next };
+    if (this.owner) {
+      const patient = this.state.polyclinic.patient ?? this.state.lastEncounter;
+      if (patient?.investigationAttemptId) {
+        try { sessionStorage.setItem(this.checkpointKey(), JSON.stringify({ screen: this.state.polyclinic.patient ? 'encounter' : 'debrief',
+          caseId: patient.case.id, attemptId: patient.investigationAttemptId })); } catch { /* recovery is optional in private storage mode */ }
+        this.state = { ...this.state, recoverableEncounter: true };
+      }
+    }
+    if (!this.applyingRoute) this.history?.write(this.currentRoute(), this.replacingNavigation);
     for (const l of this.listeners) l();
   }
 
   // ── navigation ────────────────────────────────
-  setScreen = (screen: Screen) => this.set(navigationUpdate(screen));
+  setScreen = (screen: Screen) => {
+    if (['encounter', 'endConfirm'].includes(screen) && !this.state.polyclinic.patient) {
+      if (this.state.lastEncounter) this.set({ screen: 'debrief', navigationNotice: 'This consultation is finished. Review the debrief or choose a new case.' });
+      else this.set({ screen, recoveryStatus: 'error', navigationNotice: 'No encounter is attached to this page. Use Resume encounter, saved history, or choose a new case.' });
+      return;
+    }
+    this.set(navigationUpdate(screen));
+  };
+  backTo = (screen: Screen) => {
+    if (this.history?.backTo(screen)) return;
+    this.replacingNavigation = true;
+    try { this.setScreen(screen); } finally { this.replacingNavigation = false; }
+  };
+  backOnboarding = () => {
+    if (!this.history?.backTo('onboarding')) this.setOnboardingStep(this.state.onboardingStep - 1);
+  };
+  setExamineOpen = (examineOpen: boolean) => {
+    if (!examineOpen && this.state.examineOpen && this.history?.backTo('encounter')) return;
+    this.replacingNavigation = !examineOpen;
+    try { this.set({ examineOpen }); } finally { this.replacingNavigation = false; }
+  };
 
   /** Open the debrief screen in review mode for a saved evaluation. */
   viewEvalHistory = (historyId: string) =>
@@ -192,18 +323,28 @@ class Store {
   };
 
   resetForIdentityExit = () => {
+    this.stopNavigation();
+    if (this.owner) { try { sessionStorage.removeItem(this.checkpointKey()); } catch { /* unavailable storage */ } }
+    this.owner = null;
+    clearAllPatientConversations();
     clearAllConversationStorage();
     this.attemptedCaseIds.clear();
+    this.applyingRoute = true;
     this.set({
       screen: 'auth',
       polyclinic: { ...this.state.polyclinic, patient: null },
       lastEncounter: null,
       viewedEvalHistoryId: null,
       endConfirm: { sum: false, safe: false, ice: false },
+      recoveryStatus: 'ready', navigationNotice: undefined, recoverableEncounter: false,
     });
+    this.applyingRoute = false;
+    if (typeof window !== 'undefined') window.history.replaceState(null, '', '#/auth');
   };
 
   // ── tweaks ────────────────────────────────────
+  clearExpiredIdentity = () => { if (this.owner) this.resetForIdentityExit(); };
+
   setPalette = (palette: PaletteName) =>
     this.set({ tweaks: { ...this.state.tweaks, palette } });
   setAvatarStyle = (avatarStyle: AvatarStyle) =>
@@ -253,6 +394,8 @@ class Store {
 
   /** Drop the patient into the polyclinic 3D scene and initialize the encounter. */
   loadPolyclinicPatient = (id: string) => {
+    if (this.state.polyclinic.patient && hasEncounterActivity(this.state.polyclinic.patient)
+      && !window.confirm('Replace the unfinished encounter with this patient? The previous encounter will no longer be offered for recovery.')) return false;
     const c = getCase(id);
     if (!getAssignableCases(this.state.trainingMode).some((x) => x.id === id)) {
       throw new Error(`Case ${id} is not assignable in ${this.state.trainingMode} mode`);
@@ -262,13 +405,15 @@ class Store {
       polyclinic: { ...this.state.polyclinic, patient: toActivePatient(c) },
     });
     void this.initializeInvestigationAttempt();
+    return true;
   };
 
   /** Start the count-up on the explicit entry gesture; returning does not reset it. */
   beginPolyclinicConsultation = () => {
+    try { ensureAudioContext(); } catch { /* text remains available */ }
     const current = this.state.polyclinic.patient;
     if (!current || current.case.id !== this.state.selectedCaseId) {
-      this.loadPolyclinicPatient(this.state.selectedCaseId);
+      if (!this.loadPolyclinicPatient(this.state.selectedCaseId)) return;
     }
     this.set({ screen: 'encounter' });
   };
@@ -327,6 +472,8 @@ class Store {
    *
    *  Patient speech is unlocked by the same explicit acceptance gesture. */
   acceptNextPatient = (id?: string) => {
+    if (this.state.polyclinic.patient && hasEncounterActivity(this.state.polyclinic.patient)
+      && !window.confirm('Replace the unfinished encounter with a new patient? The current encounter will no longer be offered for recovery.')) return;
     const targetId = id ?? this.pickNextCaseId();
     if (!targetId || !getAssignableCases(this.state.trainingMode).some((c) => c.id === targetId)) return;
     const c = getCase(targetId);
@@ -429,6 +576,25 @@ class Store {
 
   /** Order an individual case-available investigation through the server.
    * The server owns and returns the immutable result snapshot. */
+  refreshInvestigationResults = async (signal: AbortSignal) => {
+    const patient = this.state.polyclinic.patient;
+    if (!patient?.investigationAttemptId) return;
+    await Promise.all(patient.investigationOrders.filter((order) => !order.resultSnapshot && ['available', 'pending'].includes(order.status)).map(async (order) => {
+      try {
+        const wait = Math.max(0, order.availableAt * 1000 - Date.now()) + 40;
+        await new Promise<void>((resolve, reject) => {
+          const aborted = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
+          const timer = setTimeout(() => { signal.removeEventListener('abort', aborted); resolve(); }, wait);
+          if (signal.aborted) aborted(); else signal.addEventListener('abort', aborted, { once: true });
+        });
+        const resolved = await getInvestigationResult(patient.investigationAttemptId!, order.orderId, signal);
+        if (!signal.aborted) this.updatePolyclinicPatient((current) => isSameEncounter(current, patient) ? replaceInvestigationOrder(current, order.investigationId, resolved) : current);
+      } catch {
+        if (!signal.aborted) this.set({ navigationNotice: 'A saved investigation result could not be retrieved. Reopen this encounter to retry; no order was repeated.' });
+      }
+    }));
+  };
+
   orderPolyclinicTest = async (testId: string, indication = '') => {
     let patient = this.state.polyclinic.patient;
     if (!patient || patient.orderedTestIds.includes(testId)) return;

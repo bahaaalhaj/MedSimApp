@@ -16,7 +16,7 @@ const bundled = buildSync({
 
 const flush = async () => { for (let index = 0; index < 5; index++) await new Promise<void>((done) => setImmediate(done)); };
 
-function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean } = {}) {
+function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean; suspended?: boolean } = {}) {
   const transcript: TranscriptRecord[] = [];
   const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
   let ttsFails = options.ttsFails ?? false;
@@ -46,7 +46,8 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
   });
   const node = () => ({ connect() {}, disconnect() {} });
   const context = {
-    state: 'running', destination: {},
+    state: options.suspended ? 'suspended' : 'running', destination: {},
+    resume: async () => { (context as unknown as { state: string }).state = 'running'; },
     createGain: () => ({ ...node(), gain: { value: 1 } }),
     createAnalyser: () => ({ ...node(), frequencyBinCount: 128 }),
     decodeAudioData: async () => ({}),
@@ -169,8 +170,31 @@ test('grounded text and transcript remain visible with a clear state while cold 
   assert.equal(conversation.getMessages().at(-1)?.content, transcript[1].content);
   assert.equal(conversation.getStatus(), 'audio-preparing');
   assert.equal(calls.filter((c) => c.url === '/tts/synthesize').length, 1);
+  assert.equal(await conversation.sendTextMessage('Can I keep asking while audio loads?', 'typed'), true);
+  assert.equal(transcript.length, 4);
   release();
   await flush();
   assert.equal(conversation.getStatus(), 'ready');
+  conversation.dispose();
+});
+
+test('gesture-blocked audio keeps text and reuses decoded bytes after Enable audio and Replay', async () => {
+  const { conversation, transcript, calls } = fixture('deterministic-authored', { suspended: true });
+  assert.equal(await conversation.sendTextMessage('Tell me your symptoms.'), true);
+  await flush();
+  assert.match(conversation.getLastAudioError(), /user gesture.*Enable audio/);
+  assert.equal(transcript.length, 2);
+  await conversation.enableAudio();
+  await conversation.replayLastResponse();
+  await conversation.replayLastResponse();
+  await flush();
+  const turnId = conversation.getMessages().at(-1)!.audioTurnId!;
+  assert.equal(conversation.getAudioTurnState(turnId), 'played');
+  assert.equal(calls.filter((call) => call.url === '/tts/synthesize').length, 1);
+  assert.equal(transcript.length, 2);
+  conversation.setMuted(true);
+  conversation.setVolume(0.2);
+  assert.equal(conversation.isMuted(), true);
+  assert.equal(conversation.getVolume(), 0.2);
   conversation.dispose();
 });

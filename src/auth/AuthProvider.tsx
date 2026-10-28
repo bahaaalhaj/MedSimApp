@@ -43,19 +43,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const retry = useCallback(async () => {
     commit({ status: 'loading', user: null, guestId: null, error: null });
+    const pending = currentSnapshot;
     try {
       const session = await api.getSession();
+      if (pending !== currentSnapshot) return;
       if (session.authenticated && session.user) {
         commit({ status: 'authenticated', user: session.user, guestId: null, error: null, notice: 'Session restored.' });
       } else {
         commit(guestState() ?? { status: 'unauthenticated', user: null, guestId: null, error: null });
       }
     } catch (error) {
+      if (pending !== currentSnapshot) return;
       commit({ status: 'error', user: null, guestId: null, error: error instanceof Error ? error.message : 'Unable to reach the sign-in service.' });
     }
   }, [commit]);
 
   useEffect(() => { void retry(); }, [retry]);
+  useEffect(() => {
+    const revalidate = () => {
+      if (document.visibilityState !== 'visible' || currentSnapshot.status === 'loading') return;
+      const expected = currentSnapshot;
+      void api.getSession().then((session) => {
+        if (expected !== currentSnapshot) return;
+        if (!session.authenticated && currentSnapshot.status === 'authenticated') {
+          store.resetForIdentityExit();
+          commit({ status: 'unauthenticated', user: null, guestId: null, error: null, notice: 'Your session expired or was revoked. Sign in again; saved reviews remain in your account.' });
+        } else if (session.authenticated && session.user && session.user.id !== currentSnapshot.user?.id) {
+          store.resetForIdentityExit();
+          commit({ status: 'authenticated', user: session.user, guestId: null, error: null, notice: 'Session restored.' });
+        }
+      }).catch(() => { /* Keep the current view; API ownership still enforces expiry. */ });
+    };
+    document.addEventListener('visibilitychange', revalidate);
+    window.addEventListener('pageshow', revalidate);
+    const timer = window.setInterval(revalidate, 60_000);
+    return () => { document.removeEventListener('visibilitychange', revalidate); window.removeEventListener('pageshow', revalidate); window.clearInterval(timer); };
+  }, [commit]);
 
   const value = useMemo<AuthContextValue>(() => ({
     ...state,
@@ -94,12 +117,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       commit({ status: 'guest', user: null, guestId, error: null, notice: 'Guest mode started.' });
     },
     logout: async () => {
-      try { await api.logout(); } finally {
+      if (store.getState().polyclinic.patient && !window.confirm('Log out and clear this browser’s active encounter? Saved reviews remain in your account.')) return;
+      try { await api.logout();
         commit({ status: 'unauthenticated', user: null, guestId: null, error: null });
         store.resetForIdentityExit();
+      } catch {
+        commit({ ...currentSnapshot, notice: 'Logout failed. Your session is still active. Check your connection and try Logout again.' });
       }
     },
     exitGuest: () => {
+      if (store.getState().polyclinic.patient && !window.confirm('Exit guest mode and clear this browser’s active encounter? Saved guest reviews remain in this browser profile.')) return;
       localStorage.removeItem(GUEST_ACTIVE_KEY);
       commit({ status: 'unauthenticated', user: null, guestId: null, error: null });
       store.resetForIdentityExit();

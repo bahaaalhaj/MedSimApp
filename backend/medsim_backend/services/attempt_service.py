@@ -13,6 +13,7 @@ from tts import TTSRequest, get_tts_manager
 
 from ..attempt_store import ATTEMPT_TTL_SECONDS, AttemptStore
 from ..diagnostic_logging import log_event
+from .investigation_service import InvestigationService
 from ..schemas import (
     AttemptCompletionRequest,
     AttemptDiagnosisRequest,
@@ -44,6 +45,27 @@ class AttemptService:
     def safe_investigation(investigation: dict[str, Any]) -> dict[str, Any]:
         allowed = ("testId", "name", "category", "role", "availability", "reason", "turnaroundSec", "prerequisite")
         return {key: investigation[key] for key in allowed if key in investigation}
+
+    def recover(self, attempt_id: str, request: Request) -> dict[str, Any]:
+        """Owner-authorized learner view; never serialize an attempt/audit wholesale."""
+        with self.store.lock:
+            attempt = self.store.get(request, attempt_id)
+            clinical_case = self.investigation_cases.get(attempt['caseId'])
+            if not clinical_case or clinical_case['caseVersion'] != attempt['caseVersion']:
+                raise HTTPException(status_code=409, detail='The assigned case version is no longer available.')
+            result = {key: copy.deepcopy(attempt.get(key)) for key in (
+                'attemptId', 'caseId', 'caseVersion', 'variantSeed', 'clientAttemptId',
+                'createdAt', 'expiresAt', 'patientProfile', 'examinations', 'prescriptions',
+                'submittedDiagnosisId', 'completionChecks', 'evaluationActive', 'evaluationResult', 'encounterTiming',
+            )}
+            result['transcript'] = [{key: row.get(key) for key in ('role', 'content', 'timestampIso', 'questionSource')}
+                                    for row in attempt['transcript']]
+            result['visibleAnswers'] = copy.deepcopy(attempt.get('visibleAnswers', {}))
+            result['askedQuestionIds'] = list(result['visibleAnswers'])
+            result['investigations'] = [self.safe_investigation(item) for item in clinical_case['investigations']]
+            result['orders'] = [InvestigationService.public_order(order, include_result=order.get('releasedAt') is not None)
+                                for order in attempt['orders'].values()]
+            return result
 
     async def prepare_case_audio(self, local_ai_case: dict[str, Any], profile: dict[str, Any]) -> None:
         if self.tts_settings.provider != "kokoro":

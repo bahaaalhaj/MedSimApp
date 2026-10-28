@@ -47,6 +47,8 @@ export class Conversation {
   private readonly audioQueue: OrderedAudioQueue<SynthesizedPatientAudio>;
   private disposed = false;
   private retryRequest: PatientTextRequest | null = null;
+  private readonly decodedAudio = new Map<string, SynthesizedPatientAudio>();
+  private audioTiming = '';
 
   constructor(audioCtx: AudioContext, listeners: ConversationListeners, private readonly options: ConversationOptions) {
     const openingTurnId = `opening-${options.caseId}-${options.caseVersion}`;
@@ -59,14 +61,24 @@ export class Conversation {
       () => { if (!this.disposed) this.state.setStatus('streaming', 'Patient text is streaming…'); },
     ));
     this.audioQueue = new OrderedAudioQueue({
-      synthesize: (job, signal) => synthesizePatientAudio(job, signal, {
+      synthesize: async (job, signal) => {
+        const cached = this.decodedAudio.get(job.turnId);
+        if (cached) return cached;
+        const audio = await synthesizePatientAudio(job, signal, {
         audioCtx,
         ensureAttempt: options.ensureAttempt,
         caseId: options.caseId,
         caseVersion: options.caseVersion,
         speakerGender: options.speakerGender,
         isPediatric: options.isPediatric,
-      }),
+        });
+        this.audioTiming = `Request to headers: ${Math.round(audio.headersAt - audio.startedAt)} ms; download: ${Math.round(audio.receivedAt - audio.headersAt)} ms; decode: ${Math.round(audio.decodedAt - audio.receivedAt)} ms; cache: ${audio.cache}. Server: ${audio.serverTiming ?? 'timings unavailable'}`;
+        if (!signal.aborted && !this.disposed) {
+          this.decodedAudio.set(job.turnId, audio);
+          if (this.decodedAudio.size > 6) this.decodedAudio.delete(this.decodedAudio.keys().next().value!);
+        }
+        return audio;
+      },
       play: (audio, job, onStarted) => this.playback.play(audio.buffer, job.turnId, onStarted),
       stop: () => { this.playback.stop(); },
       onPreparing: (job) => {
@@ -115,6 +127,7 @@ export class Conversation {
   isMuted() { return this.preferences.isMuted(); }
   getLastPatientText() { return this.state.getLastPatientText(); }
   getLastAudioError() { return this.state.getLastAudioError(); }
+  getAudioTiming() { return this.audioTiming; }
   getLastResponseError() { return this.state.getLastResponseError(); }
   getRetryQuestion() { return this.state.getStatus() === 'error' ? this.retryRequest?.text ?? '' : ''; }
   getAudioTurnState(turnId: string) { return this.audioQueue.getState(turnId); }
@@ -124,9 +137,20 @@ export class Conversation {
   setVolume(volume: number) { this.preferences.setVolume(volume); this.playback.applyGain(); }
   setMuted(muted: boolean) { this.preferences.setMuted(muted); this.playback.applyGain(); }
   getMouthAmplitude() { return this.playback.getMouthAmplitude(); }
+  async enableAudio() {
+    try { await this.playback.enable(); this.state.setLastAudioError(''); }
+    catch (error) { this.state.setLastAudioError(error instanceof Error ? error.message : 'Audio could not be enabled.'); }
+  }
 
   async init() {
     if (this.state.getStatus() !== 'uninitialized' || this.disposed) return;
+    if (this.options.restoredMessages?.length) {
+      this.state.restoreMessages(this.options.restoredMessages);
+      const last = [...this.options.restoredMessages].reverse().find((row) => row.role === 'assistant');
+      if (last) this.state.setLastPatient(last.content, 'deterministic-authored');
+      this.state.setStatus('ready');
+      return; // Recovery never replays an opening greeting or duplicates evidence.
+    }
     this.state.setStatus('loading');
     const initialText = this.options.initialMessage.content;
     this.state.setLastPatient(initialText, 'deterministic-authored');
@@ -194,8 +218,8 @@ export class Conversation {
   }
 
   async retrySpeech() {
-    const text = this.state.getLastPatientText();
-    if (text) this.enqueueSpeech({ turnId: `replay-${crypto.randomUUID()}`, text, isOpeningGreeting: false, cacheable: this.state.getLastPatientProvenance() !== 'openrouter' });
+    const last = [...this.state.getMessages()].reverse().find((row) => row.role === 'assistant');
+    if (last?.audioTurnId) this.replayTurn(last.audioTurnId);
   }
   async retryLastResponse() { const last = this.state.getLastQuestion(); if (last) await this.sendTextMessage(last.text, last.source, last.questionId); }
   async replayLastResponse() { await this.retrySpeech(); }
@@ -212,6 +236,7 @@ export class Conversation {
     this.patientText.dispose();
     this.audioQueue.dispose();
     this.playback.dispose();
+    this.decodedAudio.clear();
     this.state.dispose();
   }
 

@@ -164,7 +164,7 @@ export function HistoryScreen() {
               type="button"
               className="btn-plush ghost"
               style={{ fontSize: 13, padding: '8px 14px' }}
-              onClick={() => store.setScreen('home')}
+              onClick={() => store.backTo('home')}
             >
               ← Profile
             </button>

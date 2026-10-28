@@ -123,6 +123,8 @@ class DiagnosticMiddleware:
             nonlocal status
             if message['type'] == 'http.response.start':
                 status = message['status']
+                message['headers'] = [(key, value) for key, value in message.get('headers', []) if key.lower() != b'x-medsim-request-id']
+                message['headers'].append((b'x-medsim-request-id', _request_id.get().encode('ascii')))
             await send(message)
 
         try:
@@ -136,6 +138,11 @@ class DiagnosticMiddleware:
             if status is not None and status >= 400:
                 log_event('http-request-rejected', level=logging.ERROR if status >= 500 else logging.WARNING,
                           category='http-error', scope=scope, http_status=status,
+                          latency_ms=(time.perf_counter() - started) * 1000)
+            elif scope.get('path', '').startswith(('/api/attempts', '/api/local-ai/evaluate', '/tts/synthesize')):
+                headers = dict(scope.get('headers', []))
+                log_event('http-request-completed', level=logging.INFO, scope=scope, http_status=status,
+                          request_id=headers.get(b'x-request-id', b'').decode('ascii', errors='ignore') or None,
                           latency_ms=(time.perf_counter() - started) * 1000)
         finally:
             _request_id.reset(token)

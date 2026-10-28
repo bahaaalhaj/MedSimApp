@@ -34,6 +34,7 @@ export function EvaluationDetails({ evaluation, patient, c, resolveCitation }: E
           {evaluation.domain_scores.interpersonal.max > 0 && <DomainRing label="Interpersonal" score={evaluation.domain_scores.interpersonal} />}
         </div>
         <div className="chip" style={{ marginTop: 12 }}>{evaluation.generation.mode === 'model-assisted' ? 'Model-assisted feedback' : 'Deterministic evidence grading'}</div>
+        {evaluation.generation.error_category && <p role="status" style={{ fontSize: 12 }}>Optional model feedback was unavailable ({evaluation.generation.error_category}). The server returned deterministic grading. Support ID: {evaluation.generation.request_id}</p>}
       </div>
 
       <ConsultationManagement assessment={evaluation.consultation_management} />

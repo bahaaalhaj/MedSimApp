@@ -137,6 +137,15 @@ body {
 
 .topbar-profile { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; font: inherit; padding: 0; }
 .topbar-exit { border: 2px solid var(--line); border-radius: var(--r-pill); background: var(--cream); padding: 6px 10px; font: 800 11px Nunito, sans-serif; cursor: pointer; }
+.topbar { flex-wrap: wrap; gap: 12px; }
+.topbar-controls { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.topbar-notice { max-width: 260px; white-space: normal !important; }
+@media (max-width: 760px) {
+  .topbar { padding: 10px 12px !important; }
+  .topbar > .breadcrumb { order: 3; width: 100%; flex-wrap: wrap; }
+  .topbar-controls { margin-left: auto; }
+  .topbar-name, .topbar .topbar-notice { display: none; }
+}
 
 .chip {
   display: inline-flex;

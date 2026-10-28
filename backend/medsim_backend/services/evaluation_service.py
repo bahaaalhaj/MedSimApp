@@ -26,8 +26,31 @@ class EvaluationService:
         self.store = store
         self.investigation_cases = investigation_cases
         self.investigations = investigations
+        self._tasks: dict[str, asyncio.Task[dict[str, Any]]] = {}
 
     async def evaluate(self, payload: EvaluationRequest, request: Request) -> dict[str, Any]:
+        # Authorize every caller, including retries while a task is running.
+        with self.store.lock:
+            attempt = self.store.get(request, payload.attemptId)
+            if (payload.caseId, payload.caseVersion, payload.variantSeed) != (attempt['caseId'], attempt['caseVersion'], attempt['variantSeed']):
+                raise HTTPException(status_code=409, detail='attempt provenance mismatch')
+        task = self._tasks.get(payload.attemptId)
+        if task is None:
+            task = asyncio.create_task(self._run(payload, request))
+            self._tasks[payload.attemptId] = task
+            def finished(completed):
+                self._tasks.pop(payload.attemptId, None)
+                with self.store.lock:
+                    current = self.store.attempts.get(payload.attemptId)
+                    if current is not None:
+                        current['evaluationActive'] = False
+                if not completed.cancelled() and completed.exception() is not None:
+                    log_event('evaluation-task-failed', category='evaluation-unavailable', error=completed.exception())
+            task.add_done_callback(finished)
+        # A lost mobile connection must not cancel grading or strand its busy flag.
+        return await asyncio.shield(task)
+
+    async def _run(self, payload: EvaluationRequest, request: Request) -> dict[str, Any]:
         with self.store.lock:
             attempt = self.store.get(request, payload.attemptId)
             if payload.caseId != attempt["caseId"] or payload.caseVersion != attempt["caseVersion"]:
@@ -65,6 +88,8 @@ class EvaluationService:
                 raise HTTPException(status_code=409, detail="An evaluation is already in progress for this encounter.")
             attempt.pop("dialogueContext", None)  # End of consultation; no dialogue context survives debrief.
             attempt["evaluationActive"] = True
+            if payload.encounterTiming is not None:
+                attempt['encounterTiming'] = payload.encounterTiming.model_dump()
             case = attempt["localAiCase"]
             investigation_case = self.investigation_cases[attempt["caseId"]]
             catalogue = {item["testId"]: item for item in investigation_case["investigations"]}

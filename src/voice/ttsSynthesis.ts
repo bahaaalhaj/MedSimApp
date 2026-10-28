@@ -4,6 +4,7 @@ export interface SynthesizedPatientAudio {
   buffer: AudioBuffer;
   startedAt: number;
   receivedAt: number;
+  headersAt: number;
   decodedAt: number;
   cache: string;
   voice: string | null;
@@ -26,9 +27,10 @@ export async function synthesizePatientAudio(job: AudioJob, signal: AbortSignal,
   const attemptId = await context.ensureAttempt();
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
   if (!attemptId) throw new Error('Patient audio is not ready because the encounter service is unavailable.');
+  const requestId = crypto.randomUUID();
   const response = await fetch('/tts/synthesize', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-request-id': requestId },
     signal,
     body: JSON.stringify({
       text: job.text,
@@ -39,13 +41,14 @@ export async function synthesizePatientAudio(job: AudioJob, signal: AbortSignal,
       isPediatric: context.isPediatric,
       isOpeningGreeting: job.isOpeningGreeting,
       cacheable: job.cacheable,
-      requestId: crypto.randomUUID(),
+      requestId,
     }),
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { detail?: string } | null;
     throw new Error(payload?.detail || `Local speech request failed (${response.status})`);
   }
+  const headersAt = performance.now();
   const bytes = await response.arrayBuffer();
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
   const receivedAt = performance.now();
@@ -56,6 +59,7 @@ export async function synthesizePatientAudio(job: AudioJob, signal: AbortSignal,
     buffer,
     startedAt,
     receivedAt,
+    headersAt,
     decodedAt,
     cache: response.headers.get('X-Patient-TTS-Cache') ?? 'unknown',
     voice: response.headers.get('X-Patient-TTS-Voice'),

@@ -43,6 +43,7 @@ export class OrderedAudioQueue<TAudio = unknown> {
 
   enqueue(job: AudioJob): boolean {
     if (this.disposed) return false;
+    if (this.activeJob?.turnId === job.turnId || this.queue.some((item) => item.turnId === job.turnId)) return false;
     if (this.queue.length >= 6) {
       this.setState(job.turnId, 'error');
       this.options.onError?.(job, new Error('Speech queue is full. Use Replay on this response when ready.'));

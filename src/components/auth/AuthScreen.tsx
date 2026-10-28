@@ -18,7 +18,7 @@ export function AuthScreen() {
   return (
     <main className="screen auth-screen">
       <DoodleScatter items={[{ kind: 'sparkle', x: '7%', y: 90, size: 28, color: '#FFD86B' }, { kind: 'pill', x: '88%', y: 100, size: 66, anim: 'wobble' }, { kind: 'heart', x: '8%', y: '76%', size: 44, color: '#F47A92' }]} />
-      <button type="button" className="auth-back" onClick={() => store.setScreen('splash')}>← Welcome</button>
+      <button type="button" className="auth-back" onClick={() => store.backTo('splash')}>← Welcome</button>
       <section className="auth-shell" aria-labelledby="auth-title">
         <aside className="auth-intro">
           <Wordmark size={48} />

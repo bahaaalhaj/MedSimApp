@@ -42,8 +42,8 @@ test('welcome and onboarding lead to auth, then identity continues to specialty 
   const app = read('src/App.tsx');
   assert.match(store, /hasOnboarded \? 'auth' : 'onboarding'/);
   assert.match(store, /hasOnboarded: true, screen: 'auth'/);
-  assert.match(app, /screen === 'auth' && hasIdentity/);
-  assert.match(app, /store\.setScreen\('gpRoom'\)/);
+  assert.match(app, /store\.startNavigation\(owner\)/);
+  assert.match(store, /route\.screen === 'auth' && this\.owner \? 'gpRoom'/);
 });
 
 test('production navigation has no mode-selection screen or ER option', () => {

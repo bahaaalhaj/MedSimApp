@@ -7,6 +7,10 @@ from ..services.attempt_service import AttemptService
 
 
 def register_attempt_routes(app: FastAPI, service: AttemptService) -> None:
+    @app.get('/api/attempts/{attempt_id}/recovery')
+    def recover_attempt(attempt_id: str, request: Request):
+        return service.recover(attempt_id, request)
+
     @app.post("/api/attempts", status_code=201)
     async def create_clinical_attempt(payload: CreateClinicalAttemptRequest, request: Request):
         return await service.create(payload, request)

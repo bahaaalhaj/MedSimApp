@@ -32,9 +32,14 @@ export class WebAudioPlayback {
 
   applyGain() { this.gain.gain.value = this.preferences.isMuted() ? 0 : this.preferences.getVolume(); }
 
+  async enable() {
+    await this.audioCtx.resume();
+    if (this.audioCtx.state !== 'running') throw new Error('Tap Enable audio again to allow playback. Text remains available.');
+  }
+
   async play(buffer: AudioBuffer, turnId: string, onStarted: () => void): Promise<void> {
     if (this.disposed) return;
-    if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
+    if (this.audioCtx.state === 'suspended') throw new Error('Playback needs a user gesture. Tap Enable audio, then Replay.');
     if (this.disposed) return;
     const source = this.audioCtx.createBufferSource();
     source.buffer = buffer;

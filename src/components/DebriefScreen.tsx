@@ -106,11 +106,14 @@ export function DebriefScreen() {
 
   // Persist the evaluation the FIRST time it arrives in this session.
   const savedRef = useRef(false);
+  const [saveError, setSaveError] = useState(false);
+  const [saveRevision, setSaveRevision] = useState(0);
   useEffect(() => {
     if (reviewed) return;
     if (savedRef.current) return;
     if (!evaluation || !patient || !c) return;
     savedRef.current = true;
+    setSaveError(false);
     const dxId = patient.submittedDiagnosisId ?? evaluation.diagnosis_result?.correct_diagnosis_id ?? '';
     void saveEvalHistory({
       caseId: c.id,
@@ -125,24 +128,17 @@ export function DebriefScreen() {
       rubricVersion: patient.rubricVersion,
       variantSeed: patient.variantSeed,
     }).catch(() => {
-      // The debrief remains usable if persistence is temporarily unavailable.
+      savedRef.current = false;
+      setSaveError(true);
     });
-  }, [evaluation, patient, c, reviewed]);
-
-  // Clear review mode when the user navigates away from this screen.
-  useEffect(() => {
-    return () => {
-      if (state.viewedEvalHistoryId) store.clearViewedEval();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [evaluation, patient, c, reviewed, saveRevision]);
 
   return (
     <div className="screen paper" style={{ overflowY: 'auto' }}>
       <TopBar here={5} steps={['Polyclinic', 'GP', 'Case', 'Brief', 'Encounter', 'Debrief']} />
 
       <div style={{ padding: '28px 36px 60px', maxWidth: 1080, margin: '0 auto' }}>
-        {reviewLoading ? (
+        {state.viewedEvalHistoryId && !reviewLoading && !reviewed ? <StatusBanner title="Saved review unavailable" body="This review could not be retrieved for your current identity. Return to saved history and retry." bg="var(--rose)" /> : reviewLoading ? (
           <StatusBanner title="Loading saved review…" body="Retrieving this review from your private training history." bg="var(--sky)" />
         ) : !c || !patient ? (
           <StatusBanner
@@ -161,7 +157,7 @@ export function DebriefScreen() {
         ) : status === 'error' ? (
           <StatusBanner
             title={'We couldn\u2019t generate your debrief'}
-            body={error ?? 'Unknown error. The encounter is still saved \u2014 try again from the home screen.'}
+            body={error ?? 'Evaluation is unavailable. Keep this encounter open and retry.'}
             bg="var(--rose)"
           />
         ) : evaluation ? (
@@ -173,15 +169,17 @@ export function DebriefScreen() {
             bg="var(--cream-2)"
           />
         )}
+        {status === 'error' && <button type="button" className="btn-plush primary" onClick={live.reset}>Retry evaluation</button>}
+        {saveError && <div role="alert">Feedback is available, but it has not been saved to history yet. Keep this page open. <button type="button" onClick={() => setSaveRevision((value) => value + 1)}>Retry saving review</button></div>}
 
         <div style={{ display: 'flex', gap: 12, marginTop: 22 }}>
           <button
             type="button"
             className="btn-plush ghost"
             style={{ flex: 1 }}
-            onClick={() => store.setScreen('gpRoom')}
+            onClick={() => store.backTo(state.viewedEvalHistoryId ? 'history' : 'gpRoom')}
           >
-            {'\u2190 Back to polyclinic'}
+            {state.viewedEvalHistoryId ? '\u2190 Back to history' : '\u2190 Back to polyclinic'}
           </button>
           <button
             type="button"

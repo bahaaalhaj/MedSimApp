@@ -137,7 +137,7 @@ export function OnboardingScreen() {
           type="button"
           className="btn-plush ghost"
           style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
-          onClick={() => store.setOnboardingStep(step - 1)}
+          onClick={() => store.backOnboarding()}
         >
           ← Back
         </button>

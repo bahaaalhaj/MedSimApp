@@ -229,7 +229,7 @@ export function CaseLibraryScreen() {
             type="button"
             className="btn-plush ghost"
             style={{ fontSize: 14, padding: '10px 18px' }}
-            onClick={() => store.setScreen('gpRoom')}
+            onClick={() => store.backTo('gpRoom')}
             title="Back to the GP room"
           >
             ← Back

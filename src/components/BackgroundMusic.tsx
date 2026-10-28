@@ -46,13 +46,17 @@ const music = new MusicController();
 
 export function BackgroundMusic() {
   const screen = useScreen();
-  const [userMuted, setUserMuted] = useState(readMuted);
   useEffect(() => {
     music.init(); void music.play();
     const onPatientAudio = (event: Event) => music.setSpeaking(Boolean((event as CustomEvent<{ speaking?: boolean }>).detail?.speaking));
     window.addEventListener('medsim:patient-audio', onPatientAudio);
     return () => window.removeEventListener('medsim:patient-audio', onPatientAudio);
   }, []);
-  if (screen === 'splash') return null;
-  return <button type="button" onClick={() => { const next = !userMuted; setUserMuted(next); music.setMuted(next); }} title={userMuted ? 'Music muted — click to unmute' : 'Music on — click to mute'} aria-label={userMuted ? 'Unmute music' : 'Mute music'} style={{ position: 'fixed', top: 18, right: 156, zIndex: 1000, width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--line)', background: userMuted ? 'var(--cream)' : 'var(--butter)', boxShadow: '0 2px 0 var(--line)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><span aria-hidden style={{ lineHeight: 1 }}>{userMuted ? '🔇' : '🎵'}</span></button>;
+  return screen === 'auth' || screen === 'onboarding' ? <MusicToggle floating /> : null;
+}
+
+/** Header controls participate in layout so they cannot cover profile/logout. */
+export function MusicToggle({ floating = false }: { floating?: boolean }) {
+  const [userMuted, setUserMuted] = useState(readMuted);
+  return <button type="button" onClick={() => { const next = !userMuted; setUserMuted(next); music.setMuted(next); }} title={userMuted ? 'Music muted — click to unmute' : 'Music on — click to mute'} aria-label={userMuted ? 'Unmute music' : 'Mute music'} style={{ ...(floating ? { position: 'fixed', top: 18, right: 18, zIndex: 1000 } as const : {}), flexShrink: 0, width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--line)', background: userMuted ? 'var(--cream)' : 'var(--butter)', boxShadow: '0 2px 0 var(--line)', cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><span aria-hidden style={{ lineHeight: 1 }}>{userMuted ? '🔇' : '🎵'}</span></button>;
 }

@@ -4,7 +4,7 @@ import type { ConversationListeners, ConversationMessage, ConversationStatus, Pa
 export type LastQuestion = { text: string; source: QuestionSource; questionId?: string };
 
 export function canStartPatientText(status: ConversationStatus, requestBusy: boolean, audioBusy: boolean): boolean {
-  return !requestBusy && !audioBusy && !['preparing', 'streaming'].includes(status);
+  return !requestBusy && (!audioBusy || status === 'audio-preparing') && !['preparing', 'streaming'].includes(status);
 }
 
 /** Owns learner-visible dialogue state and subscriptions; it performs no I/O. */
@@ -43,6 +43,7 @@ export class ConversationState {
   setLastQuestion(value: LastQuestion | null) { this.lastQuestion = value; }
   setEmotion(value: PatientEmotion, notify = true) { this.currentEmotion = value; if (notify) this.listeners.onEmotion?.(value); }
   pushMessage(message: ConversationMessage) { this.messages.push(message); this.emitMessages(); }
+  restoreMessages(messages: ConversationMessage[]) { this.messages = [...messages]; this.emitMessages(); }
   popMessage() { this.messages.pop(); this.emitMessages(); }
   emitMessages() { const snapshot = [...this.messages]; this.messageSubscribers.forEach((fn) => fn(snapshot)); }
   subscribeMessages(fn: (messages: ReadonlyArray<ConversationMessage>) => void) { this.messageSubscribers.add(fn); return () => { this.messageSubscribers.delete(fn); }; }

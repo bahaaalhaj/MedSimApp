@@ -68,10 +68,12 @@ export function FloatingPatientAudioPanel({ bedPosition, bedRotationY = 0, headO
         </div>
         <div style={{ margin: '7px 0', fontStyle: 'italic', fontSize: 13, lineHeight: 1.4 }}>&ldquo;{subtitle.text}&rdquo;</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <button type="button" onClick={() => void conversation.enableAudio()}>Enable audio</button>
           <button type="button" onClick={toggleMute} aria-label={muted ? 'Unmute patient audio' : 'Mute patient audio'}>{muted ? '🔇' : '🔊'}</button>
           <input aria-label="Patient audio volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => setOutputVolume(Number(event.target.value))} style={{ flex: 1 }} />
           <button type="button" onClick={() => void conversation.replayLastResponse()} aria-label="Replay patient response">↻ Replay</button>
         </div>
+        {status === 'audio-preparing' && <div role="status" style={{ fontSize: 11 }}>Preparing speech (cold startup can be slow). Text questions remain available. <button onClick={() => conversation.skipCurrentSpeech()}>Skip audio</button></div>}
         {error && <div role="status" style={{ marginTop: 7, fontSize: 11, color: 'var(--ink-2)' }}>{error} <button type="button" onClick={() => { setError(''); void (conversation.getLastAudioError() ? conversation.retrySpeech() : conversation.retryLastResponse()); }}>Retry</button></div>}
         <div style={{ position: 'absolute', left: '50%', bottom: -12, borderLeft: '12px solid transparent', borderRight: '12px solid transparent', borderTop: '12px solid var(--line)' }} />
       </div>

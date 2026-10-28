@@ -22,6 +22,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
   const [volume, setVolume] = useState(0.85);
   const [muted, setMuted] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [audioTiming, setAudioTiming] = useState('');
   const [responseError, setResponseError] = useState('');
 
   // Hook into the live conversation. We resync on mount AND poll for the
@@ -70,6 +71,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
       if (conv) {
         setStatus(conv.getStatus());
         setAudioError(conv.getLastAudioError());
+        setAudioTiming(conv.getAudioTiming());
         setResponseError(conv.getLastResponseError());
       }
     }, 500);
@@ -171,6 +173,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+        <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.enableAudio()}>Enable audio</button>
         <button type="button" aria-label={muted ? 'Unmute patient audio' : 'Mute patient audio'} onClick={() => {
           const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
           if (!conversation) return;
@@ -182,10 +185,12 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
           const next = Number(event.target.value);
           setVolume(next);
           getExistingConversation(POLYCLINIC_BED_INDEX)?.setVolume(next);
-        }} style={{ flex: 1 }} />
-        <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.replayLastResponse()}>↻</button>
+        }} style={{ flex: 1, minWidth: 0 }} />
+        <button type="button" aria-label="Replay patient response" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.replayLastResponse()}>↻</button>
       </div>
+      {status === 'audio-preparing' && <div role="status" style={{ fontSize: 11 }}>Speech is preparing; cold startup may be slow. You can keep reading and asking text questions. <button onClick={() => getExistingConversation(POLYCLINIC_BED_INDEX)?.skipCurrentSpeech()}>Skip audio</button></div>}
       {audioError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{audioError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retrySpeech()}>Retry audio</button></div>}
+      {audioTiming && <details style={{ fontSize: 10 }}><summary>Audio timing</summary>{audioTiming}</details>}
       {responseError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{responseError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retryLastResponse()}>Retry response</button></div>}
 
       <div

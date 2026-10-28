@@ -282,6 +282,7 @@ export function Doodle({ kind, size = 50, color, style }: DoodleProps) {
 
 // ─── BREADCRUMB ──────────────────────────────
 import type { Screen } from '../game/types';
+import { MusicToggle } from './BackgroundMusic';
 
 const LABEL_TO_SCREEN: Record<string, Screen> = {
   Polyclinic: 'gpRoom',
@@ -349,6 +350,7 @@ export function TopBar({
   const initial = displayName.trim().charAt(0).toUpperCase() || 'G';
   return (
     <div
+      className="topbar"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -368,10 +370,11 @@ export function TopBar({
       </span>
       <Breadcrumb steps={steps} here={here} />
       {showProfile ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {auth.notice && <span className="chip mint" role="status" style={{ fontSize: 10 }}>{auth.notice}</span>}
+        <div className="topbar-controls" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <MusicToggle />
+          {auth.notice && <span className="chip mint topbar-notice" role="status" style={{ fontSize: 10 }}>{auth.notice}</span>}
           <button className="topbar-profile tap" type="button" onClick={() => store.setScreen('home')} title="Open profile">
-          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink-2)' }}>{displayName}</span>
+          <span className="topbar-name" style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink-2)' }}>{displayName}</span>
           <div
             style={{
               width: 36,

@@ -256,6 +256,10 @@ export interface PolyclinicSlice {
 
 // ── Combined game state ──
 export interface GameState {
+  recoveryStatus?: 'loading' | 'error' | 'ready';
+  navigationNotice?: string;
+  examineOpen?: boolean;
+  recoverableEncounter?: boolean;
   screen: Screen;
   tweaks: Tweaks;
   onboardingStep: number;

@@ -58,14 +58,14 @@ def register_diagnostics_routes(
             gender = str(profile["gender"])
             is_pediatric = int(profile["age"]) < 14
         started = time.perf_counter()
-        logging.getLogger("medsim.tts").info("event=tts-request-accepted request=%s at_ms=%.3f", req.requestId, time.time() * 1000)
+        log_event('tts-request-accepted', level=logging.INFO, request_id=req.requestId)
         try:
             manager = get_tts_manager()
             result = await manager.synthesize(TTSRequest(
                 text=req.text, case_id=req.caseId, gender=gender,
                 is_pediatric=is_pediatric, speed=req.speed, language=req.language,
                 case_version=req.caseVersion, is_opening_greeting=req.isOpeningGreeting,
-                cacheable=req.cacheable, request_id=req.requestId,
+                cacheable=req.cacheable, request_id=req.requestId, session_scope=req.attemptId,
             ))
         except (TTSConfigurationError, TTSProviderError) as exc:
             log_event('tts-response-failed', request_id=req.requestId, error=exc,

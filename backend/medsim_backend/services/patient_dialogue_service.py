@@ -305,6 +305,10 @@ class PatientDialogueService:
                                 "domains": sorted({d for f in clinical_facts[:4] for d in f.domains})}
                     elif req.source == "typed":
                         current.pop("dialogueContext", None)
+                    if req.source == 'predefined' and req.questionId and authored_value is not None:
+                        current.setdefault('visibleAnswers', {})[req.questionId] = {
+                            'answer': authored_value, 'relevant': bool(history_item.get('relevant')) if history_item else False,
+                        }
                     current["transcript"] = [*current["transcript"], {"role": "trainee", "content": req.question.strip(), "timestampIso": str(time.time()), "questionSource": req.source}, {
                         "role": "patient", "content": response_text, "timestampIso": str(time.time()), "questionSource": None,
                         # Retain audit support with the existing bounded transcript,

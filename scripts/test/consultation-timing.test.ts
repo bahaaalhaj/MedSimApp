@@ -78,7 +78,7 @@ test('debrief uses frozen timing, labels unscored duration, and never recomputes
   assert.doesNotMatch(report, /Date\.now\(\)/);
   assert.match(report, /consultation_timing/);
   assert.match(report, /not scored/);
-  assert.match(read('src/agents/useLocalDebrief.ts'), /encounterTiming: request\.encounter_log\.consultation_timing/);
+  assert.match(read('src/agents/debriefClient.ts'), /encounterTiming: request\.encounter_log\.consultation_timing/);
 });
 
 test('real timer markup counts upward and clears its interval on finish and unmount', () => {

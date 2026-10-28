@@ -39,7 +39,7 @@ export async function* streamLocalPatient(
   const res = await fetch(PATIENT_STREAM_URL, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-request-id': requestId },
     body: JSON.stringify({ attemptId, question, source, questionId, requestId }),
     signal,
   });

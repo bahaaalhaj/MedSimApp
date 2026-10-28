@@ -28,34 +28,34 @@ export async function orderInvestigation(attemptId: string, investigationId: str
   }));
 }
 
-export async function getInvestigationResult(attemptId: string, orderId: string): Promise<AttemptOrder> {
-  return parse(await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/investigations/${encodeURIComponent(orderId)}`, { credentials: 'include' }));
+export async function getInvestigationResult(attemptId: string, orderId: string, signal?: AbortSignal): Promise<AttemptOrder> {
+  return parse(await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/investigations/${encodeURIComponent(orderId)}`, { credentials: 'include', signal }));
 }
 
-export async function recordExamination(attemptId: string, actionId: string, performedAt: number) {
+export async function recordExamination(attemptId: string, actionId: string, performedAt: number, signal?: AbortSignal) {
   return parse<{ actionId: string; performedAt: number; attemptId: string }>(await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/examinations`, {
     method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ actionId, performedAt }),
+    body: JSON.stringify({ actionId, performedAt }), signal,
   }));
 }
 
-export async function submitDiagnosis(attemptId: string, diagnosisId: string) {
+export async function submitDiagnosis(attemptId: string, diagnosisId: string, signal?: AbortSignal) {
   return parse<{ submittedDiagnosisId: string; correctDiagnosisId: string; diagnosisWasCorrect: boolean }>(await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/diagnosis`, {
     method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ diagnosisId }),
+    body: JSON.stringify({ diagnosisId }), signal,
   }));
 }
 
-export async function recordPrescription(attemptId: string, prescription: { medicationId: string; dose: string; duration: string; prescribedAt: number }) {
+export async function recordPrescription(attemptId: string, prescription: { medicationId: string; dose: string; duration: string; prescribedAt: number }, signal?: AbortSignal) {
   return parse<typeof prescription>(await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/prescriptions`, {
     method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(prescription),
+    body: JSON.stringify(prescription), signal,
   }));
 }
 
-export async function recordCompletion(attemptId: string, completion: { summaryCompleted: boolean; safetyNettingCompleted: boolean; ideasConcernsExpectationsCompleted: boolean }) {
+export async function recordCompletion(attemptId: string, completion: { summaryCompleted: boolean; safetyNettingCompleted: boolean; ideasConcernsExpectationsCompleted: boolean }, signal?: AbortSignal) {
   return parse<typeof completion>(await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/completion`, {
     method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(completion),
+    body: JSON.stringify(completion), signal,
   }));
 }

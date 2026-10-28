@@ -57,6 +57,9 @@ export async function saveEvalHistory(payload: NewEvalHistoryEntry): Promise<Eva
   const auth = getAuthSnapshot();
   if (auth.status === 'authenticated') return saveAccountEncounter<EvalHistoryEntry>(payload);
   if (auth.status === 'guest' && auth.guestId) {
+    const existing = readGuest(auth.guestId).find((item) => payload.patientSnapshot.investigationAttemptId
+      && item.patientSnapshot.investigationAttemptId === payload.patientSnapshot.investigationAttemptId);
+    if (existing) return existing;
     const entry: EvalHistoryEntry = { ...payload, id: `eh_${Date.now()}_${crypto.randomUUID()}`, savedAt: Date.now() };
     writeGuest(auth.guestId, [entry, ...readGuest(auth.guestId)]);
     return entry;

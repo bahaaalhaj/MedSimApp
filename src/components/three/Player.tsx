@@ -27,10 +27,8 @@ interface PlayerProps {
   locked?: boolean;
   /** If set, the camera is oriented to look at this world point on spawn. */
   lookAt?: [number, number, number];
-  /** When false, PointerLockControls is NOT mounted at all. This is the
-   *  root fix for the "mouse falls into the game on UI clicks" problem —
-   *  the encounter screen only enables this when the user explicitly hits
-   *  the Look-around button. Default: false (off). */
+  /** When false, pointer look is disabled. When enabled, only a click on
+   *  the scene canvas can acquire pointer lock. Default: false (off). */
   enableLook?: boolean;
   /** EncounterScreen owns the patient Examine shortcut globally. */
   usesGlobalExamineShortcut?: boolean;
@@ -146,11 +144,9 @@ export function Player({
     interactionBus.setActive(best ? best.id : null);
   });
 
-  // Only mount the controls when the user has explicitly opted into
-  // look-around. Without this, drei's PointerLockControls grabs pointer
-  // lock on ANY click anywhere on the canvas — which fights every modal,
-  // overlay, button, and bleed-through click in the rest of the UI.
-  return enableLook ? <PointerLockControls /> : null;
+  // Drei defaults to a document click listener. Limit acquisition to the
+  // canvas so profile/navigation and HTML audio controls keep their cursor.
+  return enableLook ? <PointerLockControls selector="canvas" /> : null;
 }
 
 function collides(x: number, z: number, colliders: WallCollider[]): boolean {

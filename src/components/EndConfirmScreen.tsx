@@ -157,7 +157,7 @@ export function EndConfirmScreen() {
               type="button"
               className="btn-plush ghost"
               style={{ flex: 1 }}
-              onClick={() => store.setScreen('encounter')}
+              onClick={() => store.backTo('encounter')}
             >
               ← Back to the room
             </button>

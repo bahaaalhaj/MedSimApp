@@ -6,7 +6,7 @@ from unittest.mock import patch
 from collections import Counter
 from pathlib import Path
 
-from fastapi.testclient import TestClient
+from test_support import TestClient
 
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -30,6 +30,7 @@ class BackendRouteContractTests(unittest.TestCase):
         expected = {
             "/agent/patient/stream": {"post": "200"},
             "/api/attempts": {"post": "201"},
+            "/api/attempts/{attempt_id}/recovery": {"get": "200"},
             "/api/attempts/{attempt_id}/completion": {"post": "201"},
             "/api/attempts/{attempt_id}/diagnosis": {"post": "201"},
             "/api/attempts/{attempt_id}/examinations": {"post": "201"},
