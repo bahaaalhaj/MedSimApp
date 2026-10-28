@@ -16,7 +16,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, renameSync, unlinkSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, renameSync, unlinkSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -131,31 +131,23 @@ test('verify-loop script is not referenced by accident outside its command', () 
     'scripts/loop/verify-loop.ts',
     'scripts/test/loop-commands.test.ts',
   ]);
-  // git grep would miss untracked files (like these, on first add), so
-  // we do a scoped filesystem walk instead. Searching tracked files
-  // would also hide a drive-by edit before commit — which is exactly
-  // the kind of regression this test is here to catch.
+  // Include unstaged edits and untracked source, while excluding ignored
+  // private runtime evidence, model downloads and dependency trees.
   const roots = ['.claude', 'scripts', 'src', 'backend'];
+  const listing = spawnSync('git', [
+    'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...roots,
+  ], { cwd: REPO_ROOT, encoding: 'utf8' });
+  assert.equal(listing.status, 0, listing.stderr);
   const needle = 'scripts/loop/verify-loop';
   const found: string[] = [];
-  const walk = (rel: string): void => {
+  for (const rel of listing.stdout.split('\0').filter(Boolean)) {
     const full = resolve(REPO_ROOT, rel);
-    if (!existsSync(full)) return;
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      for (const entry of readdirSync(full)) {
-        if (entry === 'node_modules' || entry.startsWith('.venv')) continue;
-        walk(`${rel}/${entry}`);
-      }
-      return;
-    }
-    if (!/\.(ts|tsx|md|py|json|js|jsx|mjs|cjs)$/.test(rel)) return;
+    if (!existsSync(full) || !/\.(ts|tsx|md|py|json|js|jsx|mjs|cjs)$/.test(rel)) continue;
     const body = readFileSync(full, 'utf8');
     if (body.includes(needle)) {
       found.push(rel.replace(/\\/g, '/'));
     }
-  };
-  for (const root of roots) walk(root);
+  }
 
   assert.ok(
     found.length > 0,

@@ -4,6 +4,9 @@ dist
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+!.env.*.example
 *.log
 .DS_Store
 
@@ -25,8 +28,27 @@ backend/samples/*.wav
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
 
-tsconfig.tsbuildinfo
+# Regenerable project caches (also outside backend/).
+__pycache__/
+*.pyc
+*.pyo
+.ruff_cache/
+.pytest_cache/
+*.tsbuildinfo
+
+# Local restoration evidence; never part of the served dist/ or Git.
+/.local-quarantine/
+/verify.log.test-backup
 
 # `skills` CLI (vercel-labs/skills) — installed locally, not committed
 /.agents/

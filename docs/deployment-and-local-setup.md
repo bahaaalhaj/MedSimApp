@@ -12,6 +12,14 @@ OpenRouter is the hosted default and requires a user-supplied server-side key fo
 
 ## Production boundary
 
+The temporary Windows student pilot uses [its dedicated loopback launcher](windows-student-pilot.md)
+and serves `dist/` on port 8788. It does not use `vercel.json`, `middleware.ts`
+or `backend/Procfile`. Those retained files describe the alternative historical
+Vercel/Render deployment: the middleware and rewrites refer to the old Render
+hostname, and the Procfile binds a platform-assigned port. They are not pilot
+startup instructions. Their presence does not establish that deployment's current
+availability. Do not substitute that backend URL into the pilot configuration.
+
 Deploy the Vite build and FastAPI service according to the hosting environment’s secret and database controls. Set `BACKEND_SHARED_SECRET`, database/session settings, allowed origins, and provider settings on the server only. Do not expose OpenRouter or TTS credentials to browser code. SQLite runtime files, model caches, generated audio, and local `.env.local` files are operational artifacts and are excluded from the repository.
 
 Technical deployment success does not establish clinical approval, accreditation, or suitability for real-patient care.

@@ -7,9 +7,10 @@ const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' 
   .split(/\r?\n/)
   .filter(Boolean);
 
-const forbiddenArtifact = /\.(?:gguf|safetensors|pt|pth|onnx|zip|exe|dll|db|sqlite|sqlite3|wal|shm)$/i;
-const forbiddenPath = /(?:^|\/)(?:\.env\.local|local-ai-logs|generated-audio|__pycache__)(?:\/|$)/i;
+const forbiddenArtifact = /\.(?:gguf|safetensors|pt|pth|onnx|zip|exe|dll|db|sqlite|sqlite3|wal|shm|pyc|pyo|tsbuildinfo|log)$|\.(?:db|sqlite3?)-(?:wal|shm|journal)$/i;
+const forbiddenPath = /(?:^|\/)(?:\.local-quarantine|\.venv(?:-voice)?|node_modules|dist|\.ruff_cache|\.pytest_cache|local-ai-logs|generated-audio|__pycache__)(?:\/|$)|^backend\/(?:data|backend\/data|tools)\//i;
 const artifactPaths = tracked.filter((path) => forbiddenArtifact.test(path) || forbiddenPath.test(path));
+artifactPaths.push(...tracked.filter((path) => /(?:^|\/)\.env(?:\.[^/]+)?$/.test(path) && !/\.example$/.test(path)));
 if (artifactPaths.length) {
   throw new Error(`Tracked runtime/model artifacts detected:\n${artifactPaths.join('\n')}`);
 }
@@ -34,13 +35,20 @@ if (secretHits.length) {
   throw new Error(`Secret-shaped values detected in tracked files:\n${secretHits.join('\n')}`);
 }
 
+const probes = [
+  'backend/data/llm-models/probe.gguf', 'backend/tools/probe.exe',
+  '.env.production', 'backend/.env.production', '.local-quarantine/probe.json',
+  'probe.sqlite3-wal', 'probe.db-journal', 'scripts/__pycache__/probe.pyc',
+  '.ruff_cache/probe',
+];
 const ignored = execFileSync(
   'git',
-  ['check-ignore', 'backend/data/llm-models/probe.gguf', 'backend/tools/probe.exe'],
+  ['check-ignore', ...probes],
   { cwd: root, encoding: 'utf8' },
 );
-if (!/backend[\\/]data[\\/]llm-models[\\/]probe\.gguf/.test(ignored) || !/backend[\\/]tools[\\/]probe\.exe/.test(ignored)) {
-  throw new Error('Expected model and executable probe paths to remain ignored.');
+const ignoredPaths = new Set(ignored.replaceAll('\\', '/').trim().split(/\r?\n/));
+if (probes.some((path) => !ignoredPaths.has(path))) {
+  throw new Error('Expected private runtime, database, model and cache probe paths to remain ignored.');
 }
 
 console.log(`CI safety scan passed: ${tracked.length} tracked paths, no secret-shaped values or runtime artifacts.`);

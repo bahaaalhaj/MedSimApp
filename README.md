@@ -19,6 +19,10 @@ The browser cannot supply credentials, model endpoints, model names, system prom
 
 ## Windows setup
 
+For the working production-build student pilot, use the [Windows pilot guide](docs/windows-student-pilot.md).
+For disk inventory, cleanup/restoration evidence and a source-only tree command,
+see [Windows maintenance](docs/windows-project-maintenance.md).
+
 Prerequisites: Node.js 22+, Python 3.11/3.12, Internet access for OpenRouter, and `espeak-ng` on `PATH` for Kokoro.
 
 ```powershell
