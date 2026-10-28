@@ -1,5 +1,8 @@
 # Hosted patient-dialogue reliability
 
+Current follow-up: [2026-10-28 phase-level timeout diagnostic](hosted-timeout-diagnostic-20261028.md).
+The runs below are historical evidence, not current readiness.
+
 Measured locally on 2026-10-16, on `main` at
 `584cfc732804fdb3653ad4d42e2774d85b5761b8` plus the existing uncommitted
 history, semantic-dialogue, and optional local-runtime work. Nothing was committed
