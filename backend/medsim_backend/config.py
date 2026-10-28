@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,12 +27,26 @@ class RuntimeSettings:
     shared_secret: str
     allowed_origins: list[str]
     dev_origins: set[str]
+    development_access: bool = False
+    pilot_origin: str = ""
+
+
+def pilot_origin(value: str) -> str:
+    """Require one exact HTTPS DNS name; no wildcards, ports, paths or userinfo."""
+    if not re.fullmatch(r"https://(?=.{1,253}$)[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?", value):
+        raise ValueError("Pilot origin must be https:// followed by the exact lowercase tunnel hostname")
+    hostname = value.removeprefix("https://")
+    if "." not in hostname or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in hostname.split(".")):
+        raise ValueError("Invalid pilot hostname")
+    return value
 
 
 def load_runtime_settings() -> RuntimeSettings:
+    pilot = os.environ.get("MEDSIM_PILOT_MODE") == "1"
+    origin = pilot_origin(os.environ.get("MEDSIM_PILOT_ORIGIN", "")) if pilot else ""
     return RuntimeSettings(
         shared_secret=os.environ.get("BACKEND_SHARED_SECRET", ""),
-        allowed_origins=[
+        allowed_origins=[origin] if pilot else [
             "https://medsim.vercel.app", "http://localhost:5173", "http://127.0.0.1:5173",
             "http://localhost:5174", "http://127.0.0.1:5174",
         ],
@@ -39,4 +54,7 @@ def load_runtime_settings() -> RuntimeSettings:
             "http://localhost:5173", "http://127.0.0.1:5173",
             "http://localhost:5174", "http://127.0.0.1:5174",
         },
+        development_access=not pilot and os.environ.get("MEDSIM_ENVIRONMENT", "development").lower() == "development"
+        and os.environ.get("RENDER", "").lower() != "true",
+        pilot_origin=origin,
     )

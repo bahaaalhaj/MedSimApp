@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import server
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
-from fastapi.testclient import TestClient
+from test_support import TestClient
 from local_llm import LLMProviderError
 from medsim_backend import diagnostic_logging as diagnostics
 from medsim_backend.application import create_application, lifespan
@@ -84,7 +84,7 @@ class DiagnosticTests(DiagnosticCapture, unittest.TestCase):
 
     def test_http_errors_log_templates_not_credentials_or_paths_and_preserve_contract(self):
         captured = self.capture()
-        app = create_application(RuntimeSettings('', ['http://localhost:5173'], {'http://localhost:5173'}),
+        app = create_application(RuntimeSettings('', ['http://localhost:5173'], {'http://localhost:5173'}, development_access=True),
                                  Limiter(key_func=get_remote_address))
         @app.get('/resource/{item_id}')
         async def missing(item_id: str):
@@ -105,7 +105,7 @@ class DiagnosticTests(DiagnosticCapture, unittest.TestCase):
 
     def test_uncaught_http_and_stream_exceptions_are_logged_and_still_propagate(self):
         captured = self.capture()
-        app = create_application(RuntimeSettings('', [], {'http://localhost:5173'}), Limiter(key_func=get_remote_address))
+        app = create_application(RuntimeSettings('', [], {'http://localhost:5173'}, development_access=True), Limiter(key_func=get_remote_address))
         @app.get('/boom')
         async def boom():
             raise RuntimeError('never-log-this-exception-body')
@@ -126,7 +126,7 @@ class DiagnosticTests(DiagnosticCapture, unittest.TestCase):
 
     def test_success_is_quiet_and_request_context_does_not_leak(self):
         captured = self.capture()
-        app = create_application(RuntimeSettings('', [], {'http://localhost:5173'}), Limiter(key_func=get_remote_address))
+        app = create_application(RuntimeSettings('', [], {'http://localhost:5173'}, development_access=True), Limiter(key_func=get_remote_address))
         @app.get('/ok')
         async def ok():
             return {'ok': True}

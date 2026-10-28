@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from fastapi.testclient import TestClient
+from test_support import TestClient
 import server
 from local_ai import LOCAL_AI_CASES, SAFE_UNKNOWN_RESPONSE, _deterministic_assessment, exact_patient_answer, sanitize_patient_response
 from patient_memory import compose_fact, derive_memory, retrieve, validate_grounded

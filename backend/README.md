@@ -23,3 +23,7 @@ Run `backend/.venv/Scripts/python.exe backend/prepare_kokoro.py` once before Med
 The optional offline scripts require both `MEDSIM_LLM_PROVIDER=llama_cpp` and `MEDSIM_LOCAL_LLM_ENABLED=true` and retain the 2.5 GB physical-memory gate. Kokoro remains CPU-only on the supported 8 GB profile. Patient text is stored before synthesis; a TTS failure does not remove grading evidence.
 
 See [AI architecture](../docs/local-ai-architecture.md) and [audio architecture](../docs/audio-architecture.md).
+
+For a temporary Windows/ngrok student pilot using a production build and one
+loopback origin, see [the pilot guide](../docs/windows-student-pilot.md) and
+[current verification results](../docs/windows-student-pilot-verification.md).

@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from fastapi.testclient import TestClient
+from test_support import TestClient
 import server
 from patient_memory import FactState, compose_fact, derive_memory, resolve_turn
 

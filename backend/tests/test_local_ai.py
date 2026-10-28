@@ -12,7 +12,7 @@ _BACKEND = Path(__file__).resolve().parents[1]
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from fastapi.testclient import TestClient  # noqa: E402
+from test_support import TestClient  # noqa: E402
 import server  # noqa: E402
 from local_ai import (  # noqa: E402
     SAFE_UNKNOWN_RESPONSE,

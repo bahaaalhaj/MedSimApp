@@ -4,6 +4,8 @@ import os
 import asyncio
 import time
 import logging
+import hmac
+import ipaddress
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -14,6 +16,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .config import RuntimeSettings
+from .guest_session import GuestSessionMiddleware
 from .diagnostic_logging import DiagnosticMiddleware, background_exception_handler, configure_terminal_logging, log_event
 from tts import TTSConfigurationError, get_tts_manager
 
@@ -52,7 +55,10 @@ async def lifespan(_app: FastAPI):
 def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
     """Build the compatibility application without eagerly loading providers."""
     configure_terminal_logging()
-    app = FastAPI(title="MedSim Backend", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="MedSim Backend", version="0.2.0", lifespan=lifespan,
+                  docs_url=None if settings.pilot_origin else "/docs",
+                  redoc_url=None if settings.pilot_origin else "/redoc",
+                  openapi_url=None if settings.pilot_origin else "/openapi.json")
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -68,15 +74,22 @@ def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
 
     @app.middleware("http")
     async def require_shared_secret(request: Request, call_next):
+        # Pilot ingress is validated by the outer ASGI boundary. API/session
+        # ownership and CSRF checks still run on the existing routes.
+        if settings.pilot_origin:
+            return await call_next(request)
         if request.url.path == "/health" or request.method == "OPTIONS":
             return await call_next(request)
         origin = request.headers.get("origin", "")
-        if origin in settings.dev_origins:
-            return await call_next(request)
         referer = request.headers.get("referer", "")
-        if any(referer.startswith(origin_value + "/") for origin_value in settings.dev_origins):
+        try:
+            local_peer = bool(request.client and ipaddress.ip_address(request.client.host).is_loopback)
+        except ValueError:
+            local_peer = False
+        if settings.development_access and local_peer and (origin in settings.dev_origins or
+                any(referer.startswith(value + "/") for value in settings.dev_origins)):
             return await call_next(request)
-        if settings.shared_secret and request.headers.get("x-medsim-auth") == settings.shared_secret:
+        if settings.shared_secret and hmac.compare_digest(request.headers.get("x-medsim-auth", "").encode(), settings.shared_secret.encode()):
             return await call_next(request)
         return JSONResponse({"detail": "unauthorized"}, status_code=401)
 
@@ -91,4 +104,9 @@ def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
     )
     # Pure observer outside existing CORS/auth/rate-limit order; no response edits.
     app.add_middleware(DiagnosticMiddleware)
+    from auth_system import AuthSettings
+    app.add_middleware(GuestSessionMiddleware, secure=AuthSettings.from_env().cookie_secure)
+    if settings.pilot_origin:
+        from .pilot import PilotBoundary
+        app.add_middleware(PilotBoundary, origin=settings.pilot_origin)
     return app

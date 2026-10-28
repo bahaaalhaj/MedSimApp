@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch, sentinel
 import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import server
-from fastapi.testclient import TestClient
+from test_support import TestClient
 from local_llm import ChatCompletion, ChatRequest, LLMProviderError, LocalLLMSettings, OpenRouterLLMProvider
 from medsim_backend.services import patient_dialogue_service as dialogue
 from hosted_deadline_benchmark import percentile95, summarize

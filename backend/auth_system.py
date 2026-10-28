@@ -55,13 +55,17 @@ class AuthSettings:
         )  # type: ignore[assignment]
         secure_default = "1" if production else "0"
         secure = os.environ.get("MEDSIM_COOKIE_SECURE", secure_default).lower() in {"1", "true", "yes"}
+        pilot = os.environ.get("MEDSIM_PILOT_MODE") == "1"
+        if pilot:
+            secure = True
+            samesite = "lax"
         if samesite == "none" and not secure:
             raise RuntimeError("MEDSIM_COOKIE_SAMESITE=none requires MEDSIM_COOKIE_SECURE=1")
         return cls(
             database_path=resolve_database_path(os.environ.get("MEDSIM_DATABASE_PATH")),
             cookie_secure=secure,
             cookie_samesite=samesite,
-            cookie_domain=os.environ.get("MEDSIM_COOKIE_DOMAIN") or None,
+            cookie_domain=None if pilot else os.environ.get("MEDSIM_COOKIE_DOMAIN") or None,
             session_hours=max(1, int(os.environ.get("MEDSIM_SESSION_HOURS", "24"))),
             remember_days=max(1, int(os.environ.get("MEDSIM_REMEMBER_DAYS", "30"))),
         )
@@ -154,6 +158,15 @@ class AuthRepository:
         saved_at = int(utcnow().timestamp() * 1000)
         entry = {**payload, "id": encounter_id, "savedAt": saved_at}
         with self._lock, closing(self.connect()) as conn, conn:
+            attempt_id = payload['patientSnapshot'].get('investigationAttemptId')
+            if isinstance(attempt_id, str) and attempt_id:
+                existing = conn.execute(
+                    "SELECT summary_json FROM clinical_encounters WHERE user_id = ? "
+                    "AND json_extract(patient_snapshot_json, '$.investigationAttemptId') = ? LIMIT 1",
+                    (user_id, attempt_id),
+                ).fetchone()
+                if existing:
+                    return json.loads(existing['summary_json'])
             conn.execute(
                 "INSERT INTO clinical_encounters(id, user_id, case_id, status, started_at, ended_at, "
                 "created_at, updated_at, summary_json, evaluation_json, patient_snapshot_json) "

@@ -159,7 +159,7 @@ class ManagementEndpointTests(unittest.TestCase):
         self.server = server
         server.limiter.reset()
         self.addCleanup(server.limiter.reset)
-        from fastapi.testclient import TestClient
+        from test_support import TestClient
         self.client = TestClient(server.app, headers={'Origin': 'http://localhost:5173', 'User-Agent': 'management-owner'})
         case = server.LOCAL_AI_CASES['id-004']
         created = self.client.post('/api/attempts', json={'caseId': 'id-004', 'caseVersion': case['caseVersion'], 'evidenceVersion': 2})
@@ -197,7 +197,10 @@ class ManagementEndpointTests(unittest.TestCase):
         self.assertEqual(attempt['diagnosisSubmittedAt'], observed_at)
 
     def test_another_owner_cannot_get_report_and_client_cannot_supply_its_verdict(self):
-        response = self.client.post('/api/local-ai/evaluate', headers={'User-Agent': 'other-owner'}, json=self.payload)
+        from test_support import TestClient
+        stranger = TestClient(self.server.app, headers=dict(self.client.headers))
+        self.addCleanup(stranger.close)
+        response = stranger.post('/api/local-ai/evaluate', headers={'User-Agent': 'other-owner'}, json=self.payload)
         self.assertEqual(response.status_code, 404)
         response = self.client.post('/api/local-ai/evaluate', json={**self.payload, 'consultation_management': {'overall': 'documented'}})
         self.assertEqual(response.status_code, 422)

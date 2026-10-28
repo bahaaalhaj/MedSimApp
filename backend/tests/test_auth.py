@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
-import uuid
 import sys
 from contextlib import closing
 from dataclasses import replace
@@ -15,7 +14,7 @@ _BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
-from fastapi.testclient import TestClient
+from test_support import TestClient
 
 import server
 from auth_system import AuthRepository, AuthService, AuthSettings, iso, utcnow
@@ -65,7 +64,7 @@ class AuthenticationTests(unittest.TestCase):
         )
         server.auth_api.settings = settings
         server.auth_api.service = AuthService(AuthRepository(settings.database_path), settings)
-        self.client = TestClient(server.app, client=(f"test-{uuid.uuid4()}", 50000))
+        self.client = TestClient(server.app)
         self.headers = {"Origin": "http://localhost:5173"}
         session = self.client.get("/api/auth/session", headers=self.headers)
         self.csrf = session.json()["csrfToken"]

@@ -5,7 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from fastapi.testclient import TestClient
+from test_support import TestClient
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(_BACKEND_DIR) not in sys.path:
@@ -89,6 +89,7 @@ class InvestigationAttemptApiTests(unittest.TestCase):
             f"/api/attempts/{self.attempt['attemptId']}/investigations/{investigation_id}", headers=self.headers
         )
         self.assertEqual(guessed.status_code, 404)
+        self.client.cookies.clear()
         other_browser = {**self.headers, "User-Agent": "different-browser"}
         denied = self.client.get(
             f"/api/attempts/{self.attempt['attemptId']}/investigations", headers=other_browser

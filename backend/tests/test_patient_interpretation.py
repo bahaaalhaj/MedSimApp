@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import httpx
-from fastapi.testclient import TestClient
+from test_support import TestClient
 import server
 from local_ai import LOCAL_AI_CASES, SAFE_UNKNOWN_RESPONSE
 from local_llm import ChatCompletion, ChatRequest, LocalLLMSettings, OpenRouterLLMProvider

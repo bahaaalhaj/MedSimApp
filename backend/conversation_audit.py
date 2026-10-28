@@ -64,7 +64,7 @@ def run_audit():
         stack.enter_context(patch.dict(os.environ,{'MEDSIM_SEMANTIC_DIALOGUE_ENABLED':'true'}))
         preload = stack.enter_context(patch('medsim_backend.application.get_tts_manager'))
         preload.return_value.start_background_preload.return_value = None
-        client = stack.enter_context(TestClient(server.app,headers={'Origin':'http://localhost:5173'}))
+        client = stack.enter_context(TestClient(server.app, client=('127.0.0.1', 50000), headers={'Origin':'http://localhost:5173'}))
         for cid,case in sorted(server.LOCAL_AI_CASES.items()):
             server.limiter.reset()
             provider.mode = 'unavailable'

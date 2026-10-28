@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import threading
 import time
 from typing import Any
@@ -24,8 +23,10 @@ class AttemptStore:
         user = self.auth_api.service.current_user(request.cookies.get(self.auth_api.SESSION_COOKIE))
         if user:
             return f"user:{user['id']}"
-        raw = f"{request.client.host if request.client else ''}|{request.headers.get('user-agent', '')}"
-        return "guest:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        guest_id = getattr(request.state, "guest_id", None)
+        if not guest_id:
+            raise HTTPException(status_code=401, detail="anonymous session required")
+        return "guest:" + guest_id
 
     def get(self, request: Request, attempt_id: str) -> dict[str, Any]:
         attempt = self.attempts.get(attempt_id)

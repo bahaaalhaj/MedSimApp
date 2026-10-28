@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fastapi.testclient import TestClient
+from test_support import TestClient
 import server
 from local_ai import compose_patient_answer, exact_patient_answer, opening_greeting
 

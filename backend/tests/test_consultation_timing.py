@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import server
-from fastapi.testclient import TestClient
+from test_support import TestClient
 from medsim_backend.services import evaluation_service
 
 
@@ -74,7 +74,9 @@ class ConsultationTimingTests(unittest.TestCase):
 
     def test_timing_is_attempt_owned_and_cannot_bypass_provenance(self):
         timing = {'startedAtMs': 1000, 'finishedAtMs': 121000}
-        response = self.client.post('/api/local-ai/evaluate', headers={'User-Agent': 'different-owner'},
+        stranger = TestClient(server.app, headers=dict(self.client.headers))
+        self.addCleanup(stranger.close)
+        response = stranger.post('/api/local-ai/evaluate', headers={'User-Agent': 'different-owner'},
                                     json={**self.payload, 'encounterTiming': timing})
         self.assertEqual(response.status_code, 404)
         response = self.client.post('/api/local-ai/evaluate', json={**self.payload, 'caseId': 'im-002', 'encounterTiming': timing})
