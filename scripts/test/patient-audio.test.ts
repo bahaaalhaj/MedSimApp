@@ -20,7 +20,6 @@ test('typed and predefined questions use the text-first patient turn', () => {
   const overlay = [
     read('src/components/ExamineOverlay.tsx'),
     read('src/components/examine/HistoryTab.tsx'),
-    read('src/components/examine/ExaminationTab.tsx'),
     read('src/components/examine/ChatTab.tsx'),
   ].join('\n');
   assert.match(overlay, /sendTextMessage\((q|question)\.question, 'predefined', (q|question)\.id\)/);
@@ -112,17 +111,16 @@ test('removed cloud speech providers and transport are absent from runtime manif
   assert.doesNotMatch(backend, /livekit|deepgram|cartesia/i);
 });
 
-test('Examine has click and guarded E access and records attempt-bound actions', () => {
+test('Examine retains guarded access and legacy evidence compatibility without examination controls', () => {
   const encounter = read('src/components/EncounterScreen.tsx');
   const overlay = [
     read('src/components/ExamineOverlay.tsx'),
-    read('src/components/examine/ExaminationTab.tsx'),
   ].join('\n');
   const storeSource = read('src/game/store.ts');
   assert.match(encounter, /aria-label="Examine patient"/);
   assert.match(encounter, /isExamineShortcut\(e\)/);
   assert.match(encounter, /isEditableShortcutTarget\(e\.target\)/);
-  assert.match(overlay, /onRecordAction=\{\(actionId\) => store\.recordExaminationAction\(actionId\)\}/);
+  assert.doesNotMatch(overlay, /ExaminationTab|recordExaminationAction/);
   assert.match(storeSource, /actionId, performedAt, attemptId: p\.investigationAttemptId \?\? p\.encounterAttemptId/);
   assert.match(storeSource, /recordExamination\(attemptId, actionId, performedAt\)/);
 });

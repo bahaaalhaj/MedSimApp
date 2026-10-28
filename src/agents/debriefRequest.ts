@@ -21,7 +21,6 @@ export interface DebriefRequest {
     } | null;
   };
 }
-
 export function buildDebriefRequest(
   c: LearnerPatientCase,
   patient: ActivePatient,
@@ -53,12 +52,4 @@ export function buildDebriefRequest(
       } : null,
     },
   };
-}
-
-export function summariseRequest(_request: DebriefRequest): {
-  guideline_count: number;
-  rec_count: number;
-  criterion_count: number;
-} {
-  return { guideline_count: 0, rec_count: 0, criterion_count: 6 };
 }

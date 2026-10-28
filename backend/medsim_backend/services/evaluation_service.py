@@ -17,6 +17,7 @@ from ..schemas import EvaluationRequest
 from ..diagnostic_logging import log_event
 from ..consultation_management import assess_consultation_management
 from .investigation_service import InvestigationService
+from ..grading_policy import assessment_case
 
 
 class EvaluationService:
@@ -90,7 +91,7 @@ class EvaluationService:
             attempt["evaluationActive"] = True
             if payload.encounterTiming is not None:
                 attempt['encounterTiming'] = payload.encounterTiming.model_dump()
-            case = attempt["localAiCase"]
+            case, assessment_scope = assessment_case(attempt["localAiCase"], attempt.get("gradingPolicy"))
             investigation_case = self.investigation_cases[attempt["caseId"]]
             catalogue = {item["testId"]: item for item in investigation_case["investigations"]}
             server_orders = []
@@ -127,6 +128,8 @@ class EvaluationService:
         if os.environ.get("MEDSIM_DEBUG_EVIDENCE", "").lower() in {"1", "true", "yes"}:
             logging.getLogger("medsim.evidence").info("debrief attempt=%s case=%s questions=%d transcript=%d examinations=%d investigations=%d treatments=%d prescriptions=%d diagnosis=%s rubric=%s", payload.attemptId, payload.caseId, len(asked_ids), len(evidence["transcript"]), len(evidence["examinations"]), len(server_orders), len(evidence["treatments"]), len(evidence["prescriptions"]), bool(evidence["submitted_diagnosis_id"]), ",".join(item["criterionId"] for item in case["evaluation"]["rubric"]))
         system, user = evaluation_prompt(case, evidence, server_orders)
+        if assessment_scope is not None:
+            system += "\nExamination is Not assessed because its controls are unavailable. Do not criticize missing examination actions or include them in feedback. Assess only the supplied rubric criteria."
         model_result: dict[str, Any] | None = None
         actual_model: str | None = None
         correlation_id = secrets.token_urlsafe(12)
@@ -156,6 +159,8 @@ class EvaluationService:
             provider_failure = exc
             error_category = "evaluation-unavailable"
         result = normalize_evaluation(case, evidence, server_orders, model_result)
+        if assessment_scope is not None:
+            result['assessment_scope'] = assessment_scope
         result['consultation_management'] = assess_consultation_management(case, investigation_case, management_observation, result)
         if payload.encounterTiming is not None:
             # Report the frozen UI counter. It is not server-verified, is not

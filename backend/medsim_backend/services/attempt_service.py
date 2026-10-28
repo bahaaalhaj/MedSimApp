@@ -14,6 +14,7 @@ from tts import TTSRequest, get_tts_manager
 from ..attempt_store import ATTEMPT_TTL_SECONDS, AttemptStore
 from ..diagnostic_logging import log_event
 from .investigation_service import InvestigationService
+from ..grading_policy import EXAMINATION_EXCLUDED
 from ..schemas import (
     AttemptCompletionRequest,
     AttemptDiagnosisRequest,
@@ -134,6 +135,7 @@ class AttemptService:
                 "localAiCase": local_ai_case, "patientProfile": profile,
                 "patientMessages": [], "askedQuestionIds": [], "variantSeed": payload.variantSeed,
                 "clientAttemptId": payload.clientAttemptId, "evidenceVersion": payload.evidenceVersion,
+                "gradingPolicy": EXAMINATION_EXCLUDED,
                 "patientRequestActive": False, "patientResponses": {},
                 "transcript": [{"role": "patient", "content": opening_greeting(profile), "timestampIso": str(now), "questionSource": None}],
                 "examinations": [], "treatments": [], "prescriptions": [],

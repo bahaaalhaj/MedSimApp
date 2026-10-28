@@ -58,6 +58,14 @@ export const caseEvaluationInput = z.object({
     interpersonal: domainScore,
   }),
   criteria: z.array(criterionResult),
+  assessment_scope: z.object({
+    policy: z.literal('examination-excluded-v1'),
+    excluded_criteria: z.array(z.object({
+      criterion_id: z.string().min(1), title: z.string().min(1),
+      domain: z.enum(['data_gathering', 'clinical_management', 'interpersonal']),
+      original_weight: z.number().nonnegative(), reason: z.string().min(1),
+    })),
+  }).optional(),
   safety_breach: safetyBreach.nullable().optional(),
   highlights: z.array(z.string()),
   improvements: z.array(z.string()),

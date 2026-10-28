@@ -17,6 +17,7 @@ import { getAssignableCases, getCase, getCaseClinic, getCaseVersion, getPatientC
 import { clearAllConversationStorage, clearAllPatientConversations, ensureAudioContext } from '../voice/conversationStore';
 import { hasEncounterActivity } from './encounterState';
 import { PilotHistory, type PilotRoute } from './pilotNavigation';
+import { normalizeExamineTab } from './examineTabs';
 import { recoverAttempt, restorePatient } from './attemptRecovery';
 import type { EncounterTranscriptEntry } from './types';
 import type { TrainingMode } from '../clinical/types';
@@ -153,6 +154,7 @@ class Store {
     return { screen: this.state.screen, caseId: this.state.selectedCaseId,
       attemptId: patient?.investigationAttemptId ?? undefined,
       reviewId: this.state.viewedEvalHistoryId ?? undefined, examine: this.state.examineOpen || undefined,
+      examineTab: this.state.examineOpen ? normalizeExamineTab(this.state.examineTab) : undefined,
       onboardingStep: this.state.screen === 'onboarding' ? this.state.onboardingStep : undefined };
   }
   private allowNavigation = (route: PilotRoute) => {
@@ -229,7 +231,7 @@ class Store {
       }
       this.set({ screen, selectedCaseId: route.caseId && getAssignableCases(this.state.trainingMode).some((item) => item.id === route.caseId) ? route.caseId : this.state.selectedCaseId,
         viewedEvalHistoryId: route.reviewId ?? null, examineOpen: screen === 'encounter' && Boolean(route.examine), recoveryStatus: 'ready',
-        onboardingStep: route.onboardingStep ?? this.state.onboardingStep });
+        examineTab: normalizeExamineTab(route.examineTab), onboardingStep: route.onboardingStep ?? this.state.onboardingStep });
       this.history?.write(this.currentRoute(), true);
     } catch (error) {
       if (!controller.signal.aborted) this.set({ recoveryStatus: 'error', navigationNotice: error instanceof Error ? error.message : 'Recovery is unavailable. Your saved history is separate.' });
@@ -299,7 +301,13 @@ class Store {
   setExamineOpen = (examineOpen: boolean) => {
     if (!examineOpen && this.state.examineOpen && this.history?.backTo('encounter')) return;
     this.replacingNavigation = !examineOpen;
-    try { this.set({ examineOpen }); } finally { this.replacingNavigation = false; }
+    try { this.set({ examineOpen, ...(examineOpen ? { examineTab: 'history' as const } : {}) }); } finally { this.replacingNavigation = false; }
+  };
+  setExamineTab = (tab: unknown) => {
+    // Tab selection replaces the overlay entry: Back closes it, Forward restores
+    // the selected tab, and refresh does not create an additional encounter.
+    this.replacingNavigation = true;
+    try { this.set({ examineTab: normalizeExamineTab(tab) }); } finally { this.replacingNavigation = false; }
   };
 
   /** Open the debrief screen in review mode for a saved evaluation. */

@@ -136,8 +136,18 @@ alive. Retry retrieves a cached result or joins the same grading task. Saved
 reviews are deduplicated per account/guest and server attempt. An expired or
 missing attempt is explained with retry/history/new-case actions; saved account
 history is separate and persists in SQLite. Unsent text, unsubmitted form drafts,
-actions not yet acknowledged by the backend, selected Examine tabs, and new-tab
+actions not yet acknowledged by the backend and new-tab
 active-encounter discovery are not durable recovery features.
+
+Examine now has six tabs: History, Chat, Order tests, Results, Diagnose and Rx.
+Vital signs remain visible; the Examination action panel is removed. A selected
+tab survives refresh and Back/Forward in its overlay history entry; tab changes
+replace that entry, and a removed Examination reference safely opens History.
+New encounters exclude its 15-point criterion: total raw maximum **85**,
+data-gathering maximum **50**, other weights/critical rules unchanged.
+Examination is labelled **Not assessed**, never automatically performed.
+Historical reviews keep their original scores, rubric and examination evidence.
+See [assessment scope and verification](examination-tab-removal.md).
 
 ```powershell
 .\backend\.venv\Scripts\python.exe .\backend\run_pilot_tests.py

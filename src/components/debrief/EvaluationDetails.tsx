@@ -23,12 +23,15 @@ export function EvaluationDetails({ evaluation, patient, c, resolveCitation }: E
     ?? (frozenConsultationTiming(patient) ? elapsedConsultationMs(patient) : null);
   const elapsedLabel = elapsedMs === null ? 'Duration not recorded' : `${formatConsultationTime(elapsedMs)} min:sec`;
   const postSubmission = evaluation.post_submission;
+  const totalRaw = Object.values(evaluation.domain_scores).reduce((sum, score) => sum + score.raw, 0);
+  const totalMax = Object.values(evaluation.domain_scores).reduce((sum, score) => sum + score.max, 0);
 
   return (
     <>
       <div className="plush" style={{ padding: 18, marginBottom: 22 }}>
         <SectionLabel>DOMAIN SCORES</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+        <p style={{ fontWeight: 800, marginTop: 0 }}>Raw points: {totalRaw}/{totalMax}{totalMax > 0 && <> · Normalized percentage: {(100 * totalRaw / totalMax).toFixed(1)}%</>}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14 }}>
           {evaluation.domain_scores.data_gathering.max > 0 && <DomainRing label="Data Gathering" score={evaluation.domain_scores.data_gathering} />}
           {evaluation.domain_scores.clinical_management.max > 0 && <DomainRing label="Clinical Management" score={evaluation.domain_scores.clinical_management} />}
           {evaluation.domain_scores.interpersonal.max > 0 && <DomainRing label="Interpersonal" score={evaluation.domain_scores.interpersonal} />}
@@ -36,6 +39,14 @@ export function EvaluationDetails({ evaluation, patient, c, resolveCitation }: E
         <div className="chip" style={{ marginTop: 12 }}>{evaluation.generation.mode === 'model-assisted' ? 'Model-assisted feedback' : 'Deterministic evidence grading'}</div>
         {evaluation.generation.error_category && <p role="status" style={{ fontSize: 12 }}>Optional model feedback was unavailable ({evaluation.generation.error_category}). The server returned deterministic grading. Support ID: {evaluation.generation.request_id}</p>}
       </div>
+
+      {evaluation.assessment_scope && <div className="plush" style={{ padding: 18, marginBottom: 22 }}>
+        <SectionLabel>NOT ASSESSED</SectionLabel>
+        <strong>Examination — Not assessed</strong>
+        <p>Examination actions are unavailable and excluded from this encounter’s raw maximum. No examination action is automatically recorded. All other rubric weights are unchanged.</p>
+        <div style={{ fontSize: 12 }}>Assessment policy: {evaluation.assessment_scope.policy}</div>
+        {evaluation.assessment_scope.excluded_criteria.map((item) => <div key={item.criterion_id} style={{ fontSize: 12, marginTop: 8 }}>{item.title} · {item.original_weight} points excluded</div>)}
+      </div>}
 
       <ConsultationManagement assessment={evaluation.consultation_management} />
 

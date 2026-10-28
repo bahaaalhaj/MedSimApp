@@ -20,19 +20,18 @@ test('Examine preserves tab, keyboard, finish, and evidence contracts', () => {
   const overlay = [
     read('src/components/ExamineOverlay.tsx'),
     read('src/components/examine/HistoryTab.tsx'),
-    read('src/components/examine/ExaminationTab.tsx'),
     read('src/components/examine/ChatTab.tsx'),
     read('src/components/examine/DiagnosisTab.tsx'),
     read('src/components/examine/PrescriptionTab.tsx'),
   ].join('\n');
-  for (const label of ['History', 'Chat', 'Examination', 'Order tests', 'Results', 'Diagnose', 'Rx']) {
+  for (const label of ['History', 'Chat', 'Order tests', 'Results', 'Diagnose', 'Rx']) {
     assert.match(overlay, new RegExp(`label: '${label}'`));
   }
   assert.match(overlay, /e\.key === 'Escape'/);
   assert.match(overlay, /onClick=\{onFinish\}[\s\S]*Finish consultation/);
   assert.match(overlay, /role="alert"/);
   assert.match(overlay, /sendTextMessage\((q|question)\.question, 'predefined', (q|question)\.id\)/);
-  assert.match(overlay, /onRecordAction=\{\(actionId\) => store\.recordExaminationAction\(actionId\)\}/);
+  assert.doesNotMatch(overlay, /ExaminationTab|recordExaminationAction|label: 'Examination'/);
   assert.match(overlay, /orderPolyclinicTest\(id\)/);
   assert.match(overlay, /submitPolyclinicDiagnosis\(diagnosisId\)/);
   assert.match(overlay, /addPolyclinicPrescription/);
@@ -41,16 +40,13 @@ test('Examine preserves tab, keyboard, finish, and evidence contracts', () => {
   assert.equal((read('src/components/ExamineOverlay.tsx').match(/function ChatTab/g) ?? []).length, 0);
 });
 
-test('History and examination tabs receive encounter mutations through narrow callbacks', () => {
+test('History retains its narrow callback after removing examination controls', () => {
   const overlay = read('src/components/ExamineOverlay.tsx');
   const history = read('src/components/examine/HistoryTab.tsx');
-  const examination = read('src/components/examine/ExaminationTab.tsx');
 
   assert.match(overlay, /<HistoryTabFeature patient=\{patient\} onQuestionAccepted=\{\(questionId\) => store\.askPolyclinicQuestion\(questionId\)\}/);
-  assert.match(overlay, /<ExaminationTabFeature patient=\{patient\} onRecordAction=\{\(actionId\) => store\.recordExaminationAction\(actionId\)\}/);
   assert.match(history, /onQuestionAccepted\(question\.id\)/);
-  assert.match(examination, /onRecordAction\(action\.id\)/);
-  assert.doesNotMatch(history + examination, /\bstore\./);
+  assert.doesNotMatch(history, /\bstore\./);
 });
 
 test('Diagnosis tab retains learner-visible options and callback boundaries', () => {

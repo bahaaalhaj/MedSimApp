@@ -100,7 +100,7 @@ function AdaptiveCameraFov() {
 
 function Loader() {
   return (
-    <Html center>
+    <Html center zIndexRange={[5, 0]}>
       <div
         style={{
           fontFamily: 'Nunito, sans-serif',
@@ -408,7 +408,7 @@ export function EncounterScreen() {
       </div>
 
       {examineOpen && patient && (
-        <>
+        <div className="encounter-examine">
           <DockedPatientAudioPanel
             patientName={patient.case.name}
             patientLabel={`${patient.case.age}${patient.case.gender}`}
@@ -418,7 +418,7 @@ export function EncounterScreen() {
             onFinish={endConsultation}
             finishError={finishError}
           />
-        </>
+        </div>
       )}
     </div>
   );

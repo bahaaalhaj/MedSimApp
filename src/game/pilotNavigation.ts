@@ -1,4 +1,5 @@
 import type { Screen } from './types.ts';
+import { normalizeExamineTab, type ExamineTab } from './examineTabs.ts';
 
 export interface PilotRoute {
   screen: Screen;
@@ -6,6 +7,7 @@ export interface PilotRoute {
   attemptId?: string;
   reviewId?: string;
   examine?: boolean;
+  examineTab?: ExamineTab;
   onboardingStep?: number;
 }
 const screens: Screen[] = ['splash', 'onboarding', 'auth', 'home', 'gpRoom', 'library', 'brief', 'encounter', 'endConfirm', 'debrief', 'history'];
@@ -13,7 +15,11 @@ export function routeHash(route: PilotRoute): string {
   const query = new URLSearchParams();
   if (route.caseId) query.set('case', route.caseId);
   if (route.reviewId) query.set('review', route.reviewId);
-  if (route.examine && route.screen === 'encounter') query.set('panel', 'examine');
+  if (route.examine && route.screen === 'encounter') {
+    query.set('panel', 'examine');
+    const tab = normalizeExamineTab(route.examineTab);
+    if (tab !== 'history') query.set('tab', tab);
+  }
   if (route.screen === 'onboarding' && route.onboardingStep) query.set('step', String(route.onboardingStep));
   return `#/${route.screen}${query.size ? `?${query}` : ''}`;
 }
@@ -22,11 +28,15 @@ export function readRoute(hash: string, state: unknown): PilotRoute {
   const screen = screens.includes(path as Screen) ? path as Screen : 'splash';
   const query = new URLSearchParams(search);
   const saved = state as { medsim?: PilotRoute } | null;
-  return { screen, caseId: query.get('case') ?? undefined, reviewId: query.get('review') ?? undefined,
-    examine: screen === 'encounter' && query.get('panel') === 'examine',
+  const examine = screen === 'encounter' && (['examine', 'examination'].includes(query.get('panel') ?? '') || query.has('tab'));
+  const route: PilotRoute = { screen, caseId: query.get('case') ?? undefined, reviewId: query.get('review') ?? undefined,
+    examine, examineTab: examine ? normalizeExamineTab(query.get('tab')) : undefined,
     onboardingStep: screen === 'onboarding' ? Math.max(0, Math.min(2, Number(query.get('step')) || 0)) : undefined,
-    // Attempt references stay out of URLs; they are never authentication credentials.
-    attemptId: saved?.medsim && routeHash(saved.medsim) === hash ? saved.medsim.attemptId : undefined };
+  };
+  // Compare canonical routes so a removed tab can normalize without losing its
+  // owner-authorized attempt reference. References remain outside public URLs.
+  route.attemptId = saved?.medsim && routeHash(saved.medsim) === routeHash(route) ? saved.medsim.attemptId : undefined;
+  return route;
 }
 
 export interface HistorySurface {

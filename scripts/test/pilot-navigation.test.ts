@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildSync } from 'esbuild';
 import { runInNewContext } from 'node:vm';
 import { resolve } from 'node:path';
-import { PilotHistory, type PilotRoute } from '../../src/game/pilotNavigation.ts';
+import { PilotHistory, readRoute, routeHash, type PilotRoute } from '../../src/game/pilotNavigation.ts';
 import type { store as actualStore } from '../../src/game/store.ts';
 import type { RecoveryView } from '../../src/game/attemptRecovery.ts';
 
@@ -65,6 +65,45 @@ test('actual history adapter traverses screens and overlay both ways without mes
   assert.equal(nav.current().examine, true);
   assert.match(browser.win.location.hash, /panel=examine/);
   nav.dispose();
+});
+
+test('removed examination references normalize to History and retain the private attempt reference', () => {
+  for (const suffix of ['panel=examine&tab=examination', 'panel=examination', 'tab=examination']) {
+    const route = readRoute('#/encounter?case=id-004&' + suffix, { medsim: {
+      screen: 'encounter', caseId: 'id-004', examine: true, examineTab: 'examination', attemptId: 'existing-owner-reference',
+    } });
+    assert.equal(route.examine, true);
+    assert.equal(route.examineTab, 'history');
+    assert.equal(route.attemptId, 'existing-owner-reference');
+    assert.equal(routeHash(route), '#/encounter?case=id-004&panel=examine');
+  }
+});
+
+test('real Store restores the selected tab across Back/Forward and refresh without extra tab history entries', async () => {
+  const browser = surface();
+  let view: RecoveryView;
+  const fetcher: typeof fetch = async (url) => String(url).endsWith('/recovery') ? Response.json(view)
+    : Response.json({ attemptId: 'tab-recovery-owner-reference', investigations: [] });
+  const first = loadStore(browser, fetcher);
+  first.startNavigation('user:one'); first.acceptNextPatient('id-004'); await flush();
+  const p = first.getState().polyclinic.patient!;
+  const historical = [{ actionId: 'focused-examination', performedAt: 1000, attemptId: p.investigationAttemptId! }];
+  view = { attemptId: p.investigationAttemptId!, caseId: p.case.id, caseVersion: p.caseVersion,
+    variantSeed: p.variantSeed, clientAttemptId: p.encounterAttemptId, createdAt: p.arrivedAt / 1000, expiresAt: Date.now() / 1000 + 100,
+    patientProfile: { displayName: p.case.name, age: p.case.age, chiefComplaint: p.case.chiefComplaint },
+    transcript: [], visibleAnswers: {}, askedQuestionIds: [], examinations: historical, prescriptions: [],
+    submittedDiagnosisId: null, completionChecks: null, investigations: [], orders: [], evaluationActive: false, evaluationResult: null };
+  first.setExamineOpen(true); const count = browser.entries.length;
+  first.setExamineTab('chat'); first.setExamineTab('results');
+  assert.equal(browser.entries.length, count);
+  browser.win.history.go(-1); await flush(); assert.equal(first.getState().examineOpen, false);
+  browser.win.history.go(1); await flush(); assert.equal(first.getState().examineTab, 'results');
+  first.stopNavigation();
+  const restored = loadStore(browser, fetcher); restored.startNavigation('user:one'); await flush();
+  assert.equal(restored.getState().examineOpen, true); assert.equal(restored.getState().examineTab, 'results');
+  assert.equal(restored.getState().polyclinic.patient?.examinationActions[0].actionId, historical[0].actionId);
+  restored.setExamineTab('examination'); assert.equal(restored.getState().examineTab, 'history');
+  restored.stopNavigation();
 });
 
 test('real Store recovers active, pending and completed routes on refresh without creating another attempt', async () => {

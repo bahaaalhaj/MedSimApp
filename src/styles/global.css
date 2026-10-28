@@ -140,11 +140,16 @@ body {
 .topbar { flex-wrap: wrap; gap: 12px; }
 .topbar-controls { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 .topbar-notice { max-width: 260px; white-space: normal !important; }
+.encounter-examine { display: contents; }
 @media (max-width: 760px) {
   .topbar { padding: 10px 12px !important; }
   .topbar > .breadcrumb { order: 3; width: 100%; flex-wrap: wrap; }
   .topbar-controls { margin-left: auto; }
   .topbar-name, .topbar .topbar-notice { display: none; }
+  .encounter-examine { display: flex; flex-direction: column; position: fixed; inset: 0; z-index: var(--layer-popover); overflow-y: auto; background: rgba(43,30,22,.4); backdrop-filter: blur(2px); }
+  .encounter-examine > .patient-audio-dock { position: relative !important; top: auto !important; right: auto !important; width: calc(100% - 24px) !important; margin: 12px 12px 0; flex-shrink: 0; }
+  .encounter-examine > .examine-overlay { position: static !important; padding: 12px !important; background: transparent !important; backdrop-filter: none !important; overflow: visible !important; flex: 1 0 auto; }
+  .encounter-examine .examine-panel { max-height: none !important; }
 }
 
 .chip {

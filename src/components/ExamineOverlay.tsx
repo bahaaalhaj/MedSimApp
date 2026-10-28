@@ -1,15 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { store, useGameState } from '../game/store';
 import { getDiagnosisLabel } from '../data/cases';
-import { ExaminationTab as ExaminationTabFeature } from './examine/ExaminationTab';
+import { normalizeExamineTab, type ExamineTab } from '../game/examineTabs';
 import { HistoryTab as HistoryTabFeature } from './examine/HistoryTab';
 import { ChatTab as ChatTabFeature } from './examine/ChatTab';
 import { InvestigationsTab } from './examine/InvestigationsTab';
 import { ResultsTab } from './examine/ResultsTab';
 import { DiagnosisTab } from './examine/DiagnosisTab';
 import { PrescriptionTab } from './examine/PrescriptionTab';
-
-type Tab = 'history' | 'chat' | 'examination' | 'tests' | 'results' | 'diagnose' | 'rx';
 
 interface Props {
   onClose: () => void;
@@ -22,7 +20,8 @@ const diagLabel = (caseId: string, id: string): string => getDiagnosisLabel(case
 export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
   const state = useGameState();
   const patient = state.polyclinic.patient;
-  const [tab, setTab] = useState<Tab>('history');
+  const tab = normalizeExamineTab(state.examineTab);
+  const setTab = store.setExamineTab;
 
   // Esc closes the overlay (matches keyboard convention).
   useEffect(() => {
@@ -44,10 +43,9 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
   const rxCount = patient.prescriptions?.length ?? 0;
   const rxUnlocked = submitted !== null;
 
-  const tabs: Array<{ id: Tab; label: string; badge?: number | string; disabled?: boolean }> = [
+  const tabs: Array<{ id: ExamineTab; label: string; badge?: number | string; disabled?: boolean }> = [
     { id: 'history', label: 'History', badge: `${asked.size}/${c.anamnesis.length}` },
     { id: 'chat', label: 'Chat' },
-    { id: 'examination', label: 'Examination', badge: patient.examinationActions.length || undefined },
     { id: 'tests', label: 'Order tests' },
     { id: 'results', label: 'Results', badge: newResultsCount > 0 ? newResultsCount : undefined },
     { id: 'diagnose', label: 'Diagnose' },
@@ -56,6 +54,7 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
 
   return (
     <div
+      className="examine-overlay"
       style={{
         position: 'fixed',
         inset: 0,
@@ -73,7 +72,7 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
       }}
     >
       <div
-        className="plush-lg popin"
+        className="plush-lg popin examine-panel"
         style={{
           width: 'min(960px, 100%)',
           background: 'var(--paper)',
@@ -142,8 +141,11 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
 
         {/* Tab strip */}
         <div
+          aria-label="Encounter sections"
           style={{
             display: 'flex',
+            flexWrap: 'wrap',
+            flexShrink: 0,
             gap: 8,
             padding: '12px 22px 0',
             borderBottom: '3px solid var(--line)',
@@ -160,6 +162,7 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
                 className="tap"
                 onClick={() => !disabled && setTab(t.id)}
                 disabled={disabled}
+                aria-pressed={active}
                 title={disabled ? 'Submit a diagnosis first' : undefined}
                 style={{
                   background: active ? 'var(--butter)' : 'white',
@@ -218,7 +221,6 @@ export function ExamineOverlay({ onClose, onFinish, finishError = '' }: Props) {
 
           {tab === 'history' && <HistoryTabFeature patient={patient} onQuestionAccepted={(questionId) => store.askPolyclinicQuestion(questionId)} />}
           {tab === 'chat' && <ChatTabFeature patient={patient} />}
-          {tab === 'examination' && <ExaminationTabFeature patient={patient} onRecordAction={(actionId) => store.recordExaminationAction(actionId)} />}
           {tab === 'tests' && (
             <InvestigationsTab
               patient={patient}

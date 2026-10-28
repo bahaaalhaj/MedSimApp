@@ -10,7 +10,7 @@ import { store, useGameState } from '../game/store';
 import { getDiagnosisLabel, getPatientCase } from '../data/cases';
 import { getRecommendation } from '../data/guidelines';
 import { useLocalDebrief } from '../agents/useLocalDebrief';
-import { buildDebriefRequest, summariseRequest } from '../agents/debriefRequest';
+import { buildDebriefRequest } from '../agents/debriefRequest';
 import { saveEvalHistory, getEvalHistory, type EvalHistoryEntry } from '../data/evalHistory';
 import type {
   CaseEvaluationInput,
@@ -149,7 +149,7 @@ export function DebriefScreen() {
         ) : status === 'starting' || status === 'idle' ? (
           <StatusBanner
             title={'Preparing your debrief\u2026'}
-            body={`Packaging encounter evidence (${summarise(debriefRequest)}). Deterministic grading and local feedback will start in a moment.`}
+            body="Packaging your recorded encounter evidence. The server will apply this encounter’s assessment policy and prepare feedback."
             bg="var(--sky)"
           />
         ) : status === 'streaming' && !evaluation ? (
@@ -193,12 +193,6 @@ export function DebriefScreen() {
       </div>
     </div>
   );
-}
-
-function summarise(req: ReturnType<typeof buildDebriefRequest> | null): string {
-  if (!req) return 'no data';
-  const s = summariseRequest(req);
-  return `${s.criterion_count} criteria \u00B7 ${s.guideline_count} guideline${s.guideline_count === 1 ? '' : 's'} \u00B7 ${s.rec_count} recs`;
 }
 
 // ── EvaluationBody — renders the full cozy debrief from real data ──

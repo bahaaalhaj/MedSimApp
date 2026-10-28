@@ -1,5 +1,6 @@
 import type { PaletteName } from '../styles/palettes';
 import type { ClinicId } from './clinic';
+import type { ExamineTab } from './examineTabs';
 import type { CaseReviewStatus, TrainingMode } from '../clinical/types';
 import type { InvestigationAvailability, InvestigationCategory, InvestigationResult, InvestigationRole } from '../clinical/types';
 
@@ -259,6 +260,7 @@ export interface GameState {
   recoveryStatus?: 'loading' | 'error' | 'ready';
   navigationNotice?: string;
   examineOpen?: boolean;
+  examineTab?: ExamineTab;
   recoverableEncounter?: boolean;
   screen: Screen;
   tweaks: Tweaks;

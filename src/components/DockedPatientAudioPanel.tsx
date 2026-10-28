@@ -112,6 +112,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
 
   return (
     <div
+      className="patient-audio-dock"
       style={{
         position: 'fixed',
         top: 18,
