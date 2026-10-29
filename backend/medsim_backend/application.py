@@ -26,16 +26,26 @@ async def lifespan(_app: FastAPI):
     # Import/authentication stay lightweight. Only the post-start background
     # task may load a verified local model; it never downloads missing weights.
     task = None
+    provider = None
     loop = asyncio.get_running_loop()
     previous_handler = loop.get_exception_handler()
     loop.set_exception_handler(background_exception_handler)
     try:
-        try:
-            task = get_tts_manager().start_background_preload()
-        except TTSConfigurationError as exc:
-            log_event('tts-preload-failed', category='tts-configuration-invalid', error=exc)
-        log_event('backend-started', level=logging.INFO)
-        yield
+        from local_llm import new_application_provider
+        existing = getattr(_app.state, 'llm_provider', None) if _app is not None else None
+        if existing is not None and existing._owner_loop is not None:
+            raise RuntimeError('This application already has an active provider lifecycle')
+        factory = getattr(_app.state, 'provider_factory', None) if _app is not None else None
+        provider = (factory or new_application_provider)()
+        async with provider.lifespan():
+            if _app is not None:
+                _app.state.llm_provider = provider
+            try:
+                task = get_tts_manager().start_background_preload()
+            except TTSConfigurationError as exc:
+                log_event('tts-preload-failed', category='tts-configuration-invalid', error=exc)
+            log_event('backend-started', level=logging.INFO)
+            yield
     except Exception as exc:
         log_event('backend-lifecycle-failed', level=logging.ERROR, category='application-error', error=exc)
         raise
@@ -48,11 +58,24 @@ async def lifespan(_app: FastAPI):
                 except asyncio.CancelledError:
                     pass
         finally:
+            if _app is not None and getattr(_app.state, 'llm_provider', None) is provider:
+                _app.state.llm_provider = None
             loop.set_exception_handler(previous_handler)
             log_event('backend-stopped', level=logging.INFO)
 
 
-def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
+class ApplicationProviderMiddleware:
+    def __init__(self, app, owner):
+        self.app, self.owner = app, owner
+
+    async def __call__(self, scope, receive, send):
+        from local_llm import bind_application_provider
+        provider = getattr(self.owner.state, 'llm_provider', None)
+        with bind_application_provider(provider):
+            await self.app(scope, receive, send)
+
+
+def create_application(settings: RuntimeSettings, limiter: Limiter, *, provider_factory=None) -> FastAPI:
     """Build the compatibility application without eagerly loading providers."""
     configure_terminal_logging()
     app = FastAPI(title="MedSim Backend", version="0.2.0", lifespan=lifespan,
@@ -60,6 +83,8 @@ def create_application(settings: RuntimeSettings, limiter: Limiter) -> FastAPI:
                   redoc_url=None if settings.pilot_origin else "/redoc",
                   openapi_url=None if settings.pilot_origin else "/openapi.json")
     app.state.limiter = limiter
+    app.state.provider_factory = provider_factory
+    app.add_middleware(ApplicationProviderMiddleware, owner=app)
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     @app.middleware("http")

@@ -1,5 +1,7 @@
 # Isolated 4.8 / 5.0 second experiment — 2026-10-29
 
+Follow-up: [bounded non-completion connection study and lifecycle pooling](hosted-connection-study-20261029.md).
+
 ## Outcome and recommendation
 
 The explicitly approved four-attempt experiment completed **2 grounded answers

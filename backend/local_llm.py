@@ -13,6 +13,9 @@ import os
 import shutil
 import ssl
 import subprocess
+from contextlib import asynccontextmanager, contextmanager, nullcontext
+from contextvars import ContextVar
+from http.cookiejar import DefaultCookiePolicy
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -237,6 +240,14 @@ def _http_error(status: int) -> LLMProviderError:
     return LLMProviderError("model-unavailable", "The configured hosted model rejected the request.", False, status)
 
 
+class _NoProviderCookies(DefaultCookiePolicy):
+    def set_ok(self, cookie, request):
+        return False
+
+    def return_ok(self, cookie, request):
+        return False
+
+
 class OpenRouterLLMProvider:
     def __init__(self, settings: LocalLLMSettings, transport: httpx.AsyncBaseTransport | None = None):
         self.settings = settings
@@ -244,18 +255,56 @@ class OpenRouterLLMProvider:
         self._last_error_category: str | None = None
         self._ssl_context: ssl.SSLContext | None = None
         self._ssl_environment: tuple[str | None, str | None] | None = None
+        self._pool_loop = None
+        self._pooled_client = None
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
         if self._transport is not None:
-            return httpx.AsyncClient(timeout=timeout, transport=self._transport)
-        # Reuse only verified TLS configuration, never an event-loop-bound client.
+            client = httpx.AsyncClient(timeout=timeout, transport=self._transport)
+            client.cookies.jar.set_policy(_NoProviderCookies())
+            return client
+        # Retain verified TLS configuration here; client reuse is owned by the
+        # explicit lifecycle below, never by this process-wide factory alone.
         # Rebuilding CA stores on every turn consumed ~1 second of the 3s budget
         # on the affected machine. Keep cold setup within the existing deadline.
         environment = (os.environ.get("SSL_CERT_FILE"), os.environ.get("SSL_CERT_DIR"))
         if self._ssl_context is None or environment != self._ssl_environment:
             self._ssl_context = httpx.create_ssl_context()
             self._ssl_environment = environment
-        return httpx.AsyncClient(timeout=timeout, verify=self._ssl_context)
+        client = httpx.AsyncClient(timeout=timeout, verify=self._ssl_context,
+            limits=httpx.Limits(max_connections=1, max_keepalive_connections=1, keepalive_expiry=30))
+        client.cookies.jar.set_policy(_NoProviderCookies())
+        return client
+
+    @asynccontextmanager
+    async def connection_lifespan(self):
+        """Opt-in ownership; construction stays lazy and inside request deadlines."""
+        if self._pool_loop is not None:
+            raise RuntimeError('Provider connection lifespan is already owned')
+        self._pool_loop = asyncio.get_running_loop()
+        try:
+            yield self
+        finally:
+            client, self._pooled_client = self._pooled_client, None
+            try:
+                if client is not None:
+                    await client.aclose()
+            finally:
+                self._pool_loop = None
+
+    @asynccontextmanager
+    async def _request_client(self, timeout):
+        if self._pool_loop is None:
+            # Standalone calls and ASGI tests without lifespan retain a fresh,
+            # promptly closed client. Never cache a client across asyncio.run().
+            async with self._client(timeout) as client:
+                yield client
+        else:
+            if self._pool_loop is not asyncio.get_running_loop():
+                raise LLMProviderError('model-unavailable', 'Provider client belongs to a different event loop.', False)
+            if self._pooled_client is None:
+                self._pooled_client = self._client(timeout)
+            yield self._pooled_client
 
     def _headers(self, request_id: str = "") -> dict[str, str]:
         headers = {"Authorization": f"Bearer {self.settings.api_key}", "Content-Type": "application/json", "X-Title": "MedSim"}
@@ -266,8 +315,12 @@ class OpenRouterLLMProvider:
     async def _catalogue(self) -> list[dict[str, Any]]:
         for attempt in range(self.settings.max_retries + 1):
             try:
-                async with self._client(min(self.settings.timeout_seconds, 15)) as client:
-                    response = await client.get(f"{self.settings.base_url}/models", headers=self._headers())
+                timeout = min(self.settings.timeout_seconds, 15)
+                # Readiness is not an inference operation. Keep its existing
+                # short-lived client so a slow catalogue cannot occupy the
+                # single completion connection while another student speaks.
+                async with self._client(timeout) as client:
+                    response = await client.get(f"{self.settings.base_url}/models", headers=self._headers(), timeout=timeout)
                 if response.status_code >= 400:
                     error = _http_error(response.status_code)
                     if not error.retryable or attempt >= self.settings.max_retries:
@@ -372,10 +425,10 @@ class OpenRouterLLMProvider:
                 # a learner must never wait that long for conversational text.
                 patient_timeout = self.settings.patient_timeout_seconds
                 async with asyncio.timeout(patient_timeout):
-                    async with self._client(patient_timeout) as client:
+                    async with self._request_client(patient_timeout) as client:
                         response = await client.post(
                             f"{self.settings.base_url}/chat/completions",
-                            headers=self._headers(request.request_id), json=payload,
+                            headers=self._headers(request.request_id), json=payload, timeout=patient_timeout,
                         )
                 if response.status_code >= 400:
                     raise _http_error(response.status_code)
@@ -399,7 +452,7 @@ class OpenRouterLLMProvider:
                 # A patient turn has one absolute hosted wait budget. A timed-out
                 # primary proceeds to deterministic text, never another model.
                 break
-            except httpx.NetworkError:
+            except httpx.TransportError:
                 last_error = LLMProviderError("model-unavailable", "OpenRouter could not be reached.", True)
             except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
                 last_error = LLMProviderError("model-unavailable", "The hosted model returned an invalid patient response.", True)
@@ -423,8 +476,8 @@ class OpenRouterLLMProvider:
             })
             try:
                 async with asyncio.timeout(self.settings.timeout_seconds):
-                    async with self._client(self.settings.timeout_seconds) as client:
-                        response = await client.post(f"{self.settings.base_url}/chat/completions", headers=self._headers(request.request_id), json=payload)
+                    async with self._request_client(self.settings.timeout_seconds) as client:
+                        response = await client.post(f"{self.settings.base_url}/chat/completions", headers=self._headers(request.request_id), json=payload, timeout=self.settings.timeout_seconds)
                 if response.status_code >= 400:
                     raise _http_error(response.status_code)
                 body = response.json()
@@ -441,7 +494,7 @@ class OpenRouterLLMProvider:
                 last_error = exc
             except (httpx.TimeoutException, TimeoutError):
                 last_error = LLMProviderError("response-timeout", "The evaluator response timed out.", True)
-            except httpx.NetworkError:
+            except httpx.TransportError:
                 last_error = LLMProviderError("model-unavailable", "OpenRouter could not be reached.", True)
             except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
                 last_error = LLMProviderError("invalid-evaluator-schema", "The hosted evaluator returned invalid structured output.", True)
@@ -587,25 +640,76 @@ class DisabledLocalProvider:
 
 
 class SerializingLocalLLMProvider:
-    """Global gate shared by patient and evaluator requests."""
+    """One inference gate shared by patient/evaluator calls in its owning loop."""
     def __init__(self, delegate: LocalLLMProvider):
         self.delegate = delegate
         self._gate = asyncio.Semaphore(1)
+        self._gate_loop = None
+        self._calls = set()
+        self._owner_loop = None
+        self._closing = False
+
+    @asynccontextmanager
+    async def lifespan(self):
+        if self._owner_loop is not None or self._calls:
+            raise RuntimeError('Provider lifecycle is already in use')
+        self._owner_loop = asyncio.get_running_loop()
+        self._gate = asyncio.Semaphore(1)
+        self._gate_loop = self._owner_loop
+        self._closing = False
+        manager = self.delegate.connection_lifespan() if isinstance(self.delegate, OpenRouterLLMProvider) else nullcontext()
+        try:
+            async with manager:
+                try:
+                    yield self
+                finally:
+                    # Includes callers waiting for the inference gate. Shutdown
+                    # cancels them before closing the owning loop's HTTP client.
+                    self._closing = True
+                    calls = list(self._calls - {asyncio.current_task()})
+                    for task in calls:
+                        task.cancel()
+                    if calls:
+                        await asyncio.gather(*calls, return_exceptions=True)
+        finally:
+            self._owner_loop = None
+
+    @asynccontextmanager
+    async def _operation(self):
+        loop = asyncio.get_running_loop()
+        if self._closing or (self._owner_loop is not None and self._owner_loop is not loop):
+            raise LLMProviderError('model-unavailable', 'Provider lifecycle is closed or belongs to another event loop.', True)
+        if self._gate_loop is None:
+            # The standalone diagnostic may already hold this gate before the
+            # first call. Preserve that lock and its queue on initial binding.
+            self._gate_loop = loop
+        elif self._gate_loop is not loop:
+            if self._calls:
+                raise LLMProviderError('model-unavailable', 'Concurrent event loops require separate provider lifecycles.', True)
+            self._gate = asyncio.Semaphore(1)
+            self._gate_loop = loop
+        task = asyncio.current_task()
+        self._calls.add(task)
+        try:
+            yield
+        finally:
+            self._calls.discard(task)
 
     async def health(self) -> LLMHealth:
-        return await self.delegate.health()
+        async with self._operation():
+            return await self.delegate.health()
 
     async def complete_chat(self, request: ChatRequest) -> ChatCompletion:
-        async with self._gate:
+        async with self._operation(), self._gate:
             return await self.delegate.complete_chat(request)
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[str]:
-        async with self._gate:
+        async with self._operation(), self._gate:
             async for token in self.delegate.stream_chat(request):
                 yield token
 
     async def structured_completion(self, request: StructuredRequest, schema: dict[str, Any]) -> StructuredCompletion:
-        async with self._gate:
+        async with self._operation(), self._gate:
             return await self.delegate.structured_completion(request, schema)
 
 
@@ -619,10 +723,30 @@ def build_provider(configured: LocalLLMSettings) -> LocalLLMProvider:
 
 _settings = LocalLLMSettings.from_env()
 _provider: LocalLLMProvider = SerializingLocalLLMProvider(build_provider(_settings))
+_application_provider = ContextVar('medsim_application_provider', default=None)
+
+
+def new_application_provider():
+    """A new gate/client owner per application lifecycle; no eager networking."""
+    delegate = _provider.delegate
+    if isinstance(delegate, (OpenRouterLLMProvider, OpenAICompatibleLocalProvider)):
+        if delegate._transport is not None:
+            raise RuntimeError('Injected transports require an explicit per-application provider factory')
+        delegate = type(delegate)(delegate.settings)
+    return SerializingLocalLLMProvider(delegate)
+
+
+@contextmanager
+def bind_application_provider(provider):
+    token = _application_provider.set(provider)
+    try:
+        yield
+    finally:
+        _application_provider.reset(token)
 
 
 def get_local_llm_provider() -> LocalLLMProvider:
-    return _provider
+    return _application_provider.get() or _provider
 
 
 def set_local_llm_provider_for_tests(provider: LocalLLMProvider) -> None:

@@ -16,6 +16,8 @@ Evaluation accepts encounter evidence only. FastAPI restores the authoritative c
 
 One patient request may be active per attempt. Completed patient requests are idempotent by correlation ID. One evaluation response is generated and cached per attempt. Each approved model is attempted at most once; only the non-inference model-catalogue check uses bounded exponential backoff.
 
+Each running FastAPI application lifecycle owns its provider, inference gate and lazy OpenRouter HTTP connection pool. It retains at most one connection with 30-second idle expiry, preserves per-request deadlines and verified HTTPS, rejects provider cookies, and cancels pending provider work before closing the client on shutdown. Standalone calls without an explicit provider lifespan retain short-lived clients; a pool never crosses event loops or application lifecycles. There are no new completion retries or inference warmups. See the [connection study and ownership report](development/hosted-connection-study-20261029.md) for measured findings, stale-connection behavior, limitations and the next separately authorized live acceptance test.
+
 ## Configuration
 
 ```env
