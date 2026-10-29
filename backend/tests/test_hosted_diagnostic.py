@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import httpx
 
 from hosted_dialogue_diagnostic import (
-    CompletionBudget, SSEObservation, Timing, diagnostic_plan, instrument_provider, run_sequence, trial,
+    CompletionBudget, SSEObservation, Timing, WAITING_PROBES, diagnostic_plan, instrument_provider, run_sequence, trial,
 )
 from local_llm import LocalLLMSettings, OpenRouterLLMProvider, SerializingLocalLLMProvider
 from medsim_backend.runtime import create_runtime
@@ -351,3 +351,139 @@ class DiagnosticTests(unittest.TestCase):
         observation = SSEObservation(Timing())
         observation.feed(b'data: {"text":"validated answer"}\n\ndata: {"done":true}\n\n')
         self.assertTrue(observation.successful(200, 'valid-semantic-answer'))
+
+    def test_waiting_plan_changes_only_deadlines_and_requires_unchanged_production(self):
+        isolated, labels = diagnostic_plan(self.configured, waiting=True)
+        self.assertEqual((isolated.patient_timeout_seconds, isolated.hosted_semantic_timeout_seconds), (7.8, 8))
+        changed = {field.name for field in fields(isolated)
+                   if getattr(isolated, field.name) != getattr(self.configured, field.name)}
+        self.assertEqual(changed, {'patient_timeout_seconds', 'hosted_semantic_timeout_seconds'})
+        self.assertEqual(len(labels), 6)
+        self.assertEqual(len({probe[0] for probe in WAITING_PROBES}), 3)
+        self.assertEqual(len({probe[1] for probe in WAITING_PROBES}), 3)
+        for settings in (replace(self.configured, patient_timeout_seconds=4.8),
+                         replace(self.configured, patient_model='other:free')):
+            with self.assertRaises(ValueError):
+                diagnostic_plan(settings, waiting=True)
+        for flags in ({'experiment': True}, {'pooled': True}):
+            with self.assertRaises(ValueError):
+                diagnostic_plan(self.configured, waiting=True, **flags)
+
+    def test_six_fresh_semantic_routes_in_one_lifespan_use_7p8_and_block_seventh(self):
+        configured, labels = diagnostic_plan(self.configured, waiting=True)
+        calls, request_ids = [], set()
+        stream = object()
+
+        async def handler(request):
+            question = json.loads(request.content)['messages'][-1]['content']
+            fact = next(fact for _, prompt, fact, _ in WAITING_PROBES if prompt == question)
+            self.assertNotIn(request.headers['x-request-id'], request_ids)
+            request_ids.add(request.headers['x-request-id'])
+            calls.append(question)
+            self.assertEqual(set(request.extensions['timeout'].values()), {7.8})
+            if len(calls) == 1:
+                await request.extensions['trace']('connection.connect_tcp.started', {})
+                await request.extensions['trace']('connection.connect_tcp.complete', {})
+                await asyncio.sleep(3.4)  # A real success beyond the old outer budget.
+            return httpx.Response(200, extensions={'network_stream': stream}, json={
+                'model': MODEL, 'choices': [{'message': {'content': json.dumps({
+                    'status': 'answer', 'fact_ids': [fact], 'partial': False})}}]})
+
+        provider, serial, budget = self.provider(handler, configured, limit=6)
+        self.runtime.app.state.provider_factory = lambda: serial
+        report = {'rows': []}
+
+        async def invoke(label):
+            return await trial(self.runtime, provider, serial, configured, label, application_owned=True,
+                               probe=WAITING_PROBES[labels.index(label) % 3])
+
+        async def run():
+            with patch('medsim_backend.application.get_tts_manager', return_value=Mock(
+                    start_background_preload=Mock(return_value=None))):
+                async with self.runtime.app.router.lifespan_context(self.runtime.app):
+                    await run_sequence(labels, invoke, report, lambda: None)
+                    blocked = await trial(self.runtime, provider, serial, configured, 'blocked-seventh',
+                                          application_owned=True)
+                    client = provider._pooled_client
+            self.assertTrue(client.is_closed)
+            return blocked
+
+        blocked = asyncio.run(run())
+        self.assertTrue(all(row['successfulTerminalSSE'] for row in report['rows']))
+        self.assertGreater(report['rows'][0]['requestDurationMs'], 3200)
+        self.assertEqual([row['connectionReused'] for row in report['rows']], [False] + [True] * 5)
+        self.assertEqual(calls, [probe[1] for probe in WAITING_PROBES] * 2)
+        self.assertEqual((budget.used, blocked['doneEvents'], blocked['transcriptEntriesAdded']), (6, 0, 0))
+        self.assertFalse(self.runtime.attempt_store.attempts)
+
+    def test_exact_7p8_body_deadline_cancels_and_closes_without_done(self):
+        configured, _ = diagnostic_plan(self.configured, waiting=True)
+        closed = []
+
+        class Body(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield b' '
+                await asyncio.sleep(20)
+
+            async def aclose(self):
+                closed.append(True)
+
+        provider, serial, budget = self.provider(lambda _request: httpx.Response(200, stream=Body()), configured)
+        row = asyncio.run(trial(self.runtime, provider, serial, configured, 'inner-timeout'))
+        self.assertEqual(row['failureCategory'], 'response-timeout')
+        self.assertGreaterEqual(row['requestDurationMs'], 7700)
+        self.assertEqual((row['doneEvents'], row['transcriptEntriesAdded'], budget.used), (0, 0, 1))
+        self.assertTrue(closed)
+        self.assertFalse(serial._gate.locked())
+
+    def test_exact_8p0_outer_deadline_cancels_queue_without_dispatch(self):
+        configured, _ = diagnostic_plan(self.configured, waiting=True)
+        provider, serial, budget = self.provider(lambda _request: self.fail('Queue timeout must not dispatch'), configured)
+        row = asyncio.run(trial(self.runtime, provider, serial, configured, 'outer-timeout', queue_delay=20))
+        self.assertEqual(row['failureCategory'], 'response-timeout')
+        self.assertGreaterEqual(row['requestDurationMs'], 7900)
+        self.assertEqual((row['doneEvents'], row['transcriptEntriesAdded'], budget.used), (0, 0, 0))
+        self.assertFalse(row['timings']['queueAcquired'])
+        self.assertFalse(serial._gate.locked())
+
+    def test_waiting_budget_explicit_cancellation_closes_body_and_deletes_only_disposable_attempt(self):
+        configured, _ = diagnostic_plan(self.configured, waiting=True)
+        entered, closed = asyncio.Event(), []
+
+        class Body(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                entered.set()
+                await asyncio.sleep(20)
+                yield b'never'
+
+            async def aclose(self):
+                closed.append(True)
+
+        provider, serial, budget = self.provider(lambda _request: httpx.Response(200, stream=Body()), configured)
+
+        async def run():
+            task = asyncio.create_task(trial(self.runtime, provider, serial, configured, 'cancelled'))
+            await asyncio.wait_for(entered.wait(), 2)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+        asyncio.run(run())
+        self.assertTrue(closed)
+        self.assertEqual(budget.used, 1)
+        self.assertFalse(serial._gate.locked())
+        self.assertFalse(self.runtime.attempt_store.attempts)
+
+    def test_wrong_grounded_fact_is_not_accepted_as_the_expected_answer(self):
+        provider, serial, _ = self.provider(lambda _request: httpx.Response(200, json={
+            'model': MODEL, 'choices': [{'message': {
+                'content': '{"status":"answer","fact_ids":["history:travel"],"partial":false}'}}]}))
+        row = asyncio.run(trial(self.runtime, provider, serial, self.configured, 'wrong-grounded-fact',
+                               probe=WAITING_PROBES[1]))
+        self.assertTrue(row['groundedAnswerAndDone'])
+        self.assertFalse(row['successfulTerminalSSE'])
+        self.assertEqual(row['failureCategory'], 'unexpected-grounded-answer')
+
+    def test_route_authentication_failure_stops_six_turn_plan(self):
+        from hosted_dialogue_diagnostic import stop_reason
+        self.assertEqual(stop_reason({'httpStatus': 401, 'errorCategories': []}), 'route-http-401')

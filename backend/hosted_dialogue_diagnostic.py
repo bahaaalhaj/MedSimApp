@@ -6,6 +6,8 @@ listener, TTS, retries, evaluator or host database is started/used.
 The explicit pooled acceptance mode owns one real application lifespan.
 The explicit 4.8/5.0 experiment changes only isolated instance settings and allows
 one cold plus three warm-context attempts; the default remains two attempts.
+The explicit 7.8/8.0 experiment owns one lifespan and repeats three semantic
+questions across three cases, with fresh encounters and request IDs every turn.
 """
 from __future__ import annotations
 
@@ -29,12 +31,17 @@ import httpx
 MAX_COMPLETIONS = 2
 QUESTION = 'Tell me about those marks after your outdoor weekend.'
 CASE_ID = 'id-004'
+WAITING_PROBES = (
+    ('card-003', 'What happens to your breathing when you are horizontal in bed?', 'history:orthopnea', ('pillows',)),
+    (CASE_ID, QUESTION, 'history:rash', ('Red ring',)),
+    ('im-003', 'Have you been using any pills from home?', 'history:draft-current-medication', ('No regular medicines',)),
+)
 
 
 class CompletionBudget:
     def __init__(self, persist=lambda: None, limit=MAX_COMPLETIONS):
-        if limit not in (2, 4):
-            raise ValueError('Diagnostic limit must be two or four attempts')
+        if limit not in (2, 4, 6):
+            raise ValueError('Diagnostic limit must be two, four or six attempts')
         self.limit = limit
         self.used = 0
         self.persist = persist
@@ -218,6 +225,7 @@ class SSEObservation:
         self.actual_model = None
         self.frames_after_terminal = False
         self.text_bytes = 0
+        self.text = ''  # In-memory expected-answer check only; never serialized.
 
     def feed(self, data):
         self.buffer += data
@@ -232,6 +240,7 @@ class SSEObservation:
                 self.timing.mark('firstSSE')
             if isinstance(event.get('text'), str):
                 self.text_bytes += len(event['text'].encode())
+                self.text += event['text']
             if event.get('error'):
                 # Category only, never an upstream error message.
                 self.errors.append(event.get('category', 'unknown'))
@@ -247,11 +256,13 @@ class SSEObservation:
                 and validation == 'valid-semantic-answer')
 
 
-async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, application_owned=False):
+async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, application_owned=False,
+                probe=None):
     from medsim_backend.services import patient_dialogue_service as dialogue
     timing = Timing()
     timing.expected_model = configured.patient_model
     observation = SSEObservation(timing)
+    case_id, question, expected_fact, expected_terms = probe or (CASE_ID, QUESTION, 'history:rash', ())
     provider.timing = timing
     timing.metrics['poolClientPresentBeforeRequest'] = provider._pooled_client is not None
     if application_owned and (getattr(runtime.app.state, 'llm_provider', None) is not serial
@@ -301,9 +312,10 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, 
 
     transport = httpx.ASGITransport(app=observed_app, client=('127.0.0.1', 50000))
     async with httpx.AsyncClient(transport=transport, base_url='http://localhost:8787',
-                                 headers={'Origin': 'http://localhost:5173'}, trust_env=False) as client:
-        case = runtime_module_case(runtime)
-        created = await client.post('/api/attempts', json={'caseId': CASE_ID, 'caseVersion': case['caseVersion']})
+                                 headers={'Origin': 'http://localhost:5173'}, trust_env=False,
+                                 timeout=configured.hosted_semantic_timeout_seconds + 2) as client:
+        case = runtime.attempt_service.local_ai_cases[case_id]
+        created = await client.post('/api/attempts', json={'caseId': case_id, 'caseVersion': case['caseVersion']})
         created.raise_for_status()
         aid = created.json()['attemptId']
         request_id = str(uuid.uuid4())
@@ -318,18 +330,37 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, 
                     patch.object(serial, 'complete_chat', queued):
                 timing.start = time.perf_counter()
                 response = await client.post('/agent/patient/stream', json={'attemptId': aid, 'source': 'typed',
-                    'question': QUESTION, 'requestId': request_id})
+                    'question': question, 'requestId': request_id})
             attempt = runtime.attempt_store.attempts[aid]
             audit = attempt['patientResponses'].get(request_id, {})
             failure = attempt.get('patientFailures', {}).get(request_id, {})
             validation = audit.get('validationResult', failure.get('validationResult'))
+            expected_answer = (expected_fact in audit.get('matchedFactIds', [])
+                               and all(term.lower() in observation.text.lower() for term in expected_terms))
             success = (observation.successful(response.status_code, validation)
+                       and expected_answer
                        and observation.actual_model == configured.patient_model
                        and timing.metrics.get('upstreamModelIdentityConfirmed') is True
                        and timing.metrics.get('completionRequestsDispatched') == 1)
             connection = provider.diagnostic_connection_id(timing.network_stream)
             new_connection = any(event['event'] == 'connection.connect_tcp.started' for event in timing.events)
-            return {'label': label, 'httpStatus': response.status_code, 'successfulTerminalSSE': success,
+            if observation.errors:
+                category = observation.errors[0]
+            elif response.status_code != 200:
+                category = f'route-http-{response.status_code}'
+            elif not observation.successful(response.status_code, validation):
+                category = validation if validation != 'valid-semantic-answer' else 'terminal-sse-invalid'
+            elif not expected_answer:
+                category = 'unexpected-grounded-answer'
+            elif timing.metrics.get('completionRequestsDispatched') != 1:
+                category = 'semantic-dispatch-count'
+            elif observation.actual_model != configured.patient_model:
+                category = 'sse-model-mismatch'
+            else:
+                category = None if success else 'upstream-model-unconfirmed'
+            return {'label': label, 'caseId': case_id, 'httpStatus': response.status_code,
+                    'successfulTerminalSSE': success, 'failureCategory': category,
+                    'expectedGroundedAnswer': expected_answer,
                     'groundedAnswerAndDone': observation.successful(response.status_code, validation),
                     'upstreamModelIdentityConfirmed': timing.metrics.get('upstreamModelIdentityConfirmed'),
                     'requestDurationMs': round((time.perf_counter() - timing.start) * 1000, 3),
@@ -347,11 +378,16 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, 
                     serial._gate.release()
 
 
-def runtime_module_case(runtime):
-    return runtime.attempt_service.local_ai_cases[CASE_ID]
-
-
-def diagnostic_plan(configured, experiment=False, pooled=False):
+def diagnostic_plan(configured, experiment=False, pooled=False, waiting=False):
+    if waiting:
+        if (experiment or pooled or configured.provider != 'openrouter'
+                or configured.patient_model != 'nvidia/nemotron-3.5-super-vl:free'
+                or (configured.patient_timeout_seconds, configured.hosted_semantic_timeout_seconds) != (3.0, 3.2)):
+            raise ValueError('Waiting experiment requires unchanged pinned model and production 3.0/3.2 deadlines')
+        isolated = replace(configured, patient_timeout_seconds=7.8, hosted_semantic_timeout_seconds=8.0)
+        isolated.validate()
+        return isolated, tuple(f'round-{repeat + 1}-question-{question + 1}'
+                               for repeat in range(2) for question in range(3))
     if pooled:
         if (experiment or configured.provider != 'openrouter'
                 or configured.patient_model != 'nvidia/nemotron-3.5-super-vl:free'
@@ -368,6 +404,8 @@ def diagnostic_plan(configured, experiment=False, pooled=False):
 
 
 def stop_reason(row):
+    if row.get('httpStatus') in (400, 401, 403, 404, 422):
+        return f"route-http-{row['httpStatus']}"
     categories = {'rate-limited', 'configuration-invalid', 'free-capacity-unavailable',
                   'missing-api-key', 'missing-model', 'paid-model-blocked',
                   'unsupported-parameters', 'reasoning-not-disabled', 'diagnostic-failed'}
@@ -382,6 +420,7 @@ def stop_reason(row):
 
 
 async def run_sequence(labels, invoke, report, persist):
+    connections = set()
     for label in labels:
         started = time.perf_counter()
         try:
@@ -392,6 +431,11 @@ async def run_sequence(labels, invoke, report, persist):
                    'requestDurationMs': round((time.perf_counter() - started) * 1000, 3),
                    'doneEvents': 0, 'errorCategories': ['diagnostic-failed'],
                    'exceptionType': type(exc).__name__}
+        connection = row.get('connectionId')
+        row['connectionReused'] = (False if row.get('newTCPConnectionObserved') else
+                                   connection in connections if connection is not None else None)
+        if connection is not None:
+            connections.add(connection)
         report['rows'].append(row)
         reason = stop_reason(row)
         if reason:
@@ -402,12 +446,13 @@ async def run_sequence(labels, invoke, report, persist):
             break
 
 
-async def diagnose(live, output, experiment=False, pooled=False):
+async def diagnose(live, output, experiment=False, pooled=False, waiting=False):
     from medsim_backend.config import load_env_local
     load_env_local()
     from local_llm import LocalLLMSettings, OpenRouterLLMProvider, SerializingLocalLLMProvider
     production = LocalLLMSettings.from_env()
-    configured, labels = diagnostic_plan(production, experiment, pooled)
+    configured, labels = diagnostic_plan(production, experiment, pooled, waiting)
+    pooled = pooled or waiting
     if configured.provider != 'openrouter' or not configured.patient_model or (live and not configured.api_key):
         raise RuntimeError('Configured hosted provider is required')
     from auth_system import AuthSettings
@@ -423,7 +468,8 @@ async def diagnose(live, output, experiment=False, pooled=False):
     report = {'live': live, 'model': configured.patient_model,
               'patientTimeoutSeconds': configured.patient_timeout_seconds,
               'semanticTimeoutSeconds': configured.hosted_semantic_timeout_seconds,
-              'experimentalDeadlines': experiment,
+              'experimentalDeadlines': experiment or waiting,
+              'waitingBudgetExperiment': waiting,
               'applicationLifespanOwned': pooled,
               'configuredPatientTimeoutSeconds': production.patient_timeout_seconds,
               'configuredSemanticTimeoutSeconds': production.hosted_semantic_timeout_seconds,
@@ -451,24 +497,30 @@ async def diagnose(live, output, experiment=False, pooled=False):
         from medsim_backend.runtime import runtime
 
         class ScriptedBody(httpx.AsyncByteStream):
+            def __init__(self, fact):
+                self.fact = fact
+
             async def __aiter__(self):
                 await asyncio.sleep(.02)
                 yield json.dumps({'model': configured.patient_model, 'choices': [{'message': {
-                    'content': '{"status":"answer","fact_ids":["history:rash"],"partial":false}'}}]}).encode()
+                    'content': json.dumps({'status': 'answer', 'fact_ids': [self.fact], 'partial': False})}}]}).encode()
 
-        async def scripted(_request):
+        async def scripted(request):
             await asyncio.sleep(.02)
-            return httpx.Response(200, stream=ScriptedBody())
+            question = json.loads(request.content)['messages'][-1]['content']
+            fact = next((fact for _, prompt, fact, _ in WAITING_PROBES if prompt == question), 'history:rash')
+            return httpx.Response(200, stream=ScriptedBody(fact))
 
         provider = OpenRouterLLMProvider(configured, None if live else httpx.MockTransport(scripted))
         instrument_provider(provider, budget)
         serial = SerializingLocalLLMProvider(provider)
         async def invoke(label):
+            probe = WAITING_PROBES[labels.index(label) % 3] if waiting else None
             report['semanticAttemptsStarted'] = report.get('semanticAttemptsStarted', 0) + 1
             persist()
             return await trial(runtime, provider, serial, configured, label,
                                queue_delay=.05 if not live and label != 'cold' else 0,
-                               application_owned=pooled)
+                               application_owned=pooled, probe=probe)
 
         if pooled:
             runtime.app.state.provider_factory = lambda: serial
@@ -532,6 +584,8 @@ def main():
                         help='Isolated 4.8/5.0-second experiment: one cold and three warm-context attempts, maximum four')
     mode.add_argument('--pooled-acceptance', action='store_true',
                       help='Two semantic attempts in one application lifespan, unchanged 3.0/3.2 deadlines')
+    mode.add_argument('--experiment-7p8-8p0', action='store_true',
+                      help='Isolated lifespan: three semantic questions twice, maximum six attempts, no retries')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
@@ -544,7 +598,7 @@ def main():
                     parser.error('Existing MedSim listener: coordinate student use before a separate live diagnostic')
     try:
         report = asyncio.run(diagnose(args.live, args.output.resolve(), args.experiment_4p8_5p0,
-                                      args.pooled_acceptance))
+                                      args.pooled_acceptance, args.experiment_7p8_8p0))
     except Exception as exc:
         # Never echo arbitrary HTTP exceptions, request/response objects or values.
         print(json.dumps({'status': 'diagnostic-failed', 'exceptionType': type(exc).__name__}))
