@@ -32,7 +32,8 @@ stream.on('test:fail', () => {
 });
 stream.compose(new spec()).pipe(process.stdout);
 stream.once('end', () => {
-  process.exit(failed === 0 ? 0 : 1);
+  // Let the composed reporter drain before exiting, including on Node 22.
+  process.exitCode = failed === 0 ? 0 : 1;
 });
 
 // Ensure clean exit even if nothing keeps the loop alive.

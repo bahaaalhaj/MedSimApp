@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -41,6 +42,13 @@ const REPRODUCIBLE_REVIEW_OPTIONS = {
   gitCommit: 'not-embedded-in-reproducible-export',
   workingTreeStatus: 'not-embedded-in-reproducible-export',
 };
+const METADATA_HEADERS = [
+  'project_name','export_generated_at','git_commit','working_tree_status','total_unique_case_versions','total_legacy_cases',
+  'total_canonical_cases','total_approved_formative','total_clinical_review','total_legacy_unreviewed','total_draft','total_retired',
+  'specialty_count','reference_count','rubric_criterion_count','investigation_row_count','medication_row_count','issue_count_by_severity',
+  'source_files_scanned','export_script_version','limitations',
+  'auto_generated_notice','canonical_source_file','generator_command','canonical_source_checksum','semantic_checksum',
+];
 
 async function loadArtifactTool(): Promise<any> {
   try {
@@ -252,13 +260,7 @@ async function createWorkbook(model: ExportModel, artifact: any): Promise<any> {
   summary.getRange('A1').format.font = { name: FONT, size: 15, bold: true, color: TEAL };
   summary.getRange('A2').values = [['For independent clinical review — not evidence of medical accreditation.']];
   summary.getRange('A2').format.font = { name: FONT, size: 11, italic: true, color: '#7F1D1D' };
-  const metadataHeaders = [
-    'project_name','export_generated_at','git_commit','working_tree_status','total_unique_case_versions','total_legacy_cases',
-    'total_canonical_cases','total_approved_formative','total_clinical_review','total_legacy_unreviewed','total_draft','total_retired',
-    'specialty_count','reference_count','rubric_criterion_count','investigation_row_count','medication_row_count','issue_count_by_severity',
-    'source_files_scanned','export_script_version','limitations',
-    'auto_generated_notice','canonical_source_file','generator_command','canonical_source_checksum','semantic_checksum',
-  ];
+  const metadataHeaders = METADATA_HEADERS;
   const metadataLastColumn = columnName(metadataHeaders.length - 1);
   const metadataMatrix = [metadataHeaders, metadataHeaders.map((header) => {
     const value = model.exportMetadata[header];
@@ -371,6 +373,22 @@ async function normalizeXlsxContainer(path: string): Promise<void> {
   await writeFile(path, zipSync(reproducibleFiles, { level: 6, mtime: fixedTimestamp }));
 }
 
+export function validateReviewWorkbookStructure(path: string, model: ExportModel): void {
+  const sheets: Array<{ name: string; tables: Array<{ row: number; headers: readonly string[]; rows: number }> }> = Object.entries(model.sheets).map(([name, rows]) => ({
+    name, tables: [{ row: 1, headers: [...SHEET_COLUMNS[name as SheetName]], rows: rows.length }],
+  }));
+  sheets.push({ name: 'Export_Summary', tables: [
+    { row: 4, headers: METADATA_HEADERS, rows: 1 },
+    { row: 8, headers: ['specialty_id','specialty_name','review_status','representation_count'], rows: model.specialtyStatusRows.length },
+  ] });
+  // CI already installs Python. Its standard-library XML/ZIP readers keep this
+  // read-only check independent of the optional Codex workbook rendering tool.
+  execFileSync('python', [fileURLToPath(new URL('./verify-review-workbook.py', import.meta.url)), path], {
+    input: JSON.stringify({ sheetNames: EXPECTED_SHEETS, sheets, semanticChecksum: model.exportMetadata.semantic_checksum }),
+    encoding: 'utf8', maxBuffer: 1024 * 1024, stdio: 'pipe',
+  });
+}
+
 export async function exportClinicalReview(): Promise<{ model: ExportModel; xlsxPath: string; jsonPath: string }> {
   const model = buildReproducibleReviewModel();
   validateExportModel(model);
@@ -388,6 +406,7 @@ export async function exportClinicalReview(): Promise<{ model: ExportModel; xlsx
   const artifactInspectSidecar = `${XLSX_PATH}.inspect.ndjson`;
   if (existsSync(artifactInspectSidecar)) await unlink(artifactInspectSidecar);
   console.log(`Reopening and checking all ${EXPECTED_SHEETS.length} worksheets...`);
+  validateReviewWorkbookStructure(XLSX_PATH, model);
   await validateSavedWorkbook(XLSX_PATH, model, artifact);
   return { model, xlsxPath: XLSX_PATH, jsonPath: JSON_PATH };
 }
@@ -405,9 +424,9 @@ export async function verifyClinicalReviewArtifacts(): Promise<string[]> {
     stale.push(XLSX_PATH);
   } else {
     try {
-      const artifact = await loadArtifactTool();
-      await validateSavedWorkbook(XLSX_PATH, model, artifact);
-    } catch {
+      validateReviewWorkbookStructure(XLSX_PATH, model);
+    } catch (error) {
+      console.error(`Workbook verification failed: ${error instanceof Error ? error.message : error}`);
       stale.push(XLSX_PATH);
     }
   }

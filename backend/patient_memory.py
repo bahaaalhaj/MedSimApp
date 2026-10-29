@@ -411,7 +411,8 @@ def retrieve(memory: PatientMemory, question: str) -> Retrieval:
     scored: list[tuple[float, PatientFact]] = []
     for fact in safe:
         if "headache-vision" in query_domains:
-            scopes = lambda value: {scope for scope, pattern in (("headache", r"headaches?"), ("vision", r"vision|visual")) if re.search(pattern, value, re.I)}
+            def scopes(value):
+                return {scope for scope, pattern in (("headache", r"headaches?"), ("vision", r"vision|visual")) if re.search(pattern, value, re.I)}
             if not scopes(question) <= scopes(fact.question):
                 continue  # A negative headache answer cannot deny visual symptoms.
         candidate_terms = terms(fact.question)

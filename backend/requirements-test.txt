@@ -1,0 +1,4 @@
+# Offline test/lint dependencies; no TTS runtime, model assets or inference.
+-r requirements.txt
+numpy==2.5.3
+ruff==0.8.4

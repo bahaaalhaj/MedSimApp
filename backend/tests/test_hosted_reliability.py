@@ -105,7 +105,8 @@ class RetryablePatientFailureTests(unittest.TestCase):
         self.attempt=server._INVESTIGATION_ATTEMPTS[self.aid]
         self.addCleanup(server._INVESTIGATION_ATTEMPTS.pop,self.aid,None)
         self.flag=patch.dict('os.environ',{'MEDSIM_SEMANTIC_DIALOGUE_ENABLED':'true'})
-        self.flag.start();self.addCleanup(self.flag.stop)
+        self.flag.start()
+        self.addCleanup(self.flag.stop)
 
     def turn(self,provider,request_id='retry-stable-request',question='Tell me about those marks after your outdoor weekend.'):
         with patch.object(dialogue,'get_local_llm_provider',return_value=provider):
@@ -145,15 +146,18 @@ class RetryablePatientFailureTests(unittest.TestCase):
     def test_bad_model_selection_and_rate_limits_never_create_clinical_absence(self):
         for index,result in enumerate(('invalid JSON','{"status":"answer","fact_ids":["protected:rubric"],"partial":false}',LLMProviderError('rate-limited','rate',True))):
             provider=AsyncMock()
-            if isinstance(result,Exception):provider.complete_chat.side_effect=result
-            else:provider.complete_chat.return_value=ChatCompletion(result,'fixture','bad',0,('fixture',))
+            if isinstance(result,Exception):
+                provider.complete_chat.side_effect=result
+            else:
+                provider.complete_chat.return_value=ChatCompletion(result,'fixture','bad',0,('fixture',))
             frames=self.turn(provider,request_id=f'failure-request-{index}')
             self.assertIn('error',frames[-1])
             self.assertEqual(len(self.attempt['transcript']),1)
             self.assertFalse(self.attempt['askedQuestionIds'])
 
     def test_partial_authored_data_does_not_turn_transport_failure_into_missing_history(self):
-        provider=AsyncMock();provider.complete_chat.side_effect=TimeoutError()
+        provider=AsyncMock()
+        provider.complete_chat.side_effect=TimeoutError()
         frames=self.turn(provider,question='Do you have drug allergies or food allergies?')
         self.assertEqual(frames[-1]['category'],'response-timeout')
         self.assertFalse(any('text' in frame for frame in frames))

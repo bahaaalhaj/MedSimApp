@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from test_support import TestClient
 import server
-from local_ai import LOCAL_AI_CASES, SAFE_UNKNOWN_RESPONSE, compose_patient_answer
+from local_ai import LOCAL_AI_CASES, compose_patient_answer
 from local_llm import ChatCompletion, LLMProviderError
 from patient_memory import (
     FactState, PatientMemory, compose_fact,

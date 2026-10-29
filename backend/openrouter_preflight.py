@@ -7,7 +7,7 @@ import json
 from medsim_backend.config import load_env_local
 
 load_env_local()  # Must precede the import-time provider singleton.
-from local_llm import get_local_llm_provider, health_dict, settings
+from local_llm import get_local_llm_provider, health_dict, settings  # noqa: E402 - load private config before provider initialization.
 
 
 async def main() -> int:

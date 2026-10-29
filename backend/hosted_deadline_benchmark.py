@@ -67,12 +67,14 @@ async def run(output):
     if remaining is not None and remaining<12:
         report.update(status='blocked-insufficient-quota',summary=summarize([]),selectedTotalSeconds=None)
         output.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
-        print(json.dumps(report));return 2
+        print(json.dumps(report))
+        return 2
     health=await build_provider(base).health()
     if health.state!='ready':
         report.update(status='blocked-provider-not-ready',category=health.last_error_category)
         output.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
-        print(json.dumps(report));return 2
+        print(json.dumps(report))
+        return 2
     stop=False
     # Different orders reduce, but cannot eliminate, time/cache/capacity bias.
     orders=((3.2,5,8),(5,8,3.2),(8,3.2,5),(8,5,3.2))
@@ -84,7 +86,8 @@ async def run(output):
                 configured.validate()
                 provider=SerializingLocalLLMProvider(build_provider(configured))
                 created=await client.post('/api/attempts',json={'caseId':cid,'caseVersion':LOCAL_AI_CASES[cid]['caseVersion'],'variantSeed':'deadline-comparison'})
-                created.raise_for_status();aid=created.json()['attemptId']
+                created.raise_for_status()
+                aid=created.json()['attemptId']
                 rid=f'deadline-trial-{time.time_ns()}'
                 started=time.perf_counter()
                 try:
@@ -109,11 +112,13 @@ async def run(output):
                     output.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
                     print(json.dumps({k:row[k] for k in ['caseId','totalDeadlineSeconds','innerTimeoutSeconds','success','category','latencyMs']}),flush=True)
                     if category in {'rate-limited','free-capacity-unavailable','configuration-invalid'}:
-                        stop=True;break
+                        stop=True
+                        break
                     await asyncio.sleep(max(0,4-(time.perf_counter()-started)))
                 finally:
                     server._INVESTIGATION_ATTEMPTS.pop(aid,None)
-            if stop:break
+            if stop:
+                break
     report['summary']=summarize(report['rows'])
     eligible=[g['totalDeadlineSeconds'] for g in report['summary'] if g['attempts']==4 and g['successes']==4]
     report['selectedTotalSeconds']=min(eligible) if eligible and not stop else None

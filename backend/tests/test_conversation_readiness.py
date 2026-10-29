@@ -41,7 +41,8 @@ class ConversationReadinessTests(unittest.TestCase):
             self.assertEqual([f.fact_id for f in turn.facts],['profile:chiefComplaint'])
 
     def test_semantic_qualifiers_keep_their_authored_topic_and_parent_perspective(self):
-        case = LOCAL_AI_CASES['id-004']; memory = derive_memory(case)
+        case = LOCAL_AI_CASES['id-004']
+        memory = derive_memory(case)
         selected = json.dumps({'status':'answer','fact_ids':['history:headache','history:fever'],'partial':False})
         for parent,possessive in ((False,'My'),(True,"My child's")):
             result = validate_interpretation(selected,memory,case,is_parent=parent)

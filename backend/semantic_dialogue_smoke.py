@@ -118,7 +118,8 @@ def run_probes(client, probes, state, *, audit_store=None, audio=False):
     for i,(cid,question,expected) in enumerate(probes):
         if cid not in attempts:
             created=client.post('/api/attempts',json={'caseId':cid,'caseVersion':LOCAL_AI_CASES[cid]['caseVersion'],'variantSeed':'live-semantic-probe'})
-            created.raise_for_status();attempts[cid]=created.json()['attemptId']
+            created.raise_for_status()
+            attempts[cid]=created.json()['attemptId']
         request_id=f'live-semantic-{time.time_ns()}-{i}'
         started=time.perf_counter()
         response=client.post('/agent/patient/stream',json={'attemptId':attempts[cid],'source':'typed','question':question,'requestId':request_id})
@@ -213,7 +214,8 @@ def main():
             client=stack.enter_context(TestClient(server.app,headers={'Origin':'http://localhost:5173'}))
         else:
             client=stack.enter_context(httpx.Client(base_url=base,headers={'Origin':'http://localhost:5173'},timeout=35,trust_env=False))
-        health=client.get('/health');health.raise_for_status()
+        health=client.get('/health')
+        health.raise_for_status()
         state=health.json().get('local_ai',{})
         reason=provider_readiness(health.json(),args.provider)
         if reason:

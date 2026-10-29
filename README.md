@@ -45,7 +45,11 @@ The verified llama.cpp/Qwen 1.7B implementation remains an explicit offline opti
 
 ## Verification
 
+Install the offline test dependencies and enable TypeScript execution for Node 22.14.0. See [CI](docs/ci.md) for the complete provider-disabled environment.
+
 ```powershell
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-test.txt
+$env:NODE_OPTIONS = '--experimental-strip-types'
 npm test
 node node_modules/typescript/bin/tsc -b
 npm run verify
@@ -56,6 +60,7 @@ npm run clinical:verify-generated
 npm run security:scan
 npm run lint
 npm run format:check
+backend/.venv/Scripts/python.exe -m ruff check backend scripts/clinical/verify-review-workbook.py
 npm run build
 backend/.venv/Scripts/python.exe -m unittest discover -s backend/tests -v
 git diff --check

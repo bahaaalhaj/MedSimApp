@@ -10,9 +10,9 @@ from medsim_backend.config import load_env_local
 # both the supported direct command and ASGI imports, not only runtime creation.
 load_env_local()
 
-from local_ai import LOCAL_AI_CASES
-from local_llm import get_local_llm_provider
-from medsim_backend.runtime import (
+from local_ai import LOCAL_AI_CASES  # noqa: E402 - private config must be loaded first.
+from local_llm import get_local_llm_provider  # noqa: E402 - private config must be loaded first.
+from medsim_backend.runtime import (  # noqa: E402 - private config must be loaded first.
     TTS_SETTINGS,
     _ATTEMPT_STORE,
     _ATTEMPT_TTL_SECONDS,

@@ -74,7 +74,8 @@ def run_audit():
 
             def check(label, condition):
                 row['checks'] += 1
-                if not condition: row['failures'].append(label)
+                if not condition:
+                    row['failures'].append(label)
 
             created = client.post('/api/attempts',json={'caseId':cid,'caseVersion':case['caseVersion'],'variantSeed':'offline-conversation-audit'})
             check('attempt-created',created.status_code == 201)
@@ -92,7 +93,8 @@ def run_audit():
                 sequence += 1
                 payload = {'attemptId':aid,'source':source,'question':question,
                            'requestId':rid or f'audit-{cid}-turn-{sequence:04d}'}
-                if question_id is not None: payload['questionId'] = question_id
+                if question_id is not None:
+                    payload['questionId'] = question_id
                 response = client.post('/agent/patient/stream',json=payload)
                 frames = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith('data: ')]
                 return response,frames,''.join(frame.get('text','') for frame in frames)
