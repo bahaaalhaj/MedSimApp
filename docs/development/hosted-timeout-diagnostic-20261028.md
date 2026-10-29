@@ -1,5 +1,8 @@
 # Hosted dialogue timeout diagnostic — 2026-10-28
 
+Follow-up: [approved isolated 4.8 / 5.0 experiment on 2026-10-29](hosted-timeout-experiment-20261029.md).
+The measurements and two-attempt authorization below describe the earlier run.
+
 ## Finding
 
 The configured `nvidia/nemotron-3.5-super-vl:free` path completed **0/2** new live

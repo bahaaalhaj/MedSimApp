@@ -4,13 +4,15 @@ import json
 import os
 import tempfile
 import unittest
-from dataclasses import replace
+from dataclasses import fields, replace
 from pathlib import Path
 from unittest.mock import patch
 
 import httpx
 
-from hosted_dialogue_diagnostic import CompletionBudget, SSEObservation, Timing, instrument_provider, trial
+from hosted_dialogue_diagnostic import (
+    CompletionBudget, SSEObservation, Timing, diagnostic_plan, instrument_provider, run_sequence, trial,
+)
 from local_llm import LocalLLMSettings, OpenRouterLLMProvider, SerializingLocalLLMProvider
 from medsim_backend.runtime import create_runtime
 
@@ -33,9 +35,9 @@ class DiagnosticTests(unittest.TestCase):
         self.runtime = create_runtime()
         self.configured = replace(LocalLLMSettings(), patient_model=MODEL, api_key='scripted-only')
 
-    def provider(self, handler, configured=None):
+    def provider(self, handler, configured=None, limit=2):
         provider = OpenRouterLLMProvider(configured or self.configured, httpx.MockTransport(handler))
-        budget = CompletionBudget()
+        budget = CompletionBudget(limit=limit)
         instrument_provider(provider, budget)
         return provider, SerializingLocalLLMProvider(provider), budget
 
@@ -116,6 +118,97 @@ class DiagnosticTests(unittest.TestCase):
         rows = [asyncio.run(trial(self.runtime, provider, serial, self.configured, str(i))) for i in range(3)]
         self.assertEqual([row['successfulTerminalSSE'] for row in rows], [True, True, False])
         self.assertEqual((len(calls), budget.used, rows[-1]['transcriptEntriesAdded']), (2, 2, 0))
+
+    def test_experiment_changes_only_isolated_deadlines_and_preserves_default_plan(self):
+        baseline, default_labels = diagnostic_plan(self.configured)
+        self.assertIs(baseline, self.configured)
+        self.assertEqual(default_labels, ('cold', 'warm'))
+        isolated, labels = diagnostic_plan(self.configured, True)
+        self.assertEqual(labels, ('cold', 'warm-context-1', 'warm-context-2', 'warm-context-3'))
+        self.assertEqual((isolated.patient_timeout_seconds, isolated.hosted_semantic_timeout_seconds), (4.8, 5.0))
+        self.assertEqual((baseline.patient_timeout_seconds, baseline.hosted_semantic_timeout_seconds), (3.0, 3.2))
+        changed = {field.name for field in fields(baseline) if getattr(baseline, field.name) != getattr(isolated, field.name)}
+        self.assertEqual(changed, {'patient_timeout_seconds', 'hosted_semantic_timeout_seconds'})
+        with self.assertRaises(ValueError):
+            diagnostic_plan(replace(baseline, patient_model='nex-agi/nex-n2.5-mini:free'), True)
+        for limit in (0, 1, 3, 5, 100):
+            with self.assertRaises(ValueError):
+                CompletionBudget(limit=limit)
+
+    def test_experiment_runs_four_at_4p8_and_blocks_fifth_before_dispatch(self):
+        configured, labels = diagnostic_plan(self.configured, True)
+        timeouts = []
+
+        def handler(request):
+            timeouts.append(request.extensions['timeout']['read'])
+            return httpx.Response(200, json={'model': MODEL, 'choices': [{'message': {
+                'content': '{"status":"answer","fact_ids":["history:rash"],"partial":false}'}}]})
+
+        provider, serial, budget = self.provider(handler, configured, limit=4)
+        rows = [asyncio.run(trial(self.runtime, provider, serial, configured, label)) for label in (*labels, 'blocked-fifth')]
+        self.assertEqual([row['successfulTerminalSSE'] for row in rows], [True, True, True, True, False])
+        self.assertEqual((timeouts, budget.used), ([4.8] * 4, 4))
+        self.assertTrue(all(row['requestDurationMs'] > 0 for row in rows))
+        self.assertEqual(rows[-1]['transcriptEntriesAdded'], 0)
+
+    def test_sequence_stops_after_first_quota_rate_or_configuration_failure(self):
+        configured, labels = diagnostic_plan(self.configured, True)
+        for status in (401, 402, 403, 429):
+            with self.subTest(status=status):
+                calls = []
+
+                def handler(request):
+                    calls.append(request)
+                    return httpx.Response(status)
+
+                provider, serial, budget = self.provider(handler, configured, limit=4)
+                report = {'rows': []}
+                saved = []
+
+                async def invoke(label):
+                    return await trial(self.runtime, provider, serial, configured, label)
+
+                asyncio.run(run_sequence(labels, invoke, report, lambda: saved.append(len(report['rows']))))
+                self.assertEqual((len(calls), budget.used, len(report['rows']), saved), (1, 1, 1, [1]))
+                self.assertTrue(report['stopReason'])
+                self.assertFalse(report['rows'][0]['successfulTerminalSSE'])
+
+    def test_sequence_retains_timeout_failures_and_stops_on_redacted_diagnostic_error(self):
+        labels = ('cold', 'warm-context-1', 'warm-context-2', 'warm-context-3')
+        report = {'rows': []}
+
+        async def invoke(label):
+            if label == 'cold':
+                return {'label': label, 'successfulTerminalSSE': False, 'errorCategories': ['response-timeout'],
+                        'requestDurationMs': 4800}
+            raise RuntimeError(SENSITIVE)
+
+        asyncio.run(run_sequence(labels, invoke, report, lambda: None))
+        self.assertEqual([row['label'] for row in report['rows']], list(labels[:2]))
+        self.assertEqual(report['stopReason'], 'diagnostic-failed')
+        self.assertEqual(report['rows'][1]['exceptionType'], 'RuntimeError')
+        self.assertGreater(report['rows'][1]['requestDurationMs'], 0)
+        self.assertNotIn(SENSITIVE, json.dumps(report))
+
+    def test_embedded_rate_limit_under_http_200_stops_before_a_second_attempt(self):
+        configured, labels = diagnostic_plan(self.configured, True)
+
+        class Body(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield json.dumps({'error': {'code': 429, 'message': SENSITIVE}}).encode()
+
+        provider, serial, budget = self.provider(lambda _request: httpx.Response(200, stream=Body()), configured, limit=4)
+        report = {'rows': []}
+
+        async def invoke(label):
+            return await trial(self.runtime, provider, serial, configured, label)
+
+        asyncio.run(run_sequence(labels, invoke, report, lambda: None))
+        self.assertEqual((budget.used, len(report['rows'])), (1, 1))
+        self.assertEqual(report['rows'][0]['timings']['upstreamHTTP'], 200)
+        self.assertEqual(report['stopReason'], 'upstream-http-429')
+        self.assertFalse(report['rows'][0]['successfulTerminalSSE'])
+        self.assertNotIn(SENSITIVE, json.dumps(report))
 
     def test_sse_http_200_requires_one_successful_terminal_and_no_truncation_or_error(self):
         for content in (b'data: {"text":"partial"}\n\n',

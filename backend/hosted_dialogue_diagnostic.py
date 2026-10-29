@@ -1,8 +1,10 @@
-"""Opt-in two-completion diagnostic using unchanged routes, model and budgets.
+"""Bounded diagnostic using real routes and the unchanged configured model.
 
 Default mode is scripted/offline. Reports contain timings and status only, never
 headers, prompts, answers, raw trace info or exception messages. No app lifespan,
 public listener, TTS, retries, evaluator or host database is started/used.
+The explicit 4.8/5.0 experiment changes only isolated instance settings and allows
+one cold plus three warm-context attempts; the default remains two attempts.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,12 +31,15 @@ CASE_ID = 'id-004'
 
 
 class CompletionBudget:
-    def __init__(self, persist=lambda: None):
+    def __init__(self, persist=lambda: None, limit=MAX_COMPLETIONS):
+        if limit not in (2, 4):
+            raise ValueError('Diagnostic limit must be two or four attempts')
+        self.limit = limit
         self.used = 0
         self.persist = persist
 
     def take(self):
-        if self.used >= MAX_COMPLETIONS:
+        if self.used >= self.limit:
             raise RuntimeError('Diagnostic completion budget exhausted')
         self.used += 1
         self.persist()  # Persist BEFORE dispatch, including failed/cancelled calls.
@@ -75,7 +81,7 @@ class Timing:
             end = self.marks.get('delegate', self.marks.get('providerFinished', time.perf_counter()))
             metrics['queueWaitMs'] = round((end - self.marks['queued']) * 1000, 3)
             metrics['queueAcquired'] = 'delegate' in self.marks
-        for name in ('headers', 'firstBodyByte', 'providerFinished', 'firstSSE', 'terminalSSE', 'sseComplete'):
+        for name in ('headers', 'firstBodyByte', 'firstNonWhitespaceBodyByte', 'providerFinished', 'firstSSE', 'terminalSSE', 'sseComplete'):
             if name in self.marks:
                 metrics[name + 'AtMs'] = round((self.marks[name] - self.start) * 1000, 3)
         return {'timings': metrics, 'networkEvents': self.events}
@@ -86,11 +92,31 @@ class ObservedBody(httpx.AsyncByteStream):
         self.stream, self.timing = stream, timing
 
     async def __aiter__(self):
+        summary = bytearray()
+        bounded = True
         async for chunk in self.stream:
             if chunk and 'firstBodyByte' not in self.timing.marks:
                 self.timing.mark('firstBodyByte')
+            if chunk.strip() and 'firstNonWhitespaceBodyByte' not in self.timing.marks:
+                self.timing.mark('firstNonWhitespaceBodyByte')
             self.timing.metrics['receivedBodyBytes'] = self.timing.metrics.get('receivedBodyBytes', 0) + len(chunk)
+            if bounded and len(summary) + len(chunk) <= 8192:
+                summary.extend(chunk)
+            else:
+                bounded = False
+                summary.clear()
             yield chunk
+        if bounded:
+            try:
+                payload = json.loads(summary)
+                error = payload.get('error') if isinstance(payload, dict) else None
+                code = error.get('code') if isinstance(error, dict) else None
+                if isinstance(code, int) and not isinstance(code, bool) and 400 <= code <= 599:
+                    # If an error is embedded in an HTTP 200 body, retain only
+                    # its numeric code so the fixed sequence can stop early.
+                    self.timing.metrics['upstreamErrorCode'] = code
+            except (ValueError, UnicodeError):
+                pass
 
     async def aclose(self):
         await self.stream.aclose()
@@ -245,10 +271,12 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0):
                     'question': QUESTION, 'requestId': request_id})
             attempt = runtime.attempt_store.attempts[aid]
             audit = attempt['patientResponses'].get(request_id, {})
-            validation = audit.get('validationResult')
+            failure = attempt.get('patientFailures', {}).get(request_id, {})
+            validation = audit.get('validationResult', failure.get('validationResult'))
             success = (observation.successful(response.status_code, validation)
                        and observation.actual_model == configured.patient_model)
             return {'label': label, 'httpStatus': response.status_code, 'successfulTerminalSSE': success,
+                    'requestDurationMs': round((time.perf_counter() - timing.start) * 1000, 3),
                     'doneEvents': observation.done, 'errorCategories': observation.errors,
                     'actualModel': observation.actual_model, 'validation': validation,
                     'transcriptEntriesAdded': len(attempt['transcript']) - 1,
@@ -266,11 +294,57 @@ def runtime_module_case(runtime):
     return runtime.attempt_service.local_ai_cases[CASE_ID]
 
 
-async def diagnose(live, output):
+def diagnostic_plan(configured, experiment=False):
+    if not experiment:
+        return configured, ('cold', 'warm')
+    if configured.provider != 'openrouter' or configured.patient_model != 'nvidia/nemotron-3.5-super-vl:free':
+        raise ValueError('Experiment requires the unchanged pinned hosted model')
+    isolated = replace(configured, patient_timeout_seconds=4.8, hosted_semantic_timeout_seconds=5.0)
+    isolated.validate()
+    return isolated, ('cold', 'warm-context-1', 'warm-context-2', 'warm-context-3')
+
+
+def stop_reason(row):
+    categories = {'rate-limited', 'configuration-invalid', 'free-capacity-unavailable',
+                  'missing-api-key', 'missing-model', 'paid-model-blocked',
+                  'unsupported-parameters', 'reasoning-not-disabled', 'diagnostic-failed'}
+    for category in row['errorCategories']:
+        if category in categories:
+            return category
+    timings = row.get('timings', {})
+    status = timings.get('upstreamErrorCode', timings.get('upstreamHTTP'))
+    if status in (400, 401, 402, 403, 404, 405, 422, 429):
+        return f'upstream-http-{status}'
+    return None
+
+
+async def run_sequence(labels, invoke, report, persist):
+    for label in labels:
+        started = time.perf_counter()
+        try:
+            row = await invoke(label)
+        except Exception as exc:
+            # Preserve the failed attempt and duration, never arbitrary messages.
+            row = {'label': label, 'httpStatus': None, 'successfulTerminalSSE': False,
+                   'requestDurationMs': round((time.perf_counter() - started) * 1000, 3),
+                   'doneEvents': 0, 'errorCategories': ['diagnostic-failed'],
+                   'exceptionType': type(exc).__name__}
+        report['rows'].append(row)
+        reason = stop_reason(row)
+        if reason:
+            report['stopReason'] = reason
+        persist()
+        print(json.dumps(row), flush=True)
+        if reason:
+            break
+
+
+async def diagnose(live, output, experiment=False):
     from medsim_backend.config import load_env_local
     load_env_local()
     from local_llm import LocalLLMSettings, OpenRouterLLMProvider, SerializingLocalLLMProvider
-    configured = LocalLLMSettings.from_env()
+    production = LocalLLMSettings.from_env()
+    configured, labels = diagnostic_plan(production, experiment)
     if configured.provider != 'openrouter' or not configured.patient_model or (live and not configured.api_key):
         raise RuntimeError('Configured hosted provider is required')
     from auth_system import AuthSettings
@@ -282,7 +356,10 @@ async def diagnose(live, output):
     report = {'live': live, 'model': configured.patient_model,
               'patientTimeoutSeconds': configured.patient_timeout_seconds,
               'semanticTimeoutSeconds': configured.hosted_semantic_timeout_seconds,
-              'maxCompletions': MAX_COMPLETIONS, 'automaticRetries': 0, 'rows': []}
+              'experimentalDeadlines': experiment,
+              'configuredPatientTimeoutSeconds': production.patient_timeout_seconds,
+              'configuredSemanticTimeoutSeconds': production.hosted_semantic_timeout_seconds,
+              'maxCompletions': len(labels), 'automaticRetries': 0, 'rows': []}
     # Exclusive creation prevents an accidental repeat under the same report.
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open('x', encoding='utf8') as handle:
@@ -292,7 +369,7 @@ async def diagnose(live, output):
         report['completionRequestsDispatched'] = budget.used
         output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf8')
 
-    budget = CompletionBudget(persist)
+    budget = CompletionBudget(persist, limit=len(labels))
     with tempfile.TemporaryDirectory(prefix='medsim-dialogue-diagnostic-') as directory, ExitStack() as stack:
         stack.enter_context(patch.dict(os.environ, {
             'MEDSIM_DATABASE_PATH': str(Path(directory) / 'diagnostic.db'), 'MEDSIM_PILOT_MODE': '0',
@@ -318,15 +395,11 @@ async def diagnose(live, output):
         provider = OpenRouterLLMProvider(configured, None if live else httpx.MockTransport(scripted))
         instrument_provider(provider, budget)
         serial = SerializingLocalLLMProvider(provider)
-        for label in ('cold', 'warm'):
-            row = await trial(runtime, provider, serial, configured, label,
-                              queue_delay=.05 if not live and label == 'warm' else 0)
-            report['rows'].append(row)
-            persist()
-            print(json.dumps(row), flush=True)
-            if row['errorCategories'] and row['errorCategories'][0] in {
-                    'rate-limited', 'configuration-invalid', 'free-capacity-unavailable'}:
-                break
+        async def invoke(label):
+            return await trial(runtime, provider, serial, configured, label,
+                               queue_delay=.05 if not live and label != 'cold' else 0)
+
+        await run_sequence(labels, invoke, report, persist)
     if (set(path for path in protected_paths if path.exists()) != set(protected)
             or any(hashlib.file_digest(path.open('rb'), 'sha256').digest() != digest
                    for path, digest in protected.items())):
@@ -340,6 +413,8 @@ async def diagnose(live, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live', action='store_true')
+    parser.add_argument('--experiment-4p8-5p0', action='store_true',
+                        help='Isolated 4.8/5.0-second experiment: one cold and three warm-context attempts, maximum four')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
@@ -351,7 +426,7 @@ def main():
                 if probe.connect_ex(('127.0.0.1', port)) == 0:
                     parser.error('Existing MedSim listener: coordinate student use before a separate live diagnostic')
     try:
-        report = asyncio.run(diagnose(args.live, args.output.resolve()))
+        report = asyncio.run(diagnose(args.live, args.output.resolve(), args.experiment_4p8_5p0))
     except Exception as exc:
         # Never echo arbitrary HTTP exceptions, request/response objects or values.
         print(json.dumps({'status': 'diagnostic-failed', 'exceptionType': type(exc).__name__}))
