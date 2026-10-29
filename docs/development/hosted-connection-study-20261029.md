@@ -1,5 +1,7 @@
 # Non-completion connection study and scoped pooling — 2026-10-29
 
+Follow-up: [two-turn live pooling acceptance and its limitations](hosted-pooling-acceptance-20261029.md).
+
 This continues the [four-attempt timeout experiment](hosted-timeout-experiment-20261029.md)
 from `11816ce`, retaining the intervening CI fixes at `9e04fed`. No new live
 model completion, evaluator call, retry, model selection or deadline experiment

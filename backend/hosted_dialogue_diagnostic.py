@@ -1,8 +1,9 @@
 """Bounded diagnostic using real routes and the unchanged configured model.
 
 Default mode is scripted/offline. Reports contain timings and status only, never
-headers, prompts, answers, raw trace info or exception messages. No app lifespan,
-public listener, TTS, retries, evaluator or host database is started/used.
+headers, prompts, answers, raw trace info or exception messages. No public
+listener, TTS, retries, evaluator or host database is started/used.
+The explicit pooled acceptance mode owns one real application lifespan.
 The explicit 4.8/5.0 experiment changes only isolated instance settings and allows
 one cold plus three warm-context attempts; the default remains two attempts.
 """
@@ -18,10 +19,10 @@ import sys
 import tempfile
 import time
 import uuid
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import httpx
 
@@ -52,6 +53,7 @@ class Timing:
         self.spans = {}
         self.metrics = {}
         self.events = []
+        self.network_stream = None
 
     def mark(self, name):
         self.marks[name] = time.perf_counter()
@@ -60,7 +62,10 @@ class Timing:
         self.metrics[name] = round((time.perf_counter() - start) * 1000, 3)
 
     async def trace(self, name, info):
-        # Deliberately discard info: it can contain headers, URLs and exceptions.
+        # Keep only an opaque stream reference for identity comparison in memory.
+        # Never serialize info: it can contain headers, URLs and exceptions.
+        if name == 'connection.start_tls.complete':
+            self.network_stream = info.get('return_value')
         allowed = {'connection.connect_tcp', 'connection.start_tls',
                    'http11.send_request_headers', 'http11.send_request_body',
                    'http11.receive_response_headers', 'http11.receive_response_body',
@@ -107,16 +112,22 @@ class ObservedBody(httpx.AsyncByteStream):
                 summary.clear()
             yield chunk
         if bounded:
-            try:
-                payload = json.loads(summary)
-                error = payload.get('error') if isinstance(payload, dict) else None
-                code = error.get('code') if isinstance(error, dict) else None
-                if isinstance(code, int) and not isinstance(code, bool) and 400 <= code <= 599:
-                    # If an error is embedded in an HTTP 200 body, retain only
-                    # its numeric code so the fixed sequence can stop early.
-                    self.timing.metrics['upstreamErrorCode'] = code
-            except (ValueError, UnicodeError):
-                pass
+            self.observe_summary(summary)
+
+    def observe_summary(self, summary):
+        try:
+            payload = json.loads(summary)
+            if isinstance(payload, dict):
+                self.timing.metrics['upstreamModelIdentityConfirmed'] = (
+                    payload.get('model') == getattr(self.timing, 'expected_model', None)
+                    and isinstance(payload.get('model'), str))
+            error = payload.get('error') if isinstance(payload, dict) else None
+            code = error.get('code') if isinstance(error, dict) else None
+            if isinstance(code, int) and not isinstance(code, bool) and 400 <= code <= 599:
+                # Preserve only the numeric code, never the error message/body.
+                self.timing.metrics['upstreamErrorCode'] = code
+        except (ValueError, UnicodeError):
+            pass
 
     async def aclose(self):
         await self.stream.aclose()
@@ -126,6 +137,18 @@ def instrument_provider(provider, budget):
     original_client = provider._client
     original_complete = provider.complete_chat
     provider.timing = None
+    provider.diagnostic_streams = []
+
+    def connection_id(stream):
+        if stream is None:
+            return None
+        for index, known in enumerate(provider.diagnostic_streams, 1):
+            if stream is known:
+                return index
+        provider.diagnostic_streams.append(stream)
+        return len(provider.diagnostic_streams)
+
+    provider.diagnostic_connection_id = connection_id
 
     def client(timeout):
         timing = provider.timing
@@ -134,6 +157,7 @@ def instrument_provider(provider, budget):
         timing.duration('clientConstructionMs', started)
 
         async def outgoing(request):
+            timing = provider.timing
             payload = json.loads(request.content)
             if (request.url.path != '/api/v1/chat/completions'
                     or payload.get('model') != provider.settings.patient_model
@@ -142,24 +166,44 @@ def instrument_provider(provider, budget):
                     or payload.get('reasoning') != {'effort': 'none'}):
                 raise RuntimeError('Unexpected diagnostic request policy')
             budget.take()
+            timing.metrics['completionRequestsDispatched'] = timing.metrics.get('completionRequestsDispatched', 0) + 1
+            request.extensions['diagnostic_timing'] = timing
             request.extensions['trace'] = timing.trace
 
         async def incoming(response):
+            timing = response.request.extensions['diagnostic_timing']
+            timing.response = response
             timing.mark('headers')
             timing.metrics['upstreamHTTP'] = response.status_code
+            timing.metrics['encodedResponseBody'] = response.headers.get('content-encoding', 'identity') != 'identity'
+            timing.network_stream = response.extensions.get('network_stream', timing.network_stream)
             response.stream = ObservedBody(response.stream, timing)
+            if response.is_stream_consumed and len(response.content) <= 8192:
+                response.stream.observe_summary(response.content)
 
         result.event_hooks['request'].append(outgoing)
         result.event_hooks['response'].append(incoming)
         return result
 
     async def complete(request):
-        provider.timing.mark('delegate')
+        timing = provider.timing
+        timing.mark('delegate')
         started = time.perf_counter()
         try:
             return await original_complete(request)
         finally:
-            provider.timing.duration('delegateTotalMs', started)
+            timing.duration('delegateTotalMs', started)
+            response = getattr(timing, 'response', None)
+            if response is not None:
+                try:
+                    # Transport chunks can be compressed. Inspect only HTTPX's
+                    # already-read, decoded body; never perform another read.
+                    decoded = response.content
+                except httpx.ResponseNotRead:
+                    pass
+                else:
+                    if len(decoded) <= 8192:
+                        ObservedBody(response.stream, timing).observe_summary(decoded)
 
     provider._client = client
     provider.complete_chat = complete
@@ -202,11 +246,16 @@ class SSEObservation:
                 and validation == 'valid-semantic-answer')
 
 
-async def trial(runtime, provider, serial, configured, label, *, queue_delay=0):
+async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, application_owned=False):
     from medsim_backend.services import patient_dialogue_service as dialogue
     timing = Timing()
+    timing.expected_model = configured.patient_model
     observation = SSEObservation(timing)
     provider.timing = timing
+    timing.metrics['poolClientPresentBeforeRequest'] = provider._pooled_client is not None
+    if application_owned and (getattr(runtime.app.state, 'llm_provider', None) is not serial
+                              or serial._owner_loop is not asyncio.get_running_loop()):
+        raise RuntimeError('Diagnostic requires the real application provider owner')
     original_stream = dialogue.PatientDialogueService.stream
     original_prompt = dialogue.interpretation_prompt
     original_validate = dialogue.validate_interpretation
@@ -263,7 +312,7 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0):
             with patch.object(dialogue.PatientDialogueService, 'stream', stream), \
                     patch.object(dialogue, 'interpretation_prompt', measured('promptMs', original_prompt)), \
                     patch.object(dialogue, 'validate_interpretation', measured('validationMs', original_validate)), \
-                    patch.object(dialogue, 'get_local_llm_provider', return_value=serial), \
+                    (nullcontext() if application_owned else patch.object(dialogue, 'get_local_llm_provider', return_value=serial)), \
                     patch.object(dialogue, 'llm_settings', return_value=configured), \
                     patch.object(serial, 'complete_chat', queued):
                 timing.start = time.perf_counter()
@@ -274,11 +323,16 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0):
             failure = attempt.get('patientFailures', {}).get(request_id, {})
             validation = audit.get('validationResult', failure.get('validationResult'))
             success = (observation.successful(response.status_code, validation)
-                       and observation.actual_model == configured.patient_model)
+                       and observation.actual_model == configured.patient_model
+                       and timing.metrics.get('upstreamModelIdentityConfirmed') is True
+                       and timing.metrics.get('completionRequestsDispatched') == 1)
+            connection = provider.diagnostic_connection_id(timing.network_stream)
+            new_connection = any(event['event'] == 'connection.connect_tcp.started' for event in timing.events)
             return {'label': label, 'httpStatus': response.status_code, 'successfulTerminalSSE': success,
                     'requestDurationMs': round((time.perf_counter() - timing.start) * 1000, 3),
                     'doneEvents': observation.done, 'errorCategories': observation.errors,
                     'actualModel': observation.actual_model, 'validation': validation,
+                    'connectionId': connection, 'newTCPConnectionObserved': new_connection,
                     'transcriptEntriesAdded': len(attempt['transcript']) - 1,
                     'askedQuestionCount': len(attempt['askedQuestionIds']), **timing.report()}
         finally:
@@ -294,7 +348,13 @@ def runtime_module_case(runtime):
     return runtime.attempt_service.local_ai_cases[CASE_ID]
 
 
-def diagnostic_plan(configured, experiment=False):
+def diagnostic_plan(configured, experiment=False, pooled=False):
+    if pooled:
+        if (experiment or configured.provider != 'openrouter'
+                or configured.patient_model != 'nvidia/nemotron-3.5-super-vl:free'
+                or (configured.patient_timeout_seconds, configured.hosted_semantic_timeout_seconds) != (3.0, 3.2)):
+            raise ValueError('Pooled acceptance requires unchanged pinned model and 3.0/3.2 deadlines')
+        return configured, ('cold', 'pool-eligible')
     if not experiment:
         return configured, ('cold', 'warm')
     if configured.provider != 'openrouter' or configured.patient_model != 'nvidia/nemotron-3.5-super-vl:free':
@@ -339,24 +399,29 @@ async def run_sequence(labels, invoke, report, persist):
             break
 
 
-async def diagnose(live, output, experiment=False):
+async def diagnose(live, output, experiment=False, pooled=False):
     from medsim_backend.config import load_env_local
     load_env_local()
     from local_llm import LocalLLMSettings, OpenRouterLLMProvider, SerializingLocalLLMProvider
     production = LocalLLMSettings.from_env()
-    configured, labels = diagnostic_plan(production, experiment)
+    configured, labels = diagnostic_plan(production, experiment, pooled)
     if configured.provider != 'openrouter' or not configured.patient_model or (live and not configured.api_key):
         raise RuntimeError('Configured hosted provider is required')
     from auth_system import AuthSettings
     database = AuthSettings.from_env().database_path
     protected_paths = [Path(__file__).parent / '.env.local',
                        *(Path(str(database) + suffix) for suffix in ('', '-wal', '-shm', '-journal'))]
-    protected = {path: hashlib.file_digest(path.open('rb'), 'sha256').digest()
+    def digest(path):
+        with path.open('rb') as handle:
+            return hashlib.file_digest(handle, 'sha256').digest()
+
+    protected = {path: digest(path)
                  for path in protected_paths if path.exists()}
     report = {'live': live, 'model': configured.patient_model,
               'patientTimeoutSeconds': configured.patient_timeout_seconds,
               'semanticTimeoutSeconds': configured.hosted_semantic_timeout_seconds,
               'experimentalDeadlines': experiment,
+              'applicationLifespanOwned': pooled,
               'configuredPatientTimeoutSeconds': production.patient_timeout_seconds,
               'configuredSemanticTimeoutSeconds': production.hosted_semantic_timeout_seconds,
               'maxCompletions': len(labels), 'automaticRetries': 0, 'rows': []}
@@ -396,13 +461,33 @@ async def diagnose(live, output, experiment=False):
         instrument_provider(provider, budget)
         serial = SerializingLocalLLMProvider(provider)
         async def invoke(label):
+            report['semanticAttemptsStarted'] = report.get('semanticAttemptsStarted', 0) + 1
+            persist()
             return await trial(runtime, provider, serial, configured, label,
-                               queue_delay=.05 if not live and label != 'cold' else 0)
+                               queue_delay=.05 if not live and label != 'cold' else 0,
+                               application_owned=pooled)
 
-        await run_sequence(labels, invoke, report, persist)
+        if pooled:
+            runtime.app.state.provider_factory = lambda: serial
+            # Exercise the actual app/provider lifecycle without starting audio.
+            with patch('medsim_backend.application.get_tts_manager', return_value=Mock(
+                    start_background_preload=Mock(return_value=None))):
+                async with runtime.app.router.lifespan_context(runtime.app):
+                    await run_sequence(labels, invoke, report, persist)
+                    pooled_client = provider._pooled_client
+            report['poolClosedOnShutdown'] = pooled_client is None or pooled_client.is_closed
+        else:
+            await run_sequence(labels, invoke, report, persist)
+        if pooled and len(report['rows']) == 2:
+            first, second = report['rows']
+            if second.get('newTCPConnectionObserved'):
+                report['secondConnectionReused'] = False
+            elif first.get('connectionId') is not None and second.get('connectionId') is not None:
+                report['secondConnectionReused'] = first['connectionId'] == second['connectionId']
+            else:
+                report['secondConnectionReused'] = None  # Eligibility alone is not transport evidence.
     if (set(path for path in protected_paths if path.exists()) != set(protected)
-            or any(hashlib.file_digest(path.open('rb'), 'sha256').digest() != digest
-                   for path, digest in protected.items())):
+            or any(digest(path) != original_digest for path, original_digest in protected.items())):
         raise RuntimeError('Protected configuration/database changed')
     report['protectedFilesUnchanged'] = True
     report['complete'] = True
@@ -413,8 +498,11 @@ async def diagnose(live, output, experiment=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live', action='store_true')
-    parser.add_argument('--experiment-4p8-5p0', action='store_true',
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--experiment-4p8-5p0', action='store_true',
                         help='Isolated 4.8/5.0-second experiment: one cold and three warm-context attempts, maximum four')
+    mode.add_argument('--pooled-acceptance', action='store_true',
+                      help='Two semantic attempts in one application lifespan, unchanged 3.0/3.2 deadlines')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
@@ -426,7 +514,8 @@ def main():
                 if probe.connect_ex(('127.0.0.1', port)) == 0:
                     parser.error('Existing MedSim listener: coordinate student use before a separate live diagnostic')
     try:
-        report = asyncio.run(diagnose(args.live, args.output.resolve(), args.experiment_4p8_5p0))
+        report = asyncio.run(diagnose(args.live, args.output.resolve(), args.experiment_4p8_5p0,
+                                      args.pooled_acceptance))
     except Exception as exc:
         # Never echo arbitrary HTTP exceptions, request/response objects or values.
         print(json.dumps({'status': 'diagnostic-failed', 'exceptionType': type(exc).__name__}))

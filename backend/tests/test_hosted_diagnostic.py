@@ -1,12 +1,13 @@
 """No external networking or inference: real endpoint + scripted provider I/O."""
 import asyncio
+import gzip
 import json
 import os
 import tempfile
 import unittest
 from dataclasses import fields, replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import httpx
 
@@ -134,6 +135,126 @@ class DiagnosticTests(unittest.TestCase):
         for limit in (0, 1, 3, 5, 100):
             with self.assertRaises(ValueError):
                 CompletionBudget(limit=limit)
+
+    def test_pooled_plan_requires_unchanged_production_deadlines_and_pinned_model(self):
+        configured, labels = diagnostic_plan(self.configured, pooled=True)
+        self.assertIs(configured, self.configured)
+        self.assertEqual(labels, ('cold', 'pool-eligible'))
+        for settings in (replace(configured, patient_timeout_seconds=4.8, hosted_semantic_timeout_seconds=5),
+                         replace(configured, patient_model='nex-agi/nex-n2.5-mini:free')):
+            with self.assertRaises(ValueError):
+                diagnostic_plan(settings, pooled=True)
+        with self.assertRaises(ValueError):
+            diagnostic_plan(configured, experiment=True, pooled=True)
+
+    def test_real_application_owner_reuses_client_with_request_scoped_measurements_and_closes(self):
+        calls, streams = [], [object(), object()]
+
+        async def handler(request):
+            calls.append(request)
+            trace = request.extensions['trace']
+            if len(calls) == 1:
+                await trace('connection.connect_tcp.started', {})
+                await trace('connection.connect_tcp.complete', {})
+            await trace('http11.send_request_headers.started', {})
+            await trace('http11.send_request_headers.complete', {})
+            return httpx.Response(200, extensions={'network_stream': streams[0]}, json={
+                'model': MODEL, 'choices': [{'message': {
+                    'content': '{"status":"answer","fact_ids":["history:rash"],"partial":false}'}}]})
+
+        provider, serial, budget = self.provider(handler)
+        self.runtime.app.state.provider_factory = lambda: serial
+
+        async def run():
+            with patch('medsim_backend.application.get_tts_manager', return_value=Mock(
+                    start_background_preload=Mock(return_value=None))):
+                async with self.runtime.app.router.lifespan_context(self.runtime.app):
+                    rows = [await trial(self.runtime, provider, serial, self.configured, label,
+                                        application_owned=True) for label in ('cold', 'pool-eligible')]
+                    client = provider._pooled_client
+                    self.assertFalse(client.is_closed)
+            self.assertTrue(client.is_closed)
+            return rows
+
+        rows = asyncio.run(run())
+        self.assertTrue(all(row['successfulTerminalSSE'] for row in rows))
+        self.assertEqual((budget.used, len(calls)), (2, 2))
+        self.assertEqual([row['connectionId'] for row in rows], [1, 1])
+        self.assertEqual([row['newTCPConnectionObserved'] for row in rows], [True, False])
+        self.assertEqual([row['timings']['poolClientPresentBeforeRequest'] for row in rows], [False, True])
+        self.assertEqual([row['timings']['completionRequestsDispatched'] for row in rows], [1, 1])
+        self.assertIn('clientConstructionMs', rows[0]['timings'])
+        self.assertNotIn('clientConstructionMs', rows[1]['timings'])
+        self.assertIsNot(calls[0].extensions['diagnostic_timing'], calls[1].extensions['diagnostic_timing'])
+        self.assertNotEqual(calls[0].headers['x-request-id'], calls[1].headers['x-request-id'])
+        self.assertFalse(self.runtime.attempt_store.attempts)
+        self.assertIsNone(provider.diagnostic_connection_id(None))
+        self.assertEqual(provider.diagnostic_connection_id(streams[1]), 2)
+
+    def test_success_cannot_use_provider_fallback_model_identity_when_upstream_omits_it(self):
+        provider, serial, budget = self.provider(lambda _request: httpx.Response(200, json={
+            'choices': [{'message': {'content': '{"status":"answer","fact_ids":["history:rash"],"partial":false}'}}]}))
+        row = asyncio.run(trial(self.runtime, provider, serial, self.configured, 'missing-model'))
+        self.assertEqual((row['doneEvents'], budget.used), (1, 1))
+        self.assertFalse(row['successfulTerminalSSE'])
+        self.assertFalse(row['timings']['upstreamModelIdentityConfirmed'])
+
+    def test_failed_cold_body_does_not_count_as_reuse_or_create_clinical_evidence(self):
+        calls = []
+        streams = [object(), object()]
+
+        class StalledBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield b' '
+                await asyncio.sleep(1)
+
+        async def handler(request):
+            calls.append(request)
+            await request.extensions['trace']('connection.connect_tcp.started', {})
+            await request.extensions['trace']('connection.connect_tcp.complete', {})
+            if len(calls) == 1:
+                return httpx.Response(200, stream=StalledBody(), extensions={'network_stream': streams[0]})
+            return httpx.Response(200, extensions={'network_stream': streams[1]}, json={
+                'model': MODEL, 'choices': [{'message': {
+                    'content': '{"status":"answer","fact_ids":["history:rash"],"partial":false}'}}]})
+
+        configured = replace(self.configured, patient_timeout_seconds=.03, hosted_semantic_timeout_seconds=.2)
+        provider, serial, budget = self.provider(handler, configured)
+        self.runtime.app.state.provider_factory = lambda: serial
+
+        async def run():
+            with patch('medsim_backend.application.get_tts_manager', return_value=Mock(
+                    start_background_preload=Mock(return_value=None))):
+                async with self.runtime.app.router.lifespan_context(self.runtime.app):
+                    return [await trial(self.runtime, provider, serial, configured, label, application_owned=True)
+                            for label in ('cold', 'pool-eligible')]
+
+        first, second = asyncio.run(run())
+        self.assertFalse(first['successfulTerminalSSE'])
+        self.assertEqual(first['errorCategories'], ['response-timeout'])
+        self.assertEqual((first['doneEvents'], first['transcriptEntriesAdded']), (0, 0))
+        self.assertTrue(second['successfulTerminalSSE'])
+        self.assertTrue(second['timings']['poolClientPresentBeforeRequest'])
+        self.assertTrue(second['newTCPConnectionObserved'])
+        self.assertNotEqual(first['connectionId'], second['connectionId'])
+        self.assertEqual((budget.used, len(calls)), (2, 2))
+
+    def test_compressed_response_identity_is_checked_after_httpx_decoding_without_extra_reads(self):
+        reads = []
+
+        class CompressedBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                reads.append(True)
+                yield gzip.compress(json.dumps({'model': MODEL, 'choices': [{'message': {
+                    'content': '{"status":"answer","fact_ids":["history:rash"],"partial":false}'}}]}).encode())
+
+        provider, serial, budget = self.provider(lambda _request: httpx.Response(
+            200, headers={'content-encoding': 'gzip'}, stream=CompressedBody()))
+        row = asyncio.run(trial(self.runtime, provider, serial, self.configured, 'compressed'))
+        self.assertTrue(row['successfulTerminalSSE'])
+        self.assertTrue(row['timings']['upstreamModelIdentityConfirmed'])
+        self.assertTrue(row['timings']['encodedResponseBody'])
+        self.assertEqual((reads, budget.used), ([True], 1))
 
     def test_experiment_runs_four_at_4p8_and_blocks_fifth_before_dispatch(self):
         configured, labels = diagnostic_plan(self.configured, True)
