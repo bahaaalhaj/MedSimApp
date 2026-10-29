@@ -2,11 +2,12 @@
 import asyncio
 import json
 import math
+import ssl
 import sys
 import unittest
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, sentinel
+from unittest.mock import AsyncMock, patch
 
 import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -56,7 +57,8 @@ class HostedDeadlineTests(unittest.TestCase):
 
 class HostedTLSContextTests(unittest.TestCase):
     def test_verified_context_is_lazy_and_reused_without_reusing_async_clients(self):
-        with patch('local_llm.httpx.create_ssl_context',return_value=sentinel.verified_context) as context, patch('local_llm.httpx.AsyncClient') as client:
+        verified = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        with patch('local_llm.httpx.create_ssl_context',return_value=verified) as context, patch('local_llm.httpx.AsyncClient') as client:
             provider=OpenRouterLLMProvider(LocalLLMSettings())
             context.assert_not_called()
             provider._client(3)
@@ -64,18 +66,20 @@ class HostedTLSContextTests(unittest.TestCase):
             context.assert_called_once_with()
             self.assertEqual(client.call_count,2)
             self.assertEqual([call.kwargs['timeout'] for call in client.call_args_list],[3,7])
-            self.assertTrue(all(call.kwargs['verify'] is sentinel.verified_context for call in client.call_args_list))
+            self.assertTrue(all(call.kwargs['verify'] is verified for call in client.call_args_list))
 
     def test_certificate_environment_change_rebuilds_the_verified_context(self):
-        with patch('local_llm.httpx.create_ssl_context',side_effect=[sentinel.first,sentinel.second]) as context, patch('local_llm.httpx.AsyncClient') as client:
-            provider=OpenRouterLLMProvider(LocalLLMSettings())
-            with patch.dict('os.environ',{'SSL_CERT_FILE':'first-test-ca.pem'}):
-                provider._client(3)
-                provider._client(3)
-            with patch.dict('os.environ',{'SSL_CERT_FILE':'second-test-ca.pem'}):
-                provider._client(3)
-            self.assertEqual(context.call_count,2)
-            self.assertEqual([call.kwargs['verify'] for call in client.call_args_list],[sentinel.first,sentinel.first,sentinel.second])
+        for key in ('SSL_CERT_FILE', 'SSL_CERT_DIR'):
+            first, second = (ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT) for _ in range(2))
+            with self.subTest(key=key), patch('local_llm.httpx.create_ssl_context',side_effect=[first,second]) as context, patch('local_llm.httpx.AsyncClient') as client:
+                provider=OpenRouterLLMProvider(LocalLLMSettings())
+                with patch.dict('os.environ',{key:'first-test-ca'}):
+                    provider._client(3)
+                    provider._client(3)
+                with patch.dict('os.environ',{key:'second-test-ca'}):
+                    provider._client(3)
+                self.assertEqual(context.call_count,2)
+                self.assertEqual([call.kwargs['verify'] for call in client.call_args_list],[first,first,second])
 
     def test_injected_transports_preserve_the_existing_test_and_diagnostic_path(self):
         transport=httpx.MockTransport(lambda request:httpx.Response(200))

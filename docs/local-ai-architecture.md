@@ -18,6 +18,8 @@ One patient request may be active per attempt. Completed patient requests are id
 
 Each running FastAPI application lifecycle owns its provider, inference gate and lazy OpenRouter HTTP connection pool. It retains at most one connection with 30-second idle expiry, preserves per-request deadlines and verified HTTPS, rejects provider cookies, and cancels pending provider work before closing the client on shutdown. Standalone calls without an explicit provider lifespan retain short-lived clients; a pool never crosses event loops or application lifecycles. There are no new completion retries or inference warmups. See the [connection study and ownership report](development/hosted-connection-study-20261029.md) for measured findings, stale-connection behavior, limitations and the next separately authorized live acceptance test.
 
+Hosted-provider lifespan startup now prepares only the verified TLS trust context before accepting requests. It constructs no HTTP client, connection, catalogue request or inference warmup. A preparation failure aborts startup with a sanitized `configuration-invalid` error; verification is never disabled. Client creation remains lazy, and the existing `SSL_CERT_FILE` / `SSL_CERT_DIR` change detection remains in effect. Existing pooled clients retain their captured configuration until a new lifecycle; standalone calls still prepare trust lazily. Local providers and injected test transports skip hosted trust preparation. See the [startup preparation and bounded acceptance report](development/hosted-tls-startup-20261029.md) for measured startup and request durations, independent upstream model identity and actual connection reuse.
+
 ## Configuration
 
 ```env

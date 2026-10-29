@@ -38,6 +38,9 @@ async def lifespan(_app: FastAPI):
         factory = getattr(_app.state, 'provider_factory', None) if _app is not None else None
         provider = (factory or new_application_provider)()
         async with provider.lifespan():
+            preparation_ms = getattr(provider.delegate, 'tls_preparation_ms', None)
+            if preparation_ms is not None:
+                log_event('hosted-tls-context-prepared', level=logging.INFO, latency_ms=preparation_ms)
             if _app is not None:
                 _app.state.llm_provider = provider
             try:
@@ -47,7 +50,8 @@ async def lifespan(_app: FastAPI):
             log_event('backend-started', level=logging.INFO)
             yield
     except Exception as exc:
-        log_event('backend-lifecycle-failed', level=logging.ERROR, category='application-error', error=exc)
+        log_event('backend-lifecycle-failed', level=logging.ERROR,
+                  category=getattr(exc, 'category', 'application-error'), error=exc)
         raise
     finally:
         try:

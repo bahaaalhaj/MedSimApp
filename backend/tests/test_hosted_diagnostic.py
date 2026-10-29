@@ -198,6 +198,9 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual((row['doneEvents'], budget.used), (1, 1))
         self.assertFalse(row['successfulTerminalSSE'])
         self.assertFalse(row['timings']['upstreamModelIdentityConfirmed'])
+        self.assertTrue(row['groundedAnswerAndDone'])
+        self.assertFalse(row['upstreamModelIdentityConfirmed'])
+        self.assertFalse(row['timings']['upstreamModelFieldPresent'])
 
     def test_failed_cold_body_does_not_count_as_reuse_or_create_clinical_evidence(self):
         calls = []

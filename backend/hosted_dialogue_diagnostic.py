@@ -118,6 +118,7 @@ class ObservedBody(httpx.AsyncByteStream):
         try:
             payload = json.loads(summary)
             if isinstance(payload, dict):
+                self.timing.metrics['upstreamModelFieldPresent'] = isinstance(payload.get('model'), str) and bool(payload['model'])
                 self.timing.metrics['upstreamModelIdentityConfirmed'] = (
                     payload.get('model') == getattr(self.timing, 'expected_model', None)
                     and isinstance(payload.get('model'), str))
@@ -329,6 +330,8 @@ async def trial(runtime, provider, serial, configured, label, *, queue_delay=0, 
             connection = provider.diagnostic_connection_id(timing.network_stream)
             new_connection = any(event['event'] == 'connection.connect_tcp.started' for event in timing.events)
             return {'label': label, 'httpStatus': response.status_code, 'successfulTerminalSSE': success,
+                    'groundedAnswerAndDone': observation.successful(response.status_code, validation),
+                    'upstreamModelIdentityConfirmed': timing.metrics.get('upstreamModelIdentityConfirmed'),
                     'requestDurationMs': round((time.perf_counter() - timing.start) * 1000, 3),
                     'doneEvents': observation.done, 'errorCategories': observation.errors,
                     'actualModel': observation.actual_model, 'validation': validation,
@@ -471,10 +474,36 @@ async def diagnose(live, output, experiment=False, pooled=False):
             runtime.app.state.provider_factory = lambda: serial
             # Exercise the actual app/provider lifecycle without starting audio.
             with patch('medsim_backend.application.get_tts_manager', return_value=Mock(
-                    start_background_preload=Mock(return_value=None))):
-                async with runtime.app.router.lifespan_context(runtime.app):
-                    await run_sequence(labels, invoke, report, persist)
-                    pooled_client = provider._pooled_client
+                    start_background_preload=Mock(return_value=None))), ExitStack() as startup_guard:
+                report['startupOutboundAttempts'] = 0
+
+                def no_startup_network(*_args, **_kwargs):
+                    report['startupOutboundAttempts'] += 1
+                    raise RuntimeError('Diagnostic startup must not make network requests')
+
+                for target, name in ((socket, 'getaddrinfo'), (socket.socket, 'connect'), (socket.socket, 'connect_ex')):
+                    startup_guard.enter_context(patch.object(target, name, no_startup_network))
+                started = time.perf_counter()
+                try:
+                    async with runtime.app.router.lifespan_context(runtime.app):
+                        if (report['startupOutboundAttempts'] or budget.used or provider._pooled_client is not None
+                                or (live and provider._ssl_context is None)):
+                            raise RuntimeError('Hosted startup preparation did not preserve diagnostic isolation')
+                        report['startupDurationMs'] = round((time.perf_counter() - started) * 1000, 3)
+                        report['startupTLSPreparationMs'] = provider.tls_preparation_ms
+                        report['verifiedContextPreparedBeforeFirstTurn'] = provider._ssl_context is not None
+                        report['completionRequestsAtStartup'] = budget.used
+                        persist()
+                        startup_guard.close()  # Only the explicitly bounded turns may now connect.
+                        await run_sequence(labels, invoke, report, persist)
+                        pooled_client = provider._pooled_client
+                except Exception as exc:
+                    if 'startupDurationMs' not in report:
+                        report['startupFailure'] = {'exceptionType': type(exc).__name__,
+                            'category': getattr(exc, 'category', 'diagnostic-failed'),
+                            'durationMs': round((time.perf_counter() - started) * 1000, 3)}
+                        persist()
+                    raise
             report['poolClosedOnShutdown'] = pooled_client is None or pooled_client.is_closed
         else:
             await run_sequence(labels, invoke, report, persist)

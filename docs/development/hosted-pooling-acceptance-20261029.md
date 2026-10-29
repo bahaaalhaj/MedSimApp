@@ -1,5 +1,7 @@
 # Two-turn hosted pooling acceptance — 2026-10-29
 
+Follow-up: [verified TLS startup preparation and bounded live acceptance](hosted-tls-startup-20261029.md).
+
 Follow-up to the [connection study and lifecycle pooling](hosted-connection-study-20261029.md)
 at `3299be1`, preserving the CI fixes at `9e04fed`.
 

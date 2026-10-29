@@ -13,6 +13,7 @@ import os
 import shutil
 import ssl
 import subprocess
+import time
 from contextlib import asynccontextmanager, contextmanager, nullcontext
 from contextvars import ContextVar
 from http.cookiejar import DefaultCookiePolicy
@@ -257,32 +258,52 @@ class OpenRouterLLMProvider:
         self._ssl_environment: tuple[str | None, str | None] | None = None
         self._pool_loop = None
         self._pooled_client = None
+        self.tls_preparation_ms: float | None = None
+
+    def _verified_ssl_context(self) -> ssl.SSLContext:
+        # Keep HTTPX's existing CA/environment policy for both startup and
+        # standalone clients. Failed replacements must not cache a new identity.
+        environment = (os.environ.get("SSL_CERT_FILE"), os.environ.get("SSL_CERT_DIR"))
+        context = self._ssl_context
+        if context is None or environment != self._ssl_environment:
+            context = httpx.create_ssl_context()
+        if not context.check_hostname or context.verify_mode != ssl.CERT_REQUIRED:
+            raise ValueError('Hosted HTTPS requires certificate and hostname verification')
+        self._ssl_context, self._ssl_environment = context, environment
+        return context
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
         if self._transport is not None:
             client = httpx.AsyncClient(timeout=timeout, transport=self._transport)
             client.cookies.jar.set_policy(_NoProviderCookies())
             return client
-        # Retain verified TLS configuration here; client reuse is owned by the
-        # explicit lifecycle below, never by this process-wide factory alone.
-        # Rebuilding CA stores on every turn consumed ~1 second of the 3s budget
-        # on the affected machine. Keep cold setup within the existing deadline.
-        environment = (os.environ.get("SSL_CERT_FILE"), os.environ.get("SSL_CERT_DIR"))
-        if self._ssl_context is None or environment != self._ssl_environment:
-            self._ssl_context = httpx.create_ssl_context()
-            self._ssl_environment = environment
-        client = httpx.AsyncClient(timeout=timeout, verify=self._ssl_context,
+        # Lifespan startup prepares trust without constructing a client. Calls
+        # outside a lifespan retain lazy construction and environment detection.
+        client = httpx.AsyncClient(timeout=timeout, verify=self._verified_ssl_context(),
             limits=httpx.Limits(max_connections=1, max_keepalive_connections=1, keepalive_expiry=30))
         client.cookies.jar.set_policy(_NoProviderCookies())
         return client
 
     @asynccontextmanager
     async def connection_lifespan(self):
-        """Opt-in ownership; construction stays lazy and inside request deadlines."""
+        """Prepare local trust at startup; clients/connections remain lazy."""
         if self._pool_loop is not None:
             raise RuntimeError('Provider connection lifespan is already owned')
         self._pool_loop = asyncio.get_running_loop()
         try:
+            self.tls_preparation_ms = None
+            if self._transport is None:
+                started = time.perf_counter()
+                try:
+                    self._verified_ssl_context()
+                except Exception:
+                    self._last_error_category = 'configuration-invalid'
+                    # Certificate exceptions can contain private paths. Surface
+                    # an explicit safe startup failure, never insecure fallback.
+                    raise LLMProviderError('configuration-invalid',
+                        'Hosted TLS trust preparation failed. Check the server certificate configuration.', False) from None
+                finally:
+                    self.tls_preparation_ms = round((time.perf_counter() - started) * 1000, 3)
             yield self
         finally:
             client, self._pooled_client = self._pooled_client, None
@@ -672,6 +693,8 @@ class SerializingLocalLLMProvider:
                     if calls:
                         await asyncio.gather(*calls, return_exceptions=True)
         finally:
+            # Also fail closed if the delegate could not enter its lifespan.
+            self._closing = True
             self._owner_loop = None
 
     @asynccontextmanager
