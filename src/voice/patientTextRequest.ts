@@ -2,6 +2,7 @@ import { LocalPatientError, streamLocalPatient, type PatientResponseProvenance }
 import type { PatientTextRequest } from './PatientTextRequestLifecycle';
 
 export interface PatientTextResponse {
+  requestId?: string;
   text: string;
   patientProvenance: PatientResponseProvenance;
   actualModel: string | null;
@@ -16,6 +17,7 @@ export async function requestPatientText(
   signal: AbortSignal,
   ensureAttempt: () => Promise<string | null>,
   onStreaming: () => void,
+  onTextAccepted?: (response: PatientTextResponse) => void,
 ): Promise<{ kind: 'completed'; response: PatientTextResponse } | { kind: 'cancelled' }> {
   const attemptId = await ensureAttempt();
   if (signal.aborted) return { kind: 'cancelled' };
@@ -36,10 +38,12 @@ export async function requestPatientText(
     if (chunk.matchedSource !== undefined) patientMatchedSource = chunk.matchedSource;
     if (chunk.answerShownToTrainee !== undefined) answerShownToTrainee = chunk.answerShownToTrainee;
     if (chunk.relevantPerCase !== undefined && chunk.relevantPerCase !== null) relevantPerCase = chunk.relevantPerCase;
+    if (chunk.complete && response.trim() && !signal.aborted) onTextAccepted?.({ requestId: request.requestId,
+      text: response.trim(), patientProvenance, actualModel, patientIntentId, patientMatchedSource, answerShownToTrainee, relevantPerCase });
   }
   if (signal.aborted) return { kind: 'cancelled' };
   return {
     kind: 'completed',
-    response: { text: response.trim(), patientProvenance, actualModel, patientIntentId, patientMatchedSource, answerShownToTrainee, relevantPerCase },
+    response: { requestId: request.requestId, text: response.trim(), patientProvenance, actualModel, patientIntentId, patientMatchedSource, answerShownToTrainee, relevantPerCase },
   };
 }

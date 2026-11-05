@@ -20,6 +20,7 @@ class CreateClinicalAttemptRequest(BaseModel):
     clientAttemptId: str | None = Field(default=None, min_length=12, max_length=200)
     patientProfile: PublicPatientProfile | None = None
     evidenceVersion: Literal[1, 2] = 1
+    dialogueDeliveryVersion: Literal[1] | None = None
 
 
 class InvestigationOrderRequest(BaseModel):
@@ -69,6 +70,11 @@ class TranscriptEvidence(BaseModel):
     timestampIso: str = Field(max_length=80)
     questionSource: Literal["typed", "predefined"] | None = None
     attemptId: str = Field(min_length=20, max_length=100)
+
+
+class DialogueAcknowledgement(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    requestId: str = Field(min_length=12, max_length=100)
 
 
 class ExaminationEvidence(BaseModel):

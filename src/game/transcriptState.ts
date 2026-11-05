@@ -1,7 +1,8 @@
 import type { ActivePatient, EncounterTranscriptEntry } from './types';
 
 export function appendTranscript(patient: ActivePatient, entry: EncounterTranscriptEntry): ActivePatient {
-  if (patient.case.id !== entry.caseId || patient.transcript.some((item) => item.id === entry.id)) return patient;
+  if (patient.case.id !== entry.caseId || patient.transcript.some((item) => item.id === entry.id
+    || (entry.requestId && item.requestId === entry.requestId && item.role === entry.role))) return patient;
   return { ...patient, transcript: [...patient.transcript, entry] };
 }
 

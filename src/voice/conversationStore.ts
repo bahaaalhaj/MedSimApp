@@ -101,6 +101,8 @@ export function getOrCreatePatientConversation(
       });
     },
     onAuthorizedAnswer: (questionId, answer, relevant) => {
+      const active = gameStore.getState().polyclinic.patient;
+      if (!active || active.case.id !== patientCase.id || active.caseVersion !== caseVersion || active.variantSeed !== encounterKey) return;
       gameStore.authorizePolyclinicAnswer(questionId, answer, relevant);
     },
   });

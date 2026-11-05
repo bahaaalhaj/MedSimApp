@@ -19,7 +19,7 @@ def fixture():
         {'criterionId': 'dx', 'sourceDomain': 'diagnosis'},
         {'criterionId': 'tests', 'sourceDomain': 'investigation'},
     ]}}
-    investigations = {'investigations': [{'testId': 'essential', 'role': 'essential'}, {'testId': 'harmful', 'role': 'harmful'}]}
+    investigations = {'investigations': [{'testId': 'essential', 'role': 'essential'}, {'testId': 'harmful', 'role': 'potentially-harmful'}]}
     attempt = {'evidenceVersion': 2, 'transcript': [], 'diagnosisSubmittedAt': 20, 'submittedDiagnosisId': 'correct',
                'orders': {'order': {'investigationId': 'essential', 'orderedAt': 10, 'releasedAt': 15}},
                'completionChecks': {'summaryCompleted': True, 'safetyNettingCompleted': True, 'ideasConcernsExpectationsCompleted': True}}

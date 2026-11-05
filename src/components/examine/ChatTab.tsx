@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ActivePatient } from '../../game/types';
 import { POLYCLINIC_BED_INDEX } from '../../game/store';
-import { getExistingConversation } from '../../voice/conversationStore';
+import { getExistingConversation, getOrCreatePatientConversation } from '../../voice/conversationStore';
 import type { ConversationMessage } from '../../voice/conversation';
 
 export function ChatTab({ patient }: { patient: ActivePatient }) {
@@ -17,13 +17,16 @@ export function ChatTab({ patient }: { patient: ActivePatient }) {
   const [, setAudioRevision] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
-    if (!conversation) return;
+    // Recovery can mount Chat before the parent encounter effect initializes
+    // its conversation. Subscribe to the same owner-bound instance, even then.
+    const conversation = getExistingConversation(POLYCLINIC_BED_INDEX, patient.variantSeed)
+      ?? getOrCreatePatientConversation(POLYCLINIC_BED_INDEX, patient.case, patient.caseVersion, patient.variantSeed, {});
     setMessages(conversation.getMessages());
     const unsubscribeMessages = conversation.subscribeMessages((next) => setMessages(next));
     const unsubscribeAudio = conversation.subscribeAudioStates(() => setAudioRevision((value) => value + 1));
+    void conversation.init().catch(() => undefined);
     return () => { unsubscribeMessages(); unsubscribeAudio(); };
-  }, []);
+  }, [patient.case.id, patient.caseVersion, patient.variantSeed]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
   const visible = messages.filter((message) => message.role === 'user' || message.role === 'assistant');
   if (visible.length === 0) return <div className="plush" style={{ padding: 14, fontWeight: 700, color: 'var(--ink-2)' }}>No conversation yet. The transcript appears here as you talk to {patientName.split(' ')[0]} — and updates live during the consultation.</div>;

@@ -1,5 +1,7 @@
 # Windows pilot preparation verification — 2026-10-28
 
+> Historical measurements below are retained. Current pilot deadlines, classification/delivery fixes and acceptance limits are documented in [5 November pilot preparation](pilot-preparation-20261105.md). Earlier readiness/default statements are superseded where noted there.
+
 Initial repository state: clean working tree at `d7113df`. Read `AGENTS.md`,
 the current modular backend and its consumers/tests, the security/testing
 onboarding notes, and the historical final acceptance report. No previous pilot

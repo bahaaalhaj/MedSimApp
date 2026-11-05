@@ -59,6 +59,9 @@ export class Conversation {
       signal,
       options.ensureAttempt,
       () => { if (!this.disposed) this.state.setStatus('streaming', 'Patient text is streaming…'); },
+      (response) => {
+        if (!this.disposed) this.commitPatientResponse(request.text, request.source, request.questionId, response);
+      },
     ));
     this.audioQueue = new OrderedAudioQueue({
       synthesize: async (job, signal) => {
@@ -181,25 +184,26 @@ export class Conversation {
     const request: PatientTextRequest = previous?.text === clean && previous.source === source && previous.questionId === questionId
       ? previous : { text: clean, source, questionId, requestId: crypto.randomUUID() };
     this.retryRequest = request;
+    const responseCommitted = () => this.state.getMessages().some((row) => row.audioTurnId === `patient-${request.requestId}`);
 
     let result;
     try {
       result = await this.patientText.run(request);
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        this.state.popMessage();
+        if (!responseCommitted()) this.state.popMessage();
         if (!this.disposed) this.state.setStatus('ready');
         return false;
       }
       const message = error instanceof Error ? error.message : String(error);
-      this.state.popMessage();
+      if (!responseCommitted()) this.state.popMessage();
       this.state.setLastResponseError(message);
       this.state.setStatus('error', message);
       this.state.getListeners().onError?.(message);
       return false;
     }
     if (result.kind !== 'completed') {
-      this.state.popMessage();
+      if (!responseCommitted()) this.state.popMessage();
       if (!this.disposed) this.state.setStatus('ready');
       return false;
     }
@@ -213,7 +217,9 @@ export class Conversation {
       return false;
     }
     this.retryRequest = null;
-    this.commitPatientResponse(clean, source, questionId, response);
+    const audioTurnId = `patient-${response.requestId}`;
+    if (!this.audioQueue.getState(audioTurnId)) this.enqueueSpeech({ turnId: audioTurnId, text: response.text,
+      isOpeningGreeting: false, cacheable: response.patientProvenance !== 'openrouter' });
     return true;
   }
 
@@ -241,18 +247,23 @@ export class Conversation {
   }
 
   private commitPatientResponse(clean: string, source: QuestionSource, questionId: string | undefined, response: PatientTextResponse) {
+    const audioTurnId = `patient-${response.requestId ?? crypto.randomUUID()}`;
+    if (this.state.getMessages().some((row) => row.audioTurnId === audioTurnId)) {
+      this.state.popMessage(); // Reconciled retry must not duplicate text or audio.
+      this.state.setStatus('ready');
+      return;
+    }
     this.state.setLastPatient(response.text, response.patientProvenance);
-    const audioTurnId = `patient-${crypto.randomUUID()}`;
     recordRuntimeDiagnostic('patient-text-complete', audioTurnId);
     // Text and transcript evidence are committed before optional TTS begins.
-    this.options.onTranscript({ role: 'trainee', content: clean, timestampIso: new Date().toISOString(), questionSource: source });
+    // Acceptance also precedes the delivery receipt; speech follows reconciliation.
+    this.options.onTranscript({ requestId: response.requestId, role: 'trainee', content: clean, timestampIso: new Date().toISOString(), questionSource: source });
     this.state.pushMessage({ role: 'assistant', content: response.text, audioTurnId });
-    this.options.onTranscript({ role: 'patient', content: response.text, timestampIso: new Date().toISOString(), questionSource: null, patientProvenance: response.patientProvenance, actualModel: response.actualModel, audioTurnId, patientIntentId: response.patientIntentId, patientMatchedSource: response.patientMatchedSource });
+    this.options.onTranscript({ requestId: response.requestId, role: 'patient', content: response.text, timestampIso: new Date().toISOString(), questionSource: null, patientProvenance: response.patientProvenance, actualModel: response.actualModel, audioTurnId, patientIntentId: response.patientIntentId, patientMatchedSource: response.patientMatchedSource });
     if (source === 'predefined' && questionId && response.answerShownToTrainee !== null) this.options.onAuthorizedAnswer(questionId, response.answerShownToTrainee, response.relevantPerCase);
     this.state.setEmotion(detectEmotion(response.text));
     this.state.getListeners().onSubtitle?.({ who: 'patient', text: response.text });
     this.state.setStatus('ready');
-    this.enqueueSpeech({ turnId: audioTurnId, text: response.text, isOpeningGreeting: false, cacheable: response.patientProvenance !== 'openrouter' });
   }
 
   private enqueueSpeech(job: AudioJob) {

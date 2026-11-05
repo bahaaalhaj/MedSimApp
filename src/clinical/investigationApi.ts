@@ -17,7 +17,7 @@ export async function createInvestigationAttempt(
 ): Promise<{ attemptId: string; investigations: Catalogue; openingGreeting: string; evidenceVersion: 2 }> {
   return parse(await fetch('/api/attempts', {
     method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ caseId, caseVersion, variantSeed, clientAttemptId, patientProfile, evidenceVersion: 2 }),
+    body: JSON.stringify({ caseId, caseVersion, variantSeed, clientAttemptId, patientProfile, evidenceVersion: 2, dialogueDeliveryVersion: 1 }),
   }));
 }
 

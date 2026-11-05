@@ -29,15 +29,24 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 
 ## Known hazards
 
-- Patient audio is non-authoritative; transcript text in `ActivePatient` is the grading evidence.
+- Patient audio is non-authoritative; accepted transcript text in `ActivePatient` is the grading evidence. New browser attempts negotiate dialogueDeliveryVersion=1: unacknowledged recorded replies block fresh turns/evaluation until request-ID replay or owner recovery reconciles them. Client receipt is not proof of reading, screen paint or hearing.
 - Polyclinic records prescriptions, not `givenTreatmentIds`; fallback clinical rubrics grade critical treatment IDs. `gradePrescription()` currently has no caller.
 - Only three cases have authored guideline-cited rubrics; all guideline records are `auto-fetched`, not clinician-verified.
-- Backend localhost Origin/Referer is an authentication bypass and must not be trusted in production.
+- Localhost Origin/Referer alone is not authentication. Development access additionally requires development mode and an actual loopback peer. Pilot ingress enforces an explicit host/origin and loopback peer without trusting forwarded headers.
 - Frontend/backend evaluator result schemas are manually duplicated and must remain aligned.
 - `POLYCLINIC_BED_INDEX = -10` is shared by store, scene, and conversation cache.
 - `getCase()` silently returns the first case for an unknown ID.
 - Historical notes may describe pre-outpatient prototypes; do not treat them as current behavior.
 - Archived `node_modules` is non-portable; reinstall dependencies on the target platform.
+
+## Current pilot contracts
+
+- Pinned hosted model: `nvidia/nemotron-3.5-super-vl:free`; no paid fallback, model chain or automatic completion retries. Provider failure is an SSE error, not patient speech. Optional evaluator failure retains deterministic grading.
+- Windows pilot entry prepares a 7.8-second inner / 8.0-second semantic deadline before provider settings import. Ordinary defaults remain 3.0/3.2; evaluator outer budget remains 3.5 seconds. Queue wait counts toward the semantic budget; audio/browser overhead does not.
+- Examination controls are removed. New grading policy excludes its 15 points: raw maximum 85, data gathering 50, other weights unchanged; normalized percentage is separate. Saved reviews and older attempts retain their original rubric/evidence.
+- Canonical investigation role is `potentially-harmful`, never `harmful`. Existing no-investigation-credit behavior and formative feedback apply to new evaluations; do not regrade cached/saved results.
+- Active attempt recovery is owner-bound, in memory, six hours from creation, at most 32 per owner. Restart loses it. Saved account encounters persist in SQLite; optional Kokoro failure must preserve text.
+- See `docs/pilot-preparation-20261105.md` and `docs/windows-student-pilot.md`; historical reports are not current readiness evidence.
 
 ## Commands
 

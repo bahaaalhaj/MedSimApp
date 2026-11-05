@@ -30,8 +30,8 @@ try {
         [Environment]::SetEnvironmentVariable($key, $overrides[$key], 'Process')
     }
     # Validate before database access, build, or launching a process.
-    & $python -c "import sys; sys.path.insert(0, 'backend'); from medsim_backend.config import load_runtime_settings; load_runtime_settings()"
-    if ($LASTEXITCODE -ne 0) { throw 'Invalid pilot hostname.' }
+    & $python -c "import sys; sys.path.insert(0, 'backend'); from medsim_backend.config import load_env_local, load_runtime_settings, configure_pilot_dialogue; load_env_local(); load_runtime_settings(); configure_pilot_dialogue(); from local_llm import LocalLLMSettings; s = LocalLLMSettings.from_env(); assert (s.patient_timeout_seconds, s.hosted_semantic_timeout_seconds) == (7.8, 8.0)"
+    if ($LASTEXITCODE -ne 0) { throw 'Invalid pilot hostname or provider configuration.' }
     & node node_modules/typescript/bin/tsc -b
     if ($LASTEXITCODE -ne 0) { throw 'TypeScript check failed.' }
     & node node_modules/vite/bin/vite.js build
@@ -55,6 +55,7 @@ try {
     } while (-not $ready -and -not $pilotProcess.HasExited -and (Get-Date) -lt $deadline)
     if (-not $ready) { throw 'Pilot did not start. Inspect backend/data/pilot/stderr.log.' }
     Write-Host 'Pilot ready on 127.0.0.1:8788 (production build). No public tunnel has been started.'
+    Write-Host 'Pilot dialogue: 7.8 s provider / 8.0 s semantic budget (includes queue wait; other overhead exists).'
     Write-Host "Allowed public origin: https://$PilotHost"
     Write-Host 'Local browser check: http://localhost:8788. Use the HTTPS tunnel URL for student sessions.'
     Write-Host 'Stop: powershell -NoProfile -File .\scripts\stop-pilot.ps1'

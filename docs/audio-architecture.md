@@ -7,7 +7,7 @@ Previously, the browser published a continuously open doctor microphone through 
 The current flow is:
 
 1. The learner types a question or selects a prepared question in `ExamineOverlay`.
-2. `Conversation.sendTextMessage` records the learner text immediately with its source.
+2. `Conversation.sendTextMessage` shows pending learner text; complete successful text is accepted into the conversation/transcript before its negotiated receipt; grading remains blocked while receipt is pending, and optional audio follows reconciliation.
 3. The existing authenticated `/agent/patient/stream` route returns patient text.
 4. Patient text is recorded and shown as a subtitle before speech synthesis begins.
 5. `/tts/synthesize` selects a local provider and returns a non-cacheable WAV response.
@@ -66,3 +66,5 @@ Implement `PatientTTSProvider.synthesize`, add the provider name to configuratio
 - Speech text appears but audio does not: interact with the page once to satisfy browser autoplay rules, check `/health`, then use Retry audio.
 - CUDA falls back to CPU: install a CUDA-compatible PyTorch build or set `PATIENT_TTS_DEVICE=cpu` explicitly.
 - Chatterbox is disabled: install its package and set both the provider and feature flag; it intentionally cannot auto-enable.
+
+New browser turns correlate transcript/audio IDs with the server request ID. Recovered replies are restored as text without automatic synthesis; replay is explicit. Pending-delivery reconciliation gates grading, but a receipt does not attest to reading/hearing. The isolated browser acceptance uses a generated WAV to exercise WebAudio, not to claim real Kokoro or physical-phone audibility.

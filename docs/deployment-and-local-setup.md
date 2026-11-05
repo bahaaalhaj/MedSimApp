@@ -8,7 +8,7 @@
 4. Copy `backend/.env.example` to `backend/.env.local`; keep secrets out of Git.
 5. Start FastAPI with `backend/.venv/Scripts/python.exe backend/server.py` on Windows (or the platform equivalent), then run `npm run dev`.
 
-OpenRouter is the hosted default and requires a user-supplied server-side key for live model calls. Patient text remains usable with deterministic/safe fallback paths. Kokoro is optional for local speech: install `backend/requirements-tts.txt`, prepare its cache explicitly with `backend/prepare_kokoro.py`, and confirm `/health`. CI intentionally does none of these model/TTS steps.
+OpenRouter is the hosted default and requires a user-supplied server-side key for live model calls. Deterministic authored answers remain available; hosted operational failures produce honest SSE errors rather than fabricated dialogue. Evaluation retains deterministic fallback. Ordinary dialogue defaults are 3.0/3.2 seconds; the Windows pilot applies 7.8/8.0 before provider import. The evaluator outer deadline stays 3.5 seconds. Kokoro is optional for local speech: install `backend/requirements-tts.txt`, prepare its cache explicitly with `backend/prepare_kokoro.py`, and confirm `/health`. CI intentionally does none of these model/TTS steps.
 
 ## Production boundary
 

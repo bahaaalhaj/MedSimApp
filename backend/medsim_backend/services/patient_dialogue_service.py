@@ -20,6 +20,7 @@ from patient_interpretation import enabled as semantic_enabled, interpretation_p
 from ..attempt_store import AttemptStore
 from ..schemas import PatientTurnRequest
 from ..diagnostic_logging import log_event
+from ..dialogue_delivery import pending_dialogue
 
 def semantic_timeout_seconds() -> float:
     configured = llm_settings()
@@ -43,13 +44,28 @@ class PatientDialogueService:
     def __init__(self, store: AttemptStore):
         self.store = store
 
+    def acknowledge(self, attempt_id: str, request_id: str, request: Request) -> dict[str, Any]:
+        with self.store.lock:
+            attempt = self.store.get(request, attempt_id)
+            record = attempt['patientResponses'].get(request_id)
+            if not isinstance(record, dict):
+                raise HTTPException(404, 'generated dialogue turn not found')
+            # Idempotent receipt; never append another transcript or scoring action.
+            record.setdefault('deliveryAcknowledgedAt', time.time())
+            return {'requestId': request_id, 'acknowledged': True}
+
     async def stream(self, req: PatientTurnRequest, request: Request) -> StreamingResponse:
         correlation_id = req.requestId or secrets.token_urlsafe(12)
         with self.store.lock:
             attempt = self.store.get(request, req.attemptId)
+            requires_ack = attempt.get('dialogueDeliveryVersion') == 1
+            if requires_ack and not req.requestId:
+                raise HTTPException(422, 'requestId is required for acknowledged dialogue')
             cached = attempt["patientResponses"].get(correlation_id)
             if cached is not None:
                 cached_record = cached if isinstance(cached, dict) else {"text": str(cached), "provenance": "deterministic-authored", "actualModel": None}
+                if cached_record.get('request') not in (None, req.model_dump(exclude={'requestId'})):
+                    raise HTTPException(409, 'requestId belongs to a different patient question')
 
                 async def cached_generator():
                     text = cached_record["text"]
@@ -60,8 +76,12 @@ class PatientDialogueService:
                         "actualModel": cached_record.get("actualModel"), "matchConfidence": cached_record.get("matchConfidence", 0.0),
                         "intentId": cached_record.get("intentId"), "matchedSource": cached_record.get("matchedSource"),
                         "answerShownToTrainee": cached_record.get("answerShownToTrainee"), "relevantPerCase": cached_record.get("relevantPerCase"),
+                        "requiresAcknowledgement": requires_ack,
                     })
-                return StreamingResponse(cached_generator(), media_type="text/event-stream")
+                return StreamingResponse(cached_generator(), media_type="text/event-stream",
+                                         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+            if requires_ack and (pending_dialogue(attempt) or attempt.get('evaluationActive') or attempt.get('evaluationResult')):
+                raise HTTPException(409, 'Reconcile the previous patient reply before continuing, or open its completed debrief.')
             case = attempt["localAiCase"]
             profile = copy.deepcopy(attempt["patientProfile"])
             memory = derive_memory(case, profile)
@@ -272,6 +292,7 @@ class PatientDialogueService:
                     current.get("patientFailures", {}).pop(correlation_id, None)
                     current["patientMessages"] = [*current["patientMessages"], {"role": "user", "content": req.question.strip()}, {"role": "assistant", "content": response_text}][-16:]
                     current["patientResponses"][correlation_id] = {
+                        'request': req.model_dump(exclude={'requestId'}),
                         "text": response_text, "provenance": provenance, "actualModel": actual_model, "attemptedModels": attempted_models,
                         "providerErrorCategory": provider_error_category, "matchConfidence": record_match_confidence,
                         "matchedQuestionId": record_matched_question_id, "authoredValue": record_authored_value,
@@ -319,12 +340,15 @@ class PatientDialogueService:
                             "providerLatencyMs", "validationResult", "fallbackReason", "matchConfidence", "parts",
                         )},
                     }][-256:]
+                    if requires_ack:
+                        for row in current['transcript'][-2:]:
+                            row['requestId'] = correlation_id
                     if os.environ.get("MEDSIM_DEBUG_EVIDENCE", "").lower() in {"1", "true", "yes"}:
                         logging.getLogger("medsim.evidence").info("patient-turn attempt=%s source=%s question_id=%s intent=%s provenance=%s", req.attemptId, req.source, recorded_question_id, record_intent_id, provenance)
                 for offset in range(0, len(response_text), 32):
                     yield sse({"text": response_text[offset:offset + 32], "correlationId": correlation_id})
                     await asyncio.sleep(0)
-                yield sse({"done": True, "correlationId": correlation_id, "provenance": provenance, "actualModel": actual_model, "matchConfidence": record_match_confidence, "intentId": record_intent_id, "matchedSource": record_matched_source, "answerShownToTrainee": authored_value if req.source == "predefined" else None, "relevantPerCase": bool(history_item.get("relevant")) if history_item is not None else None})
+                yield sse({"done": True, "correlationId": correlation_id, "provenance": provenance, "actualModel": actual_model, "matchConfidence": record_match_confidence, "intentId": record_intent_id, "matchedSource": record_matched_source, "answerShownToTrainee": authored_value if req.source == "predefined" else None, "relevantPerCase": bool(history_item.get("relevant")) if history_item is not None else None, "requiresAcknowledgement": requires_ack})
             except asyncio.CancelledError:
                 log_event('patient-response-cancelled', level=logging.INFO,
                           request_id=correlation_id, category='client-disconnected')

@@ -15,6 +15,7 @@ export interface ConversationListeners {
 }
 
 export interface TranscriptRecord {
+  requestId?: string;
   role: 'trainee' | 'patient'; content: string; timestampIso: string;
   questionSource: QuestionSource | null; patientProvenance?: PatientResponseProvenance;
   actualModel?: string | null; audioTurnId?: string;

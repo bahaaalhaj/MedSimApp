@@ -4,7 +4,8 @@ export interface RecoveryView {
   attemptId: string; caseId: string; caseVersion: string; variantSeed: string; clientAttemptId: string;
   createdAt: number; expiresAt: number;
   patientProfile: { displayName: string; age: number; chiefComplaint: string };
-  transcript: Array<{ role: 'patient' | 'trainee'; content: string; timestampIso: string; questionSource: 'typed' | 'predefined' | null }>;
+  transcript: Array<{ role: 'patient' | 'trainee'; content: string; timestampIso: string; questionSource: 'typed' | 'predefined' | null; requestId?: string }>;
+  pendingDialogueRequestIds?: string[];
   visibleAnswers: Record<string, { answer: string; relevant: boolean }>;
   askedQuestionIds: string[];
   examinations: ActivePatient['examinationActions']; prescriptions: NonNullable<ActivePatient['prescriptions']>;
@@ -34,7 +35,8 @@ export function restorePatient(view: RecoveryView, base: ActivePatient, clinical
     arrivedAt: view.createdAt * 1000,
     consultationStartedAt: view.encounterTiming?.startedAtMs ?? view.createdAt * 1000,
     consultationFinishedAt: view.encounterTiming?.finishedAtMs ?? null,
-    transcript: view.transcript.map((row, index) => ({ ...row, id: `recovered-${view.attemptId}-${index}`,
+    transcript: view.transcript.map((row, index) => ({ ...row, id: `recovered-${view.attemptId}-${row.requestId ?? index}-${row.role}`,
+      ...(row.role === 'patient' && row.requestId ? { audioTurnId: `patient-${row.requestId}` } : {}),
       timestampIso: new Date(Number(row.timestampIso) * 1000 || row.timestampIso).toISOString(),
       caseId: view.caseId, caseVersion: view.caseVersion, attemptId: view.attemptId })),
     askedQuestionIds: view.askedQuestionIds, examinationActions: view.examinations,

@@ -18,6 +18,8 @@ from ..diagnostic_logging import log_event
 from ..consultation_management import assess_consultation_management
 from .investigation_service import InvestigationService
 from ..grading_policy import assessment_case
+from ..investigation_contract import POTENTIALLY_HARMFUL
+from ..dialogue_delivery import pending_dialogue
 
 
 class EvaluationService:
@@ -85,6 +87,8 @@ class EvaluationService:
                     attempt["completionChecks"] = payload.completionChecks.model_dump()
             if attempt["evaluationResult"] is not None:
                 return copy.deepcopy(attempt["evaluationResult"])
+            if attempt.get('dialogueDeliveryVersion') == 1 and (attempt.get('patientRequestActive') or pending_dialogue(attempt)):
+                raise HTTPException(409, 'Patient text is still pending delivery. Resume the encounter to reconcile the reply before evaluating.')
             if attempt["evaluationActive"]:
                 raise HTTPException(status_code=409, detail="An evaluation is already in progress for this encounter.")
             attempt.pop("dialogueContext", None)  # End of consultation; no dialogue context survives debrief.
@@ -109,7 +113,7 @@ class EvaluationService:
             investigation_authority = {
                 "essential_total": len(essential_ids), "essential_ordered": len(essential_ids & ordered_ids),
                 "relevant_ordered": sum(item.get("role") in {"essential", "useful"} for item in server_orders),
-                "harmful_ordered": sum(item.get("role") == "harmful" for item in server_orders),
+                "harmful_ordered": sum(item.get("role") == POTENTIALLY_HARMFUL for item in server_orders),
                 "results_released": sum(bool(item.get("released")) for item in server_orders),
             }
             management_observation = copy.deepcopy({key: attempt.get(key) for key in (

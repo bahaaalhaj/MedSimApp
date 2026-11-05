@@ -1,5 +1,7 @@
 # Pilot navigation, recovery and audio investigation — 2026-10-28
 
+> Historical measurements below are retained. Current pilot deadlines, classification/delivery fixes and acceptance limits are documented in [5 November pilot preparation](pilot-preparation-20261105.md). Earlier readiness/default statements are superseded where noted there.
+
 This is the follow-up to `windows-student-pilot-verification.md`. The work began
 with the earlier pilot implementation already modified/untracked. Those changes
 were preserved. Read the pasted request, repository `AGENTS.md`, Git status,

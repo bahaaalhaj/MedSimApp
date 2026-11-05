@@ -1,5 +1,7 @@
 # Windows pilot browser follow-up — 28 October 2026
 
+> Historical measurements below are retained. Current pilot deadlines, classification/delivery fixes and acceptance limits are documented in [5 November pilot preparation](pilot-preparation-20261105.md). Earlier readiness/default statements are superseded where noted there.
+
 This continues the implementation and historical results in
 [pilot navigation/recovery](pilot-navigation-recovery-verification.md) and
 [pilot operating instructions](windows-student-pilot.md). Earlier passing tests

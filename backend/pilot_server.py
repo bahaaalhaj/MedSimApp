@@ -4,12 +4,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from medsim_backend.config import load_env_local, load_runtime_settings
+from medsim_backend.config import configure_pilot_dialogue, load_env_local, load_runtime_settings
 
 load_env_local()
 if os.environ.get("MEDSIM_PILOT_MODE") != "1":
     raise RuntimeError("Use scripts/start-pilot.ps1 with an explicit HTTPS tunnel hostname")
 load_runtime_settings()  # Fail closed before initializing the database/providers.
+configure_pilot_dialogue()  # Before server/runtime imports construct or cache settings.
 
 from server import app  # noqa: E402 - provider config must load before runtime imports
 from medsim_backend.pilot import register_frontend  # noqa: E402

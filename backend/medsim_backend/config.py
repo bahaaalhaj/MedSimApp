@@ -22,6 +22,18 @@ def load_env_local() -> None:
             os.environ[key] = value
 
 
+def configure_pilot_dialogue() -> None:
+    """Apply the approved Windows pilot budget before importing provider caches.
+
+    Process-local overrides deliberately take precedence over old .env values.
+    Ordinary server/development launches retain their configured/default budgets.
+    Evaluator and general provider deadlines are unaffected.
+    """
+    if os.environ.get('MEDSIM_PILOT_MODE') == '1':
+        os.environ['OPENROUTER_PATIENT_TIMEOUT_SECONDS'] = '7.8'
+        os.environ['OPENROUTER_SEMANTIC_TIMEOUT_SECONDS'] = '8.0'
+
+
 @dataclass(frozen=True)
 class RuntimeSettings:
     shared_secret: str

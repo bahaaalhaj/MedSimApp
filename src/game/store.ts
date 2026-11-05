@@ -19,6 +19,7 @@ import { hasEncounterActivity } from './encounterState';
 import { PilotHistory, type PilotRoute } from './pilotNavigation';
 import { normalizeExamineTab } from './examineTabs';
 import { recoverAttempt, restorePatient } from './attemptRecovery';
+import { acknowledgePatientText } from '../voice/localPatient';
 import type { EncounterTranscriptEntry } from './types';
 import type { TrainingMode } from '../clinical/types';
 import { completeEncounter, encounterKey, isSameEncounter } from './encounterState';
@@ -196,6 +197,7 @@ class Store {
     const controller = new AbortController();
     this.recoveryController = controller;
     this.applyingRoute = true;
+    let pendingDelivery: { attemptId: string; requestIds: string[] } | null = null;
     try {
       if (!this.owner && !['splash', 'onboarding', 'auth'].includes(route.screen)) {
         this.set({ screen: 'auth', recoveryStatus: 'ready', navigationNotice: 'Sign in or choose guest mode before opening a training page.' });
@@ -215,12 +217,18 @@ class Store {
           if (!getAssignableCases(this.state.trainingMode).some((item) => item.id === view.caseId)) throw new Error('This case is no longer assignable. Open saved history or choose a new case.');
           const base = toActivePatient(getCase(view.caseId), view.variantSeed);
           const patient = restorePatient(view, base, base.case);
-          const finished = view.evaluationActive || view.evaluationResult || route.screen === 'debrief'
-            || (!this.state.polyclinic.patient && existing?.investigationAttemptId === reference);
+          if (view.pendingDialogueRequestIds?.length) {
+            pendingDelivery = { attemptId: view.attemptId, requestIds: view.pendingDialogueRequestIds };
+            screen = 'encounter';
+            this.set({ navigationNotice: 'A patient reply was recovered. Review its text in Chat before finishing.' });
+          }
+          const finished = !pendingDelivery && (view.evaluationActive || view.evaluationResult || route.screen === 'debrief'
+            || (!this.state.polyclinic.patient && existing?.investigationAttemptId === reference));
           if (finished && screen !== 'debrief') {
             screen = 'debrief';
             this.set({ navigationNotice: 'This consultation is finished. Review the debrief or choose a new case.' });
           }
+          clearAllPatientConversations(); // Restore text without replaying old speech.
           this.set({ selectedCaseId: view.caseId,
             polyclinic: { ...this.state.polyclinic, patient: finished ? null : patient },
             lastEncounter: finished ? patient : null, endConfirm: patient.encounterChecks ?? { sum: false, safe: false, ice: false } });
@@ -230,8 +238,15 @@ class Store {
         }
       }
       this.set({ screen, selectedCaseId: route.caseId && getAssignableCases(this.state.trainingMode).some((item) => item.id === route.caseId) ? route.caseId : this.state.selectedCaseId,
-        viewedEvalHistoryId: route.reviewId ?? null, examineOpen: screen === 'encounter' && Boolean(route.examine), recoveryStatus: 'ready',
-        examineTab: normalizeExamineTab(route.examineTab), onboardingStep: route.onboardingStep ?? this.state.onboardingStep });
+        viewedEvalHistoryId: route.reviewId ?? null, examineOpen: screen === 'encounter' && (Boolean(pendingDelivery) || Boolean(route.examine)), recoveryStatus: 'ready',
+        examineTab: pendingDelivery ? 'chat' : normalizeExamineTab(route.examineTab), onboardingStep: route.onboardingStep ?? this.state.onboardingStep });
+      // The client has accepted/restored the complete text into this encounter.
+      // This receipt is not proof of paint, reading, audio, or understanding.
+      if (pendingDelivery) for (const requestId of pendingDelivery.requestIds) {
+        if (controller.signal.aborted) return;
+        await acknowledgePatientText(pendingDelivery.attemptId, requestId, controller.signal);
+      }
+      if (controller.signal.aborted) return;
       this.history?.write(this.currentRoute(), true);
     } catch (error) {
       if (!controller.signal.aborted) this.set({ recoveryStatus: 'error', navigationNotice: error instanceof Error ? error.message : 'Recovery is unavailable. Your saved history is separate.' });

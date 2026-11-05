@@ -1,5 +1,7 @@
 # Verified TLS startup preparation and two-turn acceptance — 2026-10-29
 
+> Historical measurements below are retained. Current pilot deadlines, classification/delivery fixes and acceptance limits are documented in [5 November pilot preparation](../pilot-preparation-20261105.md). Earlier readiness/default statements are superseded where noted there.
+
 Continues the [previous pooling acceptance](hosted-pooling-acceptance-20261029.md)
 from `34598c0`, retaining the CI and lifecycle-pooling fixes.
 

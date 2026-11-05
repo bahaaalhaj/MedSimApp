@@ -29,6 +29,7 @@ class BackendRouteContractTests(unittest.TestCase):
         schema = server.app.openapi()
         expected = {
             "/agent/patient/stream": {"post": "200"},
+            "/api/attempts/{attempt_id}/dialogue/acknowledgements": {"post": "200"},
             "/api/attempts": {"post": "201"},
             "/api/attempts/{attempt_id}/recovery": {"get": "200"},
             "/api/attempts/{attempt_id}/completion": {"post": "201"},
@@ -63,7 +64,8 @@ class BackendRouteContractTests(unittest.TestCase):
     def test_backend_owned_request_field_names_are_stable(self) -> None:
         schemas = server.app.openapi()["components"]["schemas"]
         expected = {
-            "CreateClinicalAttemptRequest": {"caseId", "caseVersion", "variantSeed", "clientAttemptId", "patientProfile", "evidenceVersion"},
+            "CreateClinicalAttemptRequest": {"caseId", "caseVersion", "variantSeed", "clientAttemptId", "patientProfile", "evidenceVersion", "dialogueDeliveryVersion"},
+            "DialogueAcknowledgement": {"requestId"},
             "InvestigationOrderRequest": {"investigationId", "indication"},
             "AttemptExaminationRequest": {"actionId", "performedAt"},
             "AttemptDiagnosisRequest": {"diagnosisId"},

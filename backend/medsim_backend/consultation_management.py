@@ -9,6 +9,8 @@ import math
 import re
 from typing import Any
 
+from .investigation_contract import POTENTIALLY_HARMFUL
+
 
 def _timestamp(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
@@ -69,7 +71,7 @@ def assess_consultation_management(case: dict[str, Any], investigation_case: dic
     essentials = {key for key, row in catalogue.items() if row.get('role') == 'essential'}
     orders = list((observation.get('orders') or {}).values())
     diagnosis_at = observation.get('diagnosisSubmittedAt')
-    harmful = sum(catalogue.get(row.get('investigationId'), {}).get('role') == 'harmful' for row in orders)
+    harmful = sum(catalogue.get(row.get('investigationId'), {}).get('role') == POTENTIALLY_HARMFUL for row in orders)
     released_before = {row.get('investigationId') for row in orders
                        if _timestamp(diagnosis_at) and _timestamp(row.get('orderedAt')) and _timestamp(row.get('releasedAt'))
                        and row['orderedAt'] <= row['releasedAt'] <= diagnosis_at}

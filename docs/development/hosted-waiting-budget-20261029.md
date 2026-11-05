@@ -1,5 +1,7 @@
 # Isolated 7.8/8.0-second semantic waiting experiment — 2026-10-29
 
+> Historical measurements below are retained. Current pilot deadlines, classification/delivery fixes and acceptance limits are documented in [5 November pilot preparation](../pilot-preparation-20261105.md). Earlier readiness/default statements are superseded where noted there.
+
 Continues from `bfeb714e974e978dc85fa659987e45514a874deb` and the
 [TLS startup report](hosted-tls-startup-20261029.md). This task paused further
 network tracing and tested a practical waiting budget. Production provider,

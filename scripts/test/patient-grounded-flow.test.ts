@@ -16,12 +16,13 @@ const bundled = buildSync({
 
 const flush = async () => { for (let index = 0; index < 5; index++) await new Promise<void>((done) => setImmediate(done)); };
 
-function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean; suspended?: boolean } = {}) {
+function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean; suspended?: boolean; acknowledge?: boolean; ackFails?: boolean; delayAck?: Promise<void>; restored?: boolean } = {}) {
   const transcript: TranscriptRecord[] = [];
   const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
   let ttsFails = options.ttsFails ?? false;
   let providerFails = options.providerFails ?? false;
   let truncated = options.truncated ?? false;
+  let ackFails = options.ackFails ?? false;
   const authorized: string[] = [];
   const module = { exports: {} as { Conversation: typeof Conversation } };
   runInNewContext(bundled, {
@@ -35,10 +36,16 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
         await options.delayText;
         if (providerFails) return new Response(`data: ${JSON.stringify({ error: 'The patient response service timed out. Your question was not answered. Please retry.', category: 'response-timeout', retryable: true })}\n\n`);
         return new Response('data: {"text":"It usually happens during spring."}\n\n'
-          + (truncated ? '' : `data: ${JSON.stringify({ done: true, provenance, actualModel: null, answerShownToTrainee: body.source === 'predefined' ? 'Spring.' : null, relevantPerCase: true })}\n\n`),
+          + (truncated ? '' : `data: ${JSON.stringify({ done: true, provenance, actualModel: null, correlationId: body.requestId, requiresAcknowledgement: options.acknowledge, answerShownToTrainee: body.source === 'predefined' ? 'Spring.' : null, relevantPerCase: true })}\n\n`),
           { headers: { 'Content-Type': 'text/event-stream' } });
       }
+      if (url.endsWith('/dialogue/acknowledgements')) {
+        await options.delayAck;
+        return Response.json({ requestId: body.requestId, acknowledged: !ackFails }, { status: ackFails ? 503 : 200 });
+      }
       assert.equal(url, '/tts/synthesize');
+      assert.ok(transcript.some((row) => row.role === 'patient' && row.content === body.text),
+        'patient text must be recorded before optional speech dispatch');
       await options.delayAudio;
       if (ttsFails) return Response.json({ detail: 'Local speech unavailable.' }, { status: 503 });
       return new Response(new Uint8Array([1, 2]), { headers: { 'X-Patient-TTS-Voice': 'af_heart' } });
@@ -58,13 +65,77 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
     },
   } as unknown as AudioContext;
   const conversation = new module.exports.Conversation(context, {}, {
+    ...(options.restored ? { restoredMessages: [
+      { role: 'user' as const, content: 'Recovered question.' },
+      { role: 'assistant' as const, content: 'Recovered complete answer.', audioTurnId: 'patient-recovered-request-0001' },
+    ] } : {}),
     initialMessage: { role: 'assistant', content: 'Hello, doctor.' },
     speakerGender: 'F', isPediatric: false, caseId: 'allergy-001', caseVersion: '1',
     ensureAttempt: async () => 'owner-bound-attempt-fixture',
     onTranscript: (entry) => transcript.push(entry), onAuthorizedAnswer: (id) => authorized.push(id),
   });
-  return { conversation, transcript, calls, authorized, restoreTts: () => { ttsFails = false; }, restorePatient: () => { providerFails = false; truncated = false; } };
+  return { conversation, transcript, calls, authorized, restoreAck: () => { ackFails = false; }, restoreTts: () => { ttsFails = false; }, restorePatient: () => { providerFails = false; truncated = false; } };
 }
+
+test('complete text is committed before acknowledgement, while optional audio waits for it', async () => {
+  let release!: () => void;
+  const f = fixture('deterministic-authored', { acknowledge: true, delayAck: new Promise<void>((done) => { release = done; }) });
+  const pending = f.conversation.sendTextMessage('Which season?', 'predefined', 'season');
+  await flush();
+  assert.equal(f.transcript.length, 2);
+  assert.equal(f.authorized.length, 1);
+  assert.equal(f.conversation.getMessages().at(-1)?.content, f.transcript[1].content);
+  assert.equal(f.calls.filter((row) => row.url === '/tts/synthesize').length, 0);
+  release();
+  assert.equal(await pending, true);
+  await flush();
+  assert.equal(f.transcript.length, 2);
+  assert.equal(f.transcript[0].requestId, f.transcript[1].requestId);
+  assert.equal(f.calls.filter((row) => row.url.endsWith('/dialogue/acknowledgements')).length, 1);
+  assert.equal(f.calls.filter((row) => row.url === '/tts/synthesize').length, 1);
+  f.conversation.dispose();
+});
+
+test('lost acknowledgement retains replay request ID and creates evidence/audio only once on manual retry', async () => {
+  const f = fixture('deterministic-authored', { acknowledge: true, ackFails: true });
+  assert.equal(await f.conversation.sendTextMessage('Which season?', 'predefined', 'season'), false);
+  assert.equal(f.transcript.length, 2);
+  assert.equal(f.authorized.length, 1);
+  assert.equal(f.calls.filter((row) => row.url === '/tts/synthesize').length, 0);
+  f.restoreAck();
+  await f.conversation.retryLastResponse();
+  await flush();
+  const turns = f.calls.filter((row) => row.url === '/agent/patient/stream');
+  assert.equal(turns.length, 2);
+  assert.equal(turns[0].body.requestId, turns[1].body.requestId);
+  assert.equal(f.transcript.length, 2);
+  assert.equal(f.authorized.length, 1);
+  assert.equal(f.calls.filter((row) => row.url === '/tts/synthesize').length, 1);
+  f.conversation.dispose();
+});
+
+test('disposing during acknowledgement cannot add to already accepted text or start stale audio', async () => {
+  let release!: () => void;
+  const f = fixture('deterministic-authored', { acknowledge: true, delayAck: new Promise<void>((done) => { release = done; }) });
+  const pending = f.conversation.sendTextMessage('Which season?', 'predefined', 'season');
+  await flush();
+  f.conversation.dispose();
+  release();
+  assert.equal(await pending, false);
+  assert.equal(f.transcript.length, 2);
+  assert.equal(f.authorized.length, 1);
+  assert.equal(f.calls.filter((row) => row.url === '/tts/synthesize').length, 0);
+});
+
+test('recovered complete text initializes without duplicate evidence or automatic speech', async () => {
+  const f = fixture('deterministic-authored', { restored: true });
+  await f.conversation.init();
+  assert.equal(f.conversation.getMessages().length, 2);
+  assert.equal(f.conversation.getStatus(), 'ready');
+  assert.equal(f.transcript.length, 0);
+  assert.equal(f.calls.length, 0);
+  f.conversation.dispose();
+});
 
 test('provider timeout stays a retryable system error; question and request ID survive without evidence or audio', async () => {
   const { conversation, transcript, calls, restorePatient } = fixture('openrouter', { providerFails: true });

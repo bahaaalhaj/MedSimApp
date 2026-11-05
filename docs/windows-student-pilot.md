@@ -101,13 +101,22 @@ shares cookies and localStorage by design; logging out does not erase prior
 guest history. Existing shared-IP rate limits are retained: stagger account
 registration (five per minute per tunnel peer) for a small group.
 
-Clinical content, human review states, scoring, schemas and history formats are
-unchanged. Synthetic training content is not medical guidance. This setup does
+Clinical content, human review states and rubric weights are preserved. The canonical potentially-harmful classification fix can change fresh investigation evaluations; cached/saved results are not regraded. New browser attempts opt into the versioned delivery receipt described below. Synthetic training content is not medical guidance. This setup does
 not establish clinical or educational validity.
+
+## Dialogue budget and reconciliation
+
+The Windows launcher sets **7.8 seconds inner / 8.0 seconds total semantic** in its process before provider settings are imported, overriding older private environment deadlines without editing them. Ordinary launches retain their configured/default 3.0/3.2 seconds. The evaluator retains its 3.5-second outer deadline and 7-second general provider timeout. Queue wait is within the semantic budget; this is not an eight-second bound on browser delivery, validation or audio. Cancellation and manual retry remain available; there are no completion retries, paid fallback or warmup inference.
+
+The pinned model is `nvidia/nemotron-3.5-super-vl:free`. A provider timeout is an error, never a substitute patient answer. Kokoro is optional; audio enable/replay/cancel must leave text usable while speech prepares.
+
+New browser attempts negotiate delivery version 1. A server-recorded reply remains pending until the client accepts the complete text and sends an owner-bound request-ID receipt. Pending replies block new questions and evaluation. Retrying the same question replays its cached reply; refresh restores it into Chat before acknowledging, without duplicate evidence or automatic audio. A lost receipt can be reconciled by retry/resume. Receipt is not proof of screen paint, reading, understanding or hearing. Old attempts and cached/saved evaluations retain their earlier contract.
 
 ## Recheck before a session
 
-Latest browser follow-up: [actual browser fixes, capability findings and acceptance limits](pilot-browser-acceptance-verification.md).
+Current scoped findings and acceptance: [5 November report](pilot-preparation-20261105.md). Public HTTPS and real-phone acceptance remain separate. Check for students before stopping/restarting: active attempts will be lost.
+
+Historical browser follow-up: [actual browser fixes, capability findings and acceptance limits](pilot-browser-acceptance-verification.md).
 
 Navigation/recovery follow-up: see [current investigation and acceptance checklist](pilot-navigation-recovery-verification.md).
 The original preparation report describes an earlier verification run, not current readiness.
@@ -144,7 +153,7 @@ Vital signs remain visible; the Examination action panel is removed. A selected
 tab survives refresh and Back/Forward in its overlay history entry; tab changes
 replace that entry, and a removed Examination reference safely opens History.
 New encounters exclude its 15-point criterion: total raw maximum **85**,
-data-gathering maximum **50**, other weights/critical rules unchanged.
+data-gathering maximum **50**, other weights/critical rules unchanged. Raw points and normalized percentage (`raw / actual maximum ? 100`) are labelled separately; thresholds use the actual maximum.
 Examination is labelled **Not assessed**, never automatically performed.
 Historical reviews keep their original scores, rubric and examination evidence.
 See [assessment scope and verification](examination-tab-removal.md).

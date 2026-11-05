@@ -15,6 +15,7 @@ from ..attempt_store import ATTEMPT_TTL_SECONDS, AttemptStore
 from ..diagnostic_logging import log_event
 from .investigation_service import InvestigationService
 from ..grading_policy import EXAMINATION_EXCLUDED
+from ..dialogue_delivery import pending_dialogue
 from ..schemas import (
     AttemptCompletionRequest,
     AttemptDiagnosisRequest,
@@ -61,6 +62,11 @@ class AttemptService:
             )}
             result['transcript'] = [{key: row.get(key) for key in ('role', 'content', 'timestampIso', 'questionSource')}
                                     for row in attempt['transcript']]
+            if attempt.get('dialogueDeliveryVersion') == 1:
+                for public, private in zip(result['transcript'], attempt['transcript']):
+                    if private.get('requestId'):
+                        public['requestId'] = private['requestId']
+                result['pendingDialogueRequestIds'] = pending_dialogue(attempt)
             result['visibleAnswers'] = copy.deepcopy(attempt.get('visibleAnswers', {}))
             result['askedQuestionIds'] = list(result['visibleAnswers'])
             result['investigations'] = [self.safe_investigation(item) for item in clinical_case['investigations']]
@@ -136,6 +142,7 @@ class AttemptService:
                 "patientMessages": [], "askedQuestionIds": [], "variantSeed": payload.variantSeed,
                 "clientAttemptId": payload.clientAttemptId, "evidenceVersion": payload.evidenceVersion,
                 "gradingPolicy": EXAMINATION_EXCLUDED,
+                "dialogueDeliveryVersion": payload.dialogueDeliveryVersion,
                 "patientRequestActive": False, "patientResponses": {},
                 "transcript": [{"role": "patient", "content": opening_greeting(profile), "timestampIso": str(now), "questionSource": None}],
                 "examinations": [], "treatments": [], "prescriptions": [],

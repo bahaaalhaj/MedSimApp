@@ -188,6 +188,7 @@ export type PatientStatus =
   | 'deceased';
 
 export interface EncounterTranscriptEntry {
+  requestId?: string;
   id: string;
   role: 'trainee' | 'patient';
   content: string;

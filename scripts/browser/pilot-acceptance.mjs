@@ -1,7 +1,8 @@
 /** Opt-in production-browser acceptance. Uses isolated contexts, never personal profiles.
  * Run against a dedicated pilot with MEDSIM_BROWSER_BASE_URL and an ignored output dir.
  * Default: no hosted requests. MEDSIM_BROWSER_LIVE=1 permits ONE typed dialogue and
- * ONE evaluation; cached results are reused. Synthetic credentials stay in outputDir.
+ * ONE evaluation; cached results are reused. MEDSIM_BROWSER_OFFLINE=1 exercises
+ * real routes only against pilot_acceptance.py --serve-offline (no external network). Synthetic credentials stay in outputDir.
  * Supply MEDSIM_PLAYWRIGHT_MODULE / MEDSIM_TEST_CHROMIUM when not installed locally.
  */
 import assert from 'node:assert/strict';
@@ -17,6 +18,14 @@ assert.match(base, /^https?:\/\/[a-z0-9.:-]+$/i);
 const outputDir = resolve(process.env.MEDSIM_BROWSER_OUTPUT || 'backend/data/browser-acceptance');
 await mkdir(outputDir, { recursive: true });
 const live = process.env.MEDSIM_BROWSER_LIVE === '1';
+const offline = process.env.MEDSIM_BROWSER_OFFLINE === '1';
+assert.ok(!(live && offline), 'Choose isolated offline or explicitly authorized live mode');
+const exercise = live || offline;
+if (offline) {
+  const identity = await fetch(base + '/api/acceptance/offline');
+  assert.equal(identity.status, 200, 'Offline acceptance requires the dedicated disposable server');
+  assert.deepEqual(await identity.json(), { offline: true, dialogue: 'scripted', evaluation: 'deterministic-only' });
+}
 const resume = process.env.MEDSIM_BROWSER_RESUME === '1';
 const cachedOnly = process.env.MEDSIM_BROWSER_CACHED === '1';
 const results = [];
@@ -53,6 +62,10 @@ let evaluationEntered;
 const entered = new Promise((done) => { evaluationEntered = done; });
 let dialogueFinished;
 const dialogueDone = new Promise((done) => { dialogueFinished = done; });
+let holdDialogue = false;
+let releaseDialogue = () => {};
+let dialogueRecorded;
+const recordedDialogue = new Promise((done) => { dialogueRecorded = done; });
 const audio = { requests: 0, order: [], delay: 0, hold: false, release: () => {} };
 // Real WebAudio decode/playback of a generated tone; no physical audibility claim.
 function wav() {
@@ -93,6 +106,17 @@ await context.route('**/tts/synthesize', async (route) => {
 });
 await context.route('**/agent/patient/stream', async (route) => {
   const body = route.request().postDataJSON();
+  if (offline) {
+    const response = await route.fetch();
+    const text = await response.text();
+    assert.equal(response.status(), 200);
+    const frames = text.split('\n').filter((line) => line.startsWith('data:')).map((line) => JSON.parse(line.slice(5)));
+    assert.equal(frames.filter((frame) => frame.done === true).length, 1, 'Scripted backend must finish successfully');
+    if (holdDialogue) { dialogueRecorded(); await new Promise((done) => { releaseDialogue = done; }); }
+    await route.fulfill({ response }).catch(() => {});
+    dialogueFinished();
+    return;
+  }
   if (live && body.source === 'typed' && !results.some((item) => item.name === 'live dialogue')) {
     await claimLive('dialogue');
     const response = await route.fetch();
@@ -109,8 +133,8 @@ await context.route('**/agent/patient/stream', async (route) => {
 });
 await context.route('**/api/local-ai/evaluate', async (route) => {
   evaluationPosts++;
-  assert.ok(live, 'Evaluation disabled unless MEDSIM_BROWSER_LIVE=1');
-  await claimLive('evaluation');
+  assert.ok(exercise, 'Evaluation disabled without explicit acceptance mode');
+  if (live) await claimLive('evaluation');
   const pending = route.fetch();
   evaluationEntered();
   const response = await pending;
@@ -228,8 +252,8 @@ try {
     assert.equal(await page.getByLabel('Type a question for the patient').isEnabled(), true);
     await page.getByLabel('Type a question for the patient', { exact: true }).fill('Could you describe how the symptoms started and progressed?');
     await page.getByRole('button', { name: 'Ask', exact: true }).click();
-    if (live) await dialogueDone;
-    if (!live) await page.getByText('Synthetic browser-test reply.').last().waitFor();
+    if (exercise) await dialogueDone;
+    if (!exercise) await page.getByText('Synthetic browser-test reply.').last().waitFor();
     await page.waitForFunction(() => !document.querySelector('#patient-question')?.disabled, null, { timeout: 25_000 });
     assert.equal(await page.getByLabel('Type a question for the patient').isEnabled(), true);
     const state = await recovery(); assert.ok(state.attemptId);
@@ -238,7 +262,7 @@ try {
     audio.hold = false; audio.release();
     await page.waitForFunction(() => window.__audioProbe.starts >= 1);
     await page.getByRole('button', { name: 'Replay', exact: true }).last().waitFor();
-    if (!live || results.find((item) => item.name === 'live dialogue')?.done) {
+    if (offline || !live || results.find((item) => item.name === 'live dialogue')?.done) {
       assert.ok(await page.evaluate(() => window.__audioProbe.starts >= 2), 'Opening and queued answer both play');
       assert.deepEqual(audio.order.slice(0, 2), [{ opening: true }, { opening: false }], 'FIFO synthesis order');
     }
@@ -289,6 +313,28 @@ try {
     const after = await recovery(); assert.equal(after.attemptId, before.attemptId); assert.equal(attemptCreates, count);
     assert.equal(after.transcript.length, before.transcript.length);
   });
+  if (offline) await check('refresh after server recording before terminal receipt reconciles one turn without auto audio', async () => {
+    await openExamine(); await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    const before = await recovery();
+    holdDialogue = true;
+    await page.getByLabel('Type a question for the patient', { exact: true }).fill('Can you explain those symptoms in ordinary words?');
+    await page.getByRole('button', { name: 'Ask', exact: true }).click();
+    await recordedDialogue;
+    const pending = await recovery();
+    assert.equal(pending.pendingDialogueRequestIds.length, 1);
+    assert.equal(pending.transcript.length, before.transcript.length + 2);
+    await page.reload();
+    await page.getByText(/A patient reply was recovered/).waitFor();
+    await page.getByLabel('Type a question for the patient', { exact: true }).waitFor();
+    const after = await recovery();
+    assert.equal(after.pendingDialogueRequestIds.length, 0);
+    assert.equal(after.transcript.length, pending.transcript.length);
+    holdDialogue = false; releaseDialogue();
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__audioProbe.starts), 0, 'Recovery does not automatically replay text');
+    assert.equal((await recovery()).transcript.length, after.transcript.length);
+    await page.getByTitle('Close (Esc)').click();
+  });
   } else {
     const saved = JSON.parse(await readFile(resolve(outputDir, 'live-attempt.json'), 'utf8'));
     results.push(saved.observation);
@@ -304,7 +350,7 @@ try {
     } else await page.getByRole('button', { name: 'Examine patient' }).waitFor();
     results.push({ name: 'resume bounded evaluation after failed live semantic turn', passed: true });
   }
-  if (live) {
+  if (exercise) {
     if (!cachedOnly) {
     await check('finish, interrupted evaluation connection, refresh and cached safe retry', async () => {
       await openExamine(); await page.getByRole('button', { name: 'Diagnose', exact: true }).click();

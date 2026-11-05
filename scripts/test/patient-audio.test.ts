@@ -87,9 +87,8 @@ test('patient audio uses Web Audio buffers without DOM audio or object URLs', ()
   assert.match(synthesis, /decodeAudioData/);
   assert.match(playback, /createBufferSource/);
   assert.doesNotMatch(conversation + synthesis + playback, /createObjectURL|document\.createElement\(['"]audio|appendChild/);
-  const transcriptAt = conversation.indexOf("role: 'patient', content: response.text");
-  const speechAt = conversation.indexOf('this.enqueueSpeech(', transcriptAt);
-  assert.ok(transcriptAt >= 0 && speechAt > transcriptAt, 'patient text must be recorded before optional speech');
+  // Dispatch ordering is exercised against real Conversation/SSE/queue code
+  // in patient-grounded-flow: source function positions do not prove call order.
   assert.match(queue, /while \(!this\.disposed && this\.queue\.length\)/);
   assert.match(conversation, /replayTurn\(turnId: string\)/);
   assert.match(synthesis, /signal,/);

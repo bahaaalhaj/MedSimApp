@@ -163,6 +163,55 @@ test('real Store handles missing recovery explicitly and logout clears private s
   assert.equal(store.getState().lastEncounter, null);
 });
 
+test('refresh reconciles a recorded-but-undelivered reply into Chat once before finishing; logout cancels stale receipt', async () => {
+  for (const logoutDuringReceipt of [false, true]) {
+    const browser = surface();
+    let view: RecoveryView;
+    let restored: typeof actualStore;
+    let release!: () => void;
+    let ackCount = 0;
+    const fetcher: typeof fetch = async (url, init) => {
+      if (String(url).endsWith('/recovery')) return Response.json(view);
+      if (String(url).endsWith('/dialogue/acknowledgements')) {
+        ackCount++;
+        assert.equal(restored.getState().screen, 'encounter');
+        assert.equal(restored.getState().examineTab, 'chat');
+        assert.equal(restored.getState().polyclinic.patient?.transcript.length, 2);
+        if (logoutDuringReceipt) await new Promise<void>((done) => { release = done; });
+        return Response.json({ requestId: JSON.parse(String(init?.body)).requestId, acknowledged: true });
+      }
+      return Response.json({ attemptId: 'delivery-recovery-owner-12345', investigations: [] });
+    };
+    const first = loadStore(browser, fetcher);
+    first.startNavigation('user:one'); first.acceptNextPatient('id-004'); await flush();
+    const p = first.getState().polyclinic.patient!;
+    const requestId = 'recovered-patient-request-0001';
+    view = { attemptId: p.investigationAttemptId!, caseId: p.case.id, caseVersion: p.caseVersion,
+      variantSeed: p.variantSeed, clientAttemptId: p.encounterAttemptId, createdAt: p.arrivedAt / 1000, expiresAt: Date.now() / 1000 + 100,
+      patientProfile: { displayName: p.case.name, age: p.case.age, chiefComplaint: p.case.chiefComplaint },
+      transcript: [
+        { role: 'trainee', content: 'Recovered question', requestId, timestampIso: '1000', questionSource: 'typed' },
+        { role: 'patient', content: 'Recovered complete reply', requestId, timestampIso: '1000', questionSource: null },
+      ], pendingDialogueRequestIds: [requestId], visibleAnswers: {}, askedQuestionIds: [], examinations: [], prescriptions: [],
+      submittedDiagnosisId: null, completionChecks: null, investigations: [], orders: [], evaluationActive: false, evaluationResult: null };
+    first.setScreen('debrief'); first.stopNavigation();
+    restored = loadStore(browser, fetcher); restored.startNavigation('user:one'); await flush();
+    assert.equal(ackCount, 1);
+    if (logoutDuringReceipt) {
+      restored.resetForIdentityExit(); release(); await flush();
+      assert.equal(restored.getState().screen, 'auth');
+      assert.equal(restored.getState().polyclinic.patient, null);
+    } else {
+      assert.equal(restored.getState().screen, 'encounter');
+      const patient = restored.getState().polyclinic.patient!;
+      assert.equal(patient.transcript[1].audioTurnId, `patient-${requestId}`);
+      restored.appendTranscriptEntry({ ...patient.transcript[1], id: 'a-different-local-id' });
+      assert.equal(restored.getState().polyclinic.patient?.transcript.length, 2);
+    }
+    restored.stopNavigation();
+  }
+});
+
 test('reopening the root while signed in offers recovery without automatically resuming a case', async () => {
   const browser = surface('#/auth');
   browser.storage.set('medsim:recovery:user:one', JSON.stringify({ screen: 'encounter', attemptId: 'reference' }));

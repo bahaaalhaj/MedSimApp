@@ -7,6 +7,7 @@ export type PatientQuestionSource = 'typed' | 'predefined';
 export type PatientResponseProvenance = 'openrouter' | 'deterministic-authored' | 'safe-unknown';
 export interface PatientStreamChunk {
   text: string;
+  complete?: boolean;
   provenance?: PatientResponseProvenance;
   actualModel?: string | null;
   matchConfidence?: number;
@@ -27,6 +28,19 @@ export class LocalPatientError extends Error {
 }
 
 const PATIENT_STREAM_URL = '/agent/patient/stream';
+
+/** Client acceptance of a complete text turn; never proof of reading or audio. */
+export async function acknowledgePatientText(attemptId: string, requestId: string, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
+  const response = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/dialogue/acknowledgements`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId }), signal,
+  });
+  const receipt = await response.json().catch(() => null) as { acknowledged?: boolean; requestId?: string } | null;
+  if (!response.ok || receipt?.acknowledged !== true || receipt.requestId !== requestId) {
+    throw new LocalPatientError('The reply could not be reconciled. Retry the same question or resume the encounter; no new answer is needed.', 'model-unavailable', true);
+  }
+}
 
 export async function* streamLocalPatient(
   attemptId: string,
@@ -66,7 +80,7 @@ export async function* streamLocalPatient(
         buffer = buffer.slice(separator + 2);
         const encoded = frame.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n');
         if (!encoded) continue;
-        let event: { text?: string; done?: boolean; error?: string; category?: string; retryable?: boolean; provenance?: PatientResponseProvenance; actualModel?: string | null; matchConfidence?: number; intentId?: string | null; matchedSource?: string | null; answerShownToTrainee?: string | null; relevantPerCase?: boolean | null };
+        let event: { text?: string; done?: boolean; correlationId?: string; requiresAcknowledgement?: boolean; error?: string; category?: string; retryable?: boolean; provenance?: PatientResponseProvenance; actualModel?: string | null; matchConfidence?: number; intentId?: string | null; matchedSource?: string | null; answerShownToTrainee?: string | null; relevantPerCase?: boolean | null };
         try { event = JSON.parse(encoded); } catch { continue; }
         if (event.error) {
           const category = ['missing-api-key', 'missing-model', 'configuration-invalid', 'paid-model-blocked', 'local-provider-disabled', 'model-starting', 'model-unavailable', 'free-capacity-unavailable', 'rate-limited', 'low-memory', 'response-timeout', 'invalid-request', 'request-in-progress'].includes(event.category ?? '')
@@ -75,7 +89,13 @@ export async function* streamLocalPatient(
           throw new LocalPatientError(event.error, category, event.retryable !== false);
         }
         if (event.done) {
-          yield { text: '', provenance: event.provenance, actualModel: event.actualModel, matchConfidence: event.matchConfidence, intentId: event.intentId, matchedSource: event.matchedSource, answerShownToTrainee: event.answerShownToTrainee, relevantPerCase: event.relevantPerCase };
+          if (event.requiresAcknowledgement) {
+            if (event.correlationId !== requestId) throw new LocalPatientError('Patient reply request ID mismatch.', 'model-unavailable', true);
+          }
+          // The consumer accepts complete text before this generator resumes
+          // and sends its receipt. A lost receipt must not erase visible text.
+          yield { text: '', complete: true, provenance: event.provenance, actualModel: event.actualModel, matchConfidence: event.matchConfidence, intentId: event.intentId, matchedSource: event.matchedSource, answerShownToTrainee: event.answerShownToTrainee, relevantPerCase: event.relevantPerCase };
+          if (event.requiresAcknowledgement) await acknowledgePatientText(attemptId, requestId, signal);
           return;
         }
         if (typeof event.text === 'string') yield { text: event.text };
