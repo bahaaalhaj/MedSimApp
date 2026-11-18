@@ -41,12 +41,12 @@ def safe_error_category(exc: Exception) -> tuple[str, str, bool]:
 class PatientDialogueService:
     """Closed-world patient dialogue, provider fallback, and SSE persistence."""
 
-    def __init__(self, store: AttemptStore):
+    def __init__(self, store: AttemptStore, semantic_timeout: float | None = None):
         self.store = store
+        self.semantic_timeout = semantic_timeout
 
     def acknowledge(self, attempt_id: str, request_id: str, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
             record = attempt['patientResponses'].get(request_id)
             if not isinstance(record, dict):
                 raise HTTPException(404, 'generated dialogue turn not found')
@@ -56,8 +56,7 @@ class PatientDialogueService:
 
     async def stream(self, req: PatientTurnRequest, request: Request) -> StreamingResponse:
         correlation_id = req.requestId or secrets.token_urlsafe(12)
-        with self.store.lock:
-            attempt = self.store.get(request, req.attemptId)
+        async with self.store.atransaction(request, req.attemptId) as attempt:
             requires_ack = attempt.get('dialogueDeliveryVersion') == 1
             if requires_ack and not req.requestId:
                 raise HTTPException(422, 'requestId is required for acknowledged dialogue')
@@ -80,6 +79,12 @@ class PatientDialogueService:
                     })
                 return StreamingResponse(cached_generator(), media_type="text/event-stream",
                                          headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+            if self.store.distributed:
+                if correlation_id in attempt.get('dispatchedRequests', {}):
+                    raise HTTPException(409, 'This request was interrupted or failed. Recover the encounter; submit a new question manually.',
+                                        headers={'X-MedSim-Request-Outcome': 'pending' if attempt.get('patientRequestActive') else 'closed'})
+                if len(attempt.get('dispatchedRequests', {})) >= 100:
+                    raise HTTPException(429, 'Demo encounter turn limit reached. Start a new encounter.')
             if requires_ack and (pending_dialogue(attempt) or attempt.get('evaluationActive') or attempt.get('evaluationResult')):
                 raise HTTPException(409, 'Reconcile the previous patient reply before continuing, or open its completed debrief.')
             case = attempt["localAiCase"]
@@ -163,6 +168,9 @@ class PatientDialogueService:
             if attempt["patientRequestActive"]:
                 raise HTTPException(status_code=409, detail="A patient response is already in progress for this encounter.")
             attempt["patientRequestActive"] = True
+            claim_token = self.store.claim(attempt, 'patientRequest', correlation_id)
+            if self.store.distributed:
+                attempt.setdefault('dispatchedRequests', {})[correlation_id] = True
 
         async def generator():
             response_text = ""
@@ -197,7 +205,7 @@ class PatientDialogueService:
                         completion = await asyncio.wait_for(provider.complete_chat(ChatRequest(
                             system=system, messages=[{"role": "user", "content": req.question.strip()}],
                             max_tokens=200, temperature=0.0, request_id=correlation_id,
-                            task="patient-interpretation")), timeout=semantic_timeout_seconds())
+                            task="patient-interpretation")), timeout=self.semantic_timeout or semantic_timeout_seconds())
                         attempted_models = list(completion.attempted_models)
                         actual_model = completion.actual_model
                         interpreted = validate_interpretation(completion.text, memory, case, is_parent=profile["age"] < 14)
@@ -276,8 +284,8 @@ class PatientDialogueService:
                     # Operational failures are NOT patient speech or grading
                     # evidence. Keep a bounded private diagnostic, not a replayed
                     # clinical answer; the same request ID may be retried safely.
-                    with self.store.lock:
-                        current = self.store.get(request, req.attemptId)
+                    async with self.store.atransaction(request, req.attemptId) as current:
+                        self.store.check_claim(current, 'patientRequest', claim_token)
                         failures = current.setdefault("patientFailures", {})
                         failures[correlation_id] = {"category": provider_error_category,
                             "validationResult": validation_result, "providerLatencyMs": provider_latency_ms,
@@ -285,10 +293,10 @@ class PatientDialogueService:
                         if len(failures) > 16:
                             failures.pop(next(iter(failures)))
                     yield sse({"error": failure_message, "category": provider_error_category,
-                               "retryable": failure_retryable, "correlationId": correlation_id})
+                               "retryable": failure_retryable, "requestClosed": self.store.distributed, "correlationId": correlation_id})
                     return
-                with self.store.lock:
-                    current = self.store.get(request, req.attemptId)
+                async with self.store.atransaction(request, req.attemptId) as current:
+                    self.store.check_claim(current, 'patientRequest', claim_token)
                     current.get("patientFailures", {}).pop(correlation_id, None)
                     current["patientMessages"] = [*current["patientMessages"], {"role": "user", "content": req.question.strip()}, {"role": "assistant", "content": response_text}][-16:]
                     current["patientResponses"][correlation_id] = {
@@ -309,7 +317,7 @@ class PatientDialogueService:
                         "answerShownToTrainee": authored_value if req.source == "predefined" else None,
                         "relevantPerCase": bool(history_item.get("relevant")) if history_item is not None else None,
                     }
-                    if len(current["patientResponses"]) > 16:
+                    if not self.store.distributed and len(current["patientResponses"]) > 16:
                         current["patientResponses"].pop(next(iter(current["patientResponses"])))
                     # Model selection is dialogue assistance, never scoring authority.
                     # Keep its support ID internally without awarding an authored action.
@@ -360,10 +368,10 @@ class PatientDialogueService:
                 yield sse({"error": "The patient response service is unavailable. Your question was not answered. Please retry.",
                            "category": category, "retryable": _retryable, "correlationId": correlation_id})
             finally:
-                with self.store.lock:
-                    try:
-                        self.store.get(request, req.attemptId)["patientRequestActive"] = False
-                    except HTTPException:
-                        pass
+                try:
+                    async with self.store.atransaction(request, req.attemptId) as current:
+                        self.store.finish_claim(current, 'patientRequest', claim_token)
+                except HTTPException:
+                    pass
 
         return StreamingResponse(generator(), media_type="text/event-stream", headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})

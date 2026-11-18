@@ -1,3 +1,4 @@
+import { capabilities } from '../deploymentCapabilities';
 /** Text-first AI patient conversation with ordered local TTS playback. */
 import { recordRuntimeDiagnostic } from '../runtimeDiagnostics.ts';
 import { canStartPatientText, ConversationState } from './ConversationState';
@@ -42,7 +43,7 @@ function detectEmotion(text: string): PatientEmotion {
 export class Conversation {
   private readonly state: ConversationState;
   private readonly preferences = new PatientAudioPreferences();
-  private readonly playback: WebAudioPlayback;
+  private readonly playback: WebAudioPlayback | null;
   private readonly patientText: PatientTextRequestLifecycle<PatientTextResponse>;
   private readonly audioQueue: OrderedAudioQueue<SynthesizedPatientAudio>;
   private disposed = false;
@@ -50,10 +51,10 @@ export class Conversation {
   private readonly decodedAudio = new Map<string, SynthesizedPatientAudio>();
   private audioTiming = '';
 
-  constructor(audioCtx: AudioContext, listeners: ConversationListeners, private readonly options: ConversationOptions) {
+  constructor(audioCtx: AudioContext | null, listeners: ConversationListeners, private readonly options: ConversationOptions) {
     const openingTurnId = `opening-${options.caseId}-${options.caseVersion}`;
     this.state = new ConversationState({ ...options.initialMessage, audioTurnId: openingTurnId }, listeners);
-    this.playback = new WebAudioPlayback(audioCtx, this.preferences);
+    this.playback = audioCtx && capabilities().audio ? new WebAudioPlayback(audioCtx, this.preferences) : null;
     this.patientText = new PatientTextRequestLifecycle((request, signal) => requestPatientText(
       request,
       signal,
@@ -65,6 +66,7 @@ export class Conversation {
     ));
     this.audioQueue = new OrderedAudioQueue({
       synthesize: async (job, signal) => {
+        if (!audioCtx || !capabilities().audio) throw new Error('Audio is unavailable in this deployment.');
         const cached = this.decodedAudio.get(job.turnId);
         if (cached) return cached;
         const audio = await synthesizePatientAudio(job, signal, {
@@ -82,8 +84,8 @@ export class Conversation {
         }
         return audio;
       },
-      play: (audio, job, onStarted) => this.playback.play(audio.buffer, job.turnId, onStarted),
-      stop: () => { this.playback.stop(); },
+      play: (audio, job, onStarted) => this.playback!.play(audio.buffer, job.turnId, onStarted),
+      stop: () => { this.playback?.stop(); },
       onPreparing: (job) => {
         this.state.setLastAudioError('');
         recordRuntimeDiagnostic('audio-request-start', job.turnId, { queueLength: this.audioQueue.getQueuePosition(job.turnId) ?? 0 });
@@ -137,11 +139,11 @@ export class Conversation {
   getAudioQueuePosition(turnId: string) { return this.audioQueue.getQueuePosition(turnId); }
   subscribeMessages(fn: (messages: ReadonlyArray<ConversationMessage>) => void) { return this.state.subscribeMessages(fn); }
   subscribeAudioStates(fn: () => void) { return this.audioQueue.subscribe(fn); }
-  setVolume(volume: number) { this.preferences.setVolume(volume); this.playback.applyGain(); }
-  setMuted(muted: boolean) { this.preferences.setMuted(muted); this.playback.applyGain(); }
-  getMouthAmplitude() { return this.playback.getMouthAmplitude(); }
+  setVolume(volume: number) { this.preferences.setVolume(volume); this.playback?.applyGain(); }
+  setMuted(muted: boolean) { this.preferences.setMuted(muted); this.playback?.applyGain(); }
+  getMouthAmplitude() { return this.playback?.getMouthAmplitude() ?? 0; }
   async enableAudio() {
-    try { await this.playback.enable(); this.state.setLastAudioError(''); }
+    try { await this.playback?.enable(); this.state.setLastAudioError(''); }
     catch (error) { this.state.setLastAudioError(error instanceof Error ? error.message : 'Audio could not be enabled.'); }
   }
 
@@ -195,6 +197,7 @@ export class Conversation {
         if (!this.disposed) this.state.setStatus('ready');
         return false;
       }
+      if (error && typeof error === 'object' && 'requestClosed' in error && error.requestClosed) this.retryRequest = null;
       const message = error instanceof Error ? error.message : String(error);
       if (!responseCommitted()) this.state.popMessage();
       this.state.setLastResponseError(message);
@@ -241,7 +244,7 @@ export class Conversation {
     this.retryRequest = null;
     this.patientText.dispose();
     this.audioQueue.dispose();
-    this.playback.dispose();
+    this.playback?.dispose();
     this.decodedAudio.clear();
     this.state.dispose();
   }
@@ -267,6 +270,7 @@ export class Conversation {
   }
 
   private enqueueSpeech(job: AudioJob) {
+    if (!capabilities().audio || !this.playback) return;
     if (this.audioQueue.enqueue(job)) recordRuntimeDiagnostic('audio-queued', job.turnId, { queueLength: this.audioQueue.getQueuePosition(job.turnId) ?? 0, opening: job.isOpeningGreeting });
   }
 }

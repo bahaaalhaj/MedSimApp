@@ -15,8 +15,13 @@ const bundled = buildSync({
 }).outputFiles[0].text;
 
 const flush = async () => { for (let index = 0; index < 5; index++) await new Promise<void>((done) => setImmediate(done)); };
+const demoBundled = buildSync({
+  entryPoints: [resolve(import.meta.dirname, '../../src/voice/conversation.ts')],
+  bundle: true, platform: 'node', format: 'cjs', write: false,
+  define: { 'import.meta.env': '{"DEV":false,"VITE_MEDSIM_DEPLOYMENT_MODE":"vercel-guest-demo"}' },
+}).outputFiles[0].text;
 
-function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean; suspended?: boolean; acknowledge?: boolean; ackFails?: boolean; delayAck?: Promise<void>; restored?: boolean } = {}) {
+function fixture(provenance: string, options: { demo?: boolean; ttsFails?: boolean; delayText?: Promise<void>; delayAudio?: Promise<void>; providerFails?: boolean; truncated?: boolean; suspended?: boolean; acknowledge?: boolean; ackFails?: boolean; delayAck?: Promise<void>; restored?: boolean } = {}) {
   const transcript: TranscriptRecord[] = [];
   const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
   let ttsFails = options.ttsFails ?? false;
@@ -25,7 +30,7 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
   let ackFails = options.ackFails ?? false;
   const authorized: string[] = [];
   const module = { exports: {} as { Conversation: typeof Conversation } };
-  runInNewContext(bundled, {
+  runInNewContext(options.demo ? demoBundled : bundled, {
     module, exports: module.exports, crypto, performance, TextDecoder, AbortController,
     DOMException, CustomEvent, console, setTimeout, clearTimeout,
     window: { dispatchEvent: () => undefined },
@@ -64,7 +69,7 @@ function fixture(provenance: string, options: { ttsFails?: boolean; delayText?: 
       return source;
     },
   } as unknown as AudioContext;
-  const conversation = new module.exports.Conversation(context, {}, {
+  const conversation = new module.exports.Conversation(options.demo ? null : context, {}, {
     ...(options.restored ? { restoredMessages: [
       { role: 'user' as const, content: 'Recovered question.' },
       { role: 'assistant' as const, content: 'Recovered complete answer.', audioTurnId: 'patient-recovered-request-0001' },
@@ -268,4 +273,22 @@ test('gesture-blocked audio keeps text and reuses decoded bytes after Enable aud
   assert.equal(conversation.isMuted(), true);
   assert.equal(conversation.getVolume(), 0.2);
   conversation.dispose();
+});
+
+test('Vercel demo accepts/acknowledges text and recovery without Web Audio or synthesis', async () => {
+  for (const restored of [false, true]) {
+    const f = fixture('openrouter', { demo: true, acknowledge: true, restored });
+    await f.conversation.init();
+    assert.equal(await f.conversation.sendTextMessage('Which season?'), true);
+    await flush();
+    await f.conversation.enableAudio();
+    await f.conversation.replayLastResponse();
+    f.conversation.setMuted(false);
+    await flush();
+    assert.equal(f.calls.filter((row) => row.url === '/tts/synthesize').length, 0);
+    assert.equal(f.calls.filter((row) => row.url.endsWith('/dialogue/acknowledgements')).length, 1);
+    assert.equal(f.conversation.getMessages().at(-1)?.content, 'It usually happens during spring.');
+    assert.equal(f.conversation.getStatus(), 'ready');
+    f.conversation.dispose();
+  }
 });

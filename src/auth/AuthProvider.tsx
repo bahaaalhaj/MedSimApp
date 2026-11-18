@@ -1,3 +1,4 @@
+import { capabilities } from '../deploymentCapabilities';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as api from './authApi';
 import type { AuthState, LoginInput, RegisterInput } from './types';
@@ -45,6 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     commit({ status: 'loading', user: null, guestId: null, error: null });
     const pending = currentSnapshot;
     try {
+      if (!capabilities().accounts) {
+        const guestId = capabilities().guestId!;
+        const previousId = localStorage.getItem(GUEST_ID_KEY);
+        if (previousId !== guestId) {
+          localStorage.removeItem(GUEST_ACTIVE_KEY);
+          store.resetForIdentityExit();
+        }
+        localStorage.setItem(GUEST_ID_KEY, guestId);
+        commit(guestState() ?? { status: 'unauthenticated', user: null, guestId: null, error: null });
+        return;
+      }
       const session = await api.getSession();
       if (pending !== currentSnapshot) return;
       if (session.authenticated && session.user) {
@@ -60,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void retry(); }, [retry]);
   useEffect(() => {
+    if (!capabilities().accounts) return;
     const revalidate = () => {
       if (document.visibilityState !== 'visible' || currentSnapshot.status === 'loading') return;
       const expected = currentSnapshot;
@@ -84,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ...state,
     retry,
     login: async (input) => {
+      if (!capabilities().accounts) throw new Error('Accounts are unavailable in this guest demo.');
       commit({ status: 'loading', user: null, guestId: null, error: null });
       try {
         const user = await api.login(input);
@@ -96,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     register: async (input) => {
+      if (!capabilities().accounts) throw new Error('Accounts are unavailable in this guest demo.');
       commit({ status: 'loading', user: null, guestId: null, error: null });
       try {
         const user = await api.register(input);

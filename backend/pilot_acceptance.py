@@ -112,11 +112,23 @@ async def acceptance(live, output, serve=None):
 
         provider.complete_chat = guarded
         original_serial = serial.complete_chat
+        offline_overlap = False
+        offline_arrivals = 0
+        offline_ready = asyncio.Event()
 
         async def queued(request):
+            nonlocal offline_arrivals
             timing = provider.timing
             if timing:
                 timing.mark('queued')
+            if offline_overlap:
+                # Encounter preparation can exceed the scripted 40 ms response.
+                # Rendezvous before the real gate so offline overlap is measured,
+                # rather than depending on thread scheduling/preparation speed.
+                offline_arrivals += 1
+                if offline_arrivals == 2:
+                    offline_ready.set()
+                await offline_ready.wait()
             try:
                 return await original_serial(request)
             finally:
@@ -249,6 +261,7 @@ async def acceptance(live, output, serve=None):
             first = await turn(0)
             second = await turn(1) if not stop else False
             if first and second and not stop:
+                offline_overlap = not live
                 await asyncio.gather(turn(2), turn(3))
             else:
                 report['overlapSkipped'] = 'Earlier sequential acceptance did not pass'

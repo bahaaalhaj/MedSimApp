@@ -22,6 +22,7 @@ export class LocalPatientError extends Error {
     message: string,
     public readonly category: 'missing-api-key' | 'missing-model' | 'configuration-invalid' | 'paid-model-blocked' | 'local-provider-disabled' | 'model-starting' | 'model-unavailable' | 'free-capacity-unavailable' | 'rate-limited' | 'low-memory' | 'response-timeout' | 'invalid-request' | 'request-in-progress' | 'unknown',
     public readonly retryable: boolean,
+    public readonly requestClosed: boolean = false,
   ) {
     super(message);
   }
@@ -63,6 +64,7 @@ export async function* streamLocalPatient(
       payload?.detail ?? `Patient request failed (${res.status}).`,
       res.status === 422 ? 'invalid-request' : res.status === 409 ? 'request-in-progress' : 'model-unavailable',
       res.status >= 500,
+      res.headers.get('X-MedSim-Request-Outcome') === 'closed',
     );
   }
 
@@ -80,13 +82,13 @@ export async function* streamLocalPatient(
         buffer = buffer.slice(separator + 2);
         const encoded = frame.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n');
         if (!encoded) continue;
-        let event: { text?: string; done?: boolean; correlationId?: string; requiresAcknowledgement?: boolean; error?: string; category?: string; retryable?: boolean; provenance?: PatientResponseProvenance; actualModel?: string | null; matchConfidence?: number; intentId?: string | null; matchedSource?: string | null; answerShownToTrainee?: string | null; relevantPerCase?: boolean | null };
+        let event: { text?: string; done?: boolean; correlationId?: string; requiresAcknowledgement?: boolean; error?: string; category?: string; retryable?: boolean; requestClosed?: boolean; provenance?: PatientResponseProvenance; actualModel?: string | null; matchConfidence?: number; intentId?: string | null; matchedSource?: string | null; answerShownToTrainee?: string | null; relevantPerCase?: boolean | null };
         try { event = JSON.parse(encoded); } catch { continue; }
         if (event.error) {
           const category = ['missing-api-key', 'missing-model', 'configuration-invalid', 'paid-model-blocked', 'local-provider-disabled', 'model-starting', 'model-unavailable', 'free-capacity-unavailable', 'rate-limited', 'low-memory', 'response-timeout', 'invalid-request', 'request-in-progress'].includes(event.category ?? '')
             ? event.category as LocalPatientError['category']
             : 'unknown';
-          throw new LocalPatientError(event.error, category, event.retryable !== false);
+          throw new LocalPatientError(event.error, category, event.retryable !== false, event.requestClosed === true);
         }
         if (event.done) {
           if (event.requiresAcknowledgement) {

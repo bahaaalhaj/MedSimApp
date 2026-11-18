@@ -1,8 +1,20 @@
 {
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "https://grand-rounds-backend.onrender.com/api/:path*" },
-    { "source": "/agent/:path*", "destination": "https://grand-rounds-backend.onrender.com/agent/:path*" },
-    { "source": "/tts/:path*", "destination": "https://grand-rounds-backend.onrender.com/tts/:path*" },
-    { "source": "/:path*", "destination": "/" }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build:demo",
+  "outputDirectory": "dist-demo",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "includeFiles": "docs/generated/{curation-manifest.json,investigation-manifest.server.json,local-ai-manifest.server.json}",
+      "excludeFiles": "{.*/**,**/.env*,**/*.db*,**/*.sqlite*,**/*.log,**/__pycache__/**,**/*.pyc,node_modules/**,dist/**,dist-demo/**,public/**,scripts/**,src/**,docs/!(generated)/**,docs/generated/!(curation-manifest.json|investigation-manifest.server.json|local-ai-manifest.server.json),backend/!(medsim_backend|local_ai.py|local_llm.py|patient_memory.py|patient_interpretation.py){,/**},backend/medsim_backend/runtime.py,backend/medsim_backend/routes/diagnostics.py}"
+    }
+  },
+  "routes": [
+    { "src": "/(api|agent)(/.*)?", "dest": "/api/index.py" },
+    { "src": "/health", "dest": "/api/index.py" },
+    { "src": "/(?:tts|backend|docs|src|node_modules|\\..*)(?:/.*)?", "status": 404 },
+    { "handle": "filesystem" },
+    { "src": "/.*", "status": 404 }
   ]
 }
