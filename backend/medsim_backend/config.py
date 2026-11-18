@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -41,6 +41,8 @@ class RuntimeSettings:
     dev_origins: set[str]
     development_access: bool = False
     pilot_origin: str = ""
+    demo: bool = False
+    guest_signing_key: bytes | None = field(default=None, repr=False)
 
 
 def pilot_origin(value: str) -> str:

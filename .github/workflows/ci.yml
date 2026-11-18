@@ -15,6 +15,16 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       # Node 22.14 requires opt-in TypeScript execution, including child processes.
       NODE_OPTIONS: --experimental-strip-types
@@ -24,6 +34,7 @@ jobs:
       PATIENT_TTS_PROVIDER: disabled
       PATIENT_TTS_FALLBACK: disabled
       PYTHONHASHSEED: '0'
+      TEST_REDIS_URL: redis://127.0.0.1:6379
     steps:
       - name: Check out repository
         uses: actions/checkout@v4.2.2
@@ -50,6 +61,9 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -r backend/requirements-test.txt
 
+      - name: Validate complete Vercel configuration
+        run: npm run verify:vercel
+
       - name: TypeScript validation
         run: node node_modules/typescript/bin/tsc -b
 
@@ -73,13 +87,17 @@ jobs:
         run: |
           npm run lint
           npm run format:check
-          ruff check backend scripts/clinical/verify-review-workbook.py
+          ruff check backend api scripts/clinical/verify-review-workbook.py
 
       - name: Backend tests with inference and TTS disabled
         run: python -m unittest discover -s backend/tests -v
 
       - name: Production build
-        run: npm run build
+        run: |
+          npm run build
+          npm run security:scan-frontend
+          npm run build:demo
+          node scripts/verify/frontend-answer-leakage.ts dist-demo
 
       - name: Diff integrity
         run: git diff --check

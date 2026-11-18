@@ -1,3 +1,4 @@
+import { capabilities } from '../deploymentCapabilities';
 import { Conversation, type ConversationListeners } from './conversation';
 import { buildInitialLine, isPediatric, parentGenderFor } from './patientPersona';
 import type { LearnerPatientCase } from '../game/types';
@@ -5,7 +6,8 @@ import { store as gameStore } from '../game/store';
 
 let sharedCtx: AudioContext | null = null;
 
-export function ensureAudioContext(): AudioContext {
+export function ensureAudioContext(): AudioContext | null {
+  if (!capabilities().audio) return null;
   if (!sharedCtx) {
     sharedCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
   }

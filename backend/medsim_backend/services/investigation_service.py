@@ -32,11 +32,11 @@ class InvestigationService:
         return result
 
     def order(self, attempt_id: str, payload: InvestigationOrderRequest, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
             existing_id = attempt["orderByInvestigation"].get(payload.investigationId)
             if existing_id:
                 return self.public_order(attempt["orders"][existing_id], include_result=False)
+            self.store.assert_mutable(attempt)
             clinical_case = self.investigation_cases.get(attempt["caseId"])
             if not clinical_case or clinical_case["caseVersion"] != attempt["caseVersion"]:
                 raise HTTPException(status_code=409, detail="assigned case version is no longer available")
@@ -70,17 +70,16 @@ class InvestigationService:
             return self.public_order(order, include_result=False)
 
     def list_orders(self, attempt_id: str, request: Request) -> list[dict[str, Any]]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
             return [self.public_order(order, include_result=False) for order in attempt["orders"].values()]
 
     def result(self, attempt_id: str, order_id: str, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
             order = attempt["orders"].get(order_id)
             if not order:
                 raise HTTPException(status_code=404, detail="investigation order not found")
             result = self.public_order(order, include_result=True)
             if order["status"] == "available" and result.get("resultSnapshot") is not None and order.get("releasedAt") is None:
+                self.store.assert_mutable(attempt)
                 order["releasedAt"] = time.time()
             return result

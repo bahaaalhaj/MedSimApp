@@ -4,6 +4,7 @@ import App from './App';
 import './styles/global.css';
 import { clearAllConversationStorage } from './voice/conversationStore';
 import { AuthProvider } from './auth/AuthProvider';
+import { loadCapabilities } from './deploymentCapabilities';
 
 // Each browser load = fresh shift. Old per-case chat history could otherwise
 // leak the previous farewell into the next encounter as the "last assistant
@@ -13,10 +14,12 @@ clearAllConversationStorage();
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('#root not found');
 
-createRoot(rootEl).render(
+void loadCapabilities().then(() => createRoot(rootEl).render(
   <StrictMode>
     <AuthProvider>
       <App />
     </AuthProvider>
   </StrictMode>,
-);
+)).catch((error: unknown) => {
+  rootEl.textContent = error instanceof Error ? error.message : 'Unable to initialize MedSim. Reload to try again.';
+});

@@ -1,0 +1,6 @@
+# Nearest Vercel function manifest: do not let the root Ruff-only pyproject
+# shadow these dependencies. Windows uses backend/requirements*.txt.
+fastapi==0.136.1
+pydantic==2.13.3
+httpx==0.28.1
+slowapi==0.1.9

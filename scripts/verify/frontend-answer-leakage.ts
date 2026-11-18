@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
-const assets = resolve(root, 'dist/assets');
+const assets = resolve(root, process.argv[2] ?? 'dist', 'assets');
 const bundles = readdirSync(assets)
   .filter((name) => name.endsWith('.js'))
   .map((name) => resolve(assets, name));

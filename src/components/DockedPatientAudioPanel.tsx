@@ -1,3 +1,4 @@
+import { capabilities } from '../deploymentCapabilities';
 import { useEffect, useRef, useState } from 'react';
 import { POLYCLINIC_BED_INDEX } from '../game/store';
 import { getExistingConversation } from '../voice/conversationStore';
@@ -173,7 +174,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
           {statusLabel}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+      {capabilities().audio && <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
         <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.enableAudio()}>Enable audio</button>
         <button type="button" aria-label={muted ? 'Unmute patient audio' : 'Mute patient audio'} onClick={() => {
           const conversation = getExistingConversation(POLYCLINIC_BED_INDEX);
@@ -188,10 +189,10 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
           getExistingConversation(POLYCLINIC_BED_INDEX)?.setVolume(next);
         }} style={{ flex: 1, minWidth: 0 }} />
         <button type="button" aria-label="Replay patient response" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.replayLastResponse()}>↻</button>
-      </div>
-      {status === 'audio-preparing' && <div role="status" style={{ fontSize: 11 }}>Speech is preparing; cold startup may be slow. You can keep reading and asking text questions. <button onClick={() => getExistingConversation(POLYCLINIC_BED_INDEX)?.skipCurrentSpeech()}>Skip audio</button></div>}
-      {audioError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{audioError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retrySpeech()}>Retry audio</button></div>}
-      {audioTiming && <details style={{ fontSize: 10 }}><summary>Audio timing</summary>{audioTiming}</details>}
+      </div>}
+      {capabilities().audio && status === 'audio-preparing' && <div role="status" style={{ fontSize: 11 }}>Speech is preparing; cold startup may be slow. You can keep reading and asking text questions. <button onClick={() => getExistingConversation(POLYCLINIC_BED_INDEX)?.skipCurrentSpeech()}>Skip audio</button></div>}
+      {capabilities().audio && audioError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{audioError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retrySpeech()}>Retry audio</button></div>}
+      {capabilities().audio && audioTiming && <details style={{ fontSize: 10 }}><summary>Audio timing</summary>{audioTiming}</details>}
       {responseError && <div role="status" style={{ marginTop: 6, fontSize: 11 }}>{responseError} <button type="button" onClick={() => void getExistingConversation(POLYCLINIC_BED_INDEX)?.retryLastResponse()}>Retry response</button></div>}
 
       <div
@@ -228,7 +229,7 @@ export function DockedPatientAudioPanel({ patientName, patientLabel }: Props) {
             "{subtitle.text}"
           </>
         ) : (
-          'Voice live · just talk'
+          (capabilities().audio ? 'Voice live · just talk' : 'Text chat')
         )}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { capabilities } from '../../deploymentCapabilities';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RoundedBox, Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
@@ -498,7 +499,7 @@ function makeMonitorTexture(patient: MonitorPatient | null): CanvasTexture {
   // Badges along the bottom — mood markers using the cozy chip language.
   const chipY = cardY + cardH - 30;
   drawChip(ctx, cardX + 18, chipY, '★ accepted', '#A8E5C8');
-  drawChip(ctx, cardX + 124, chipY, '🎙 voice live', '#A6D8FF');
+  drawChip(ctx, cardX + 124, chipY, capabilities().audio ? '🎙 voice live' : 'Text chat', '#A6D8FF');
   drawChip(ctx, cardX + 246, chipY, 'OSCE training', '#FFD86B');
 
   const tex = new THREE.CanvasTexture(c);

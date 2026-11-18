@@ -28,6 +28,7 @@ class BackendRouteContractTests(unittest.TestCase):
     def test_public_route_methods_and_declared_success_statuses_are_stable(self) -> None:
         schema = server.app.openapi()
         expected = {
+            "/api/capabilities": {"get": "200"},
             "/agent/patient/stream": {"post": "200"},
             "/api/attempts/{attempt_id}/dialogue/acknowledgements": {"post": "200"},
             "/api/attempts": {"post": "201"},

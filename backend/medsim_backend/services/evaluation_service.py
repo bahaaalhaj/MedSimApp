@@ -33,10 +33,21 @@ class EvaluationService:
 
     async def evaluate(self, payload: EvaluationRequest, request: Request) -> dict[str, Any]:
         # Authorize every caller, including retries while a task is running.
-        with self.store.lock:
-            attempt = self.store.get(request, payload.attemptId)
+        async with self.store.atransaction(request, payload.attemptId) as attempt:
             if (payload.caseId, payload.caseVersion, payload.variantSeed) != (attempt['caseId'], attempt['caseVersion'], attempt['variantSeed']):
                 raise HTTPException(status_code=409, detail='attempt provenance mismatch')
+        if self.store.distributed:
+            # Invocation-owned: cancellation propagates. A lease also recovers
+            # state after abrupt process termination (where finally cannot run).
+            token = secrets.token_urlsafe(24)
+            try:
+                return await self._run(payload, request, token)
+            finally:
+                try:
+                    async with self.store.atransaction(request, payload.attemptId) as current:
+                        self.store.finish_claim(current, 'evaluation', token)
+                except HTTPException:
+                    pass
         task = self._tasks.get(payload.attemptId)
         if task is None:
             task = asyncio.create_task(self._run(payload, request))
@@ -53,9 +64,8 @@ class EvaluationService:
         # A lost mobile connection must not cancel grading or strand its busy flag.
         return await asyncio.shield(task)
 
-    async def _run(self, payload: EvaluationRequest, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, payload.attemptId)
+    async def _run(self, payload: EvaluationRequest, request: Request, claim_token: str = '') -> dict[str, Any]:
+        async with self.store.atransaction(request, payload.attemptId) as attempt:
             if payload.caseId != attempt["caseId"] or payload.caseVersion != attempt["caseVersion"]:
                 raise HTTPException(status_code=409, detail="attempt provenance mismatch")
             if payload.variantSeed != attempt["variantSeed"]:
@@ -93,6 +103,9 @@ class EvaluationService:
                 raise HTTPException(status_code=409, detail="An evaluation is already in progress for this encounter.")
             attempt.pop("dialogueContext", None)  # End of consultation; no dialogue context survives debrief.
             attempt["evaluationActive"] = True
+            if self.store.distributed:
+                import time
+                attempt['evaluationLease'] = {'token': claim_token, 'expiresAt': time.time() + 30}
             if payload.encounterTiming is not None:
                 attempt['encounterTiming'] = payload.encounterTiming.model_dump()
             case, assessment_scope = assessment_case(attempt["localAiCase"], attempt.get("gradingPolicy"))
@@ -184,8 +197,8 @@ class EvaluationService:
         if result["post_submission"] is not None:
             result["post_submission"]["references"] = [copy.deepcopy(LOCAL_AI_REFERENCES[reference_id]) for reference_id in case["evaluation"].get("allowedReferenceIds", []) if reference_id in LOCAL_AI_REFERENCES]
         result["diagnosis_result"] = {"submitted_diagnosis_id": evidence["submitted_diagnosis_id"], "correct_diagnosis_id": case["evaluation"]["correctDiagnosisId"], "diagnosis_was_correct": evidence["submitted_diagnosis_id"] == case["evaluation"]["correctDiagnosisId"]}
-        with self.store.lock:
-            current = self.store.get(request, payload.attemptId)
-            current["evaluationActive"] = False
+        async with self.store.atransaction(request, payload.attemptId) as current:
+            self.store.check_claim(current, 'evaluation', claim_token)
+            self.store.finish_claim(current, 'evaluation', claim_token)
             current["evaluationResult"] = copy.deepcopy(result)
         return result

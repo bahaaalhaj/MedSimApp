@@ -1,3 +1,4 @@
+import { capabilities } from './deploymentCapabilities';
 import { useEffect } from 'react';
 import { store, useGameState, useScreen, useTweaks } from './game/store';
 import { applyIntensity, applyPalette } from './styles/palettes';
@@ -68,7 +69,7 @@ export default function App() {
       {visibleScreen === 'debrief' && <DebriefScreen />}
       {visibleScreen === 'history' && <HistoryScreen />}
       </>}
-      <BackgroundMusic />
+      {capabilities().audio && <BackgroundMusic />}
       <RuntimeDiagnostics />
     </div>
   );

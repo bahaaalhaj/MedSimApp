@@ -1,3 +1,4 @@
+import { capabilities } from '../../deploymentCapabilities';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { store } from '../../game/store';
@@ -24,18 +25,18 @@ export function AuthScreen() {
           <Wordmark size={48} />
           <div className="auth-illustration"><Doodle kind="stetho" size={126} color="var(--mint)" /></div>
           <h1 id="auth-title">Welcome to your clinical practice space.</h1>
-          <p>Sign in to keep your training history private and available across sessions.</p>
-          <div className="chip mint">🔒 Secure, server-managed session</div>
+          <p>{capabilities().accounts ? 'Sign in to keep your training history private and available across sessions.' : 'Supervised guest demo. Text conversations only. Encounters expire after six hours; saved guest reviews stay in this browser.'}</p>
+          <div className="chip mint">{capabilities().accounts ? '🔒 Secure, server-managed session' : 'Guest demo · text only'}</div>
         </aside>
         <div className="auth-card plush-lg">
-          <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
+          {capabilities().accounts && <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
             <button type="button" role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Login</button>
             <button type="button" role="tab" aria-selected={mode === 'register'} className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Create Account</button>
-          </div>
+          </div>}
           {auth.error && <div className="auth-message auth-message--error" role="alert">{auth.error}</div>}
           {checking ? (
             <div className="auth-loading" role="status"><span className="auth-spinner" /> Checking your session…</div>
-          ) : mode === 'login' ? (
+          ) : !capabilities().accounts ? null : mode === 'login' ? (
             <LoginForm onCreateAccount={() => setMode('register')} />
           ) : (
             <RegisterForm onLogin={() => setMode('login')} />

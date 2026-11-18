@@ -1,3 +1,4 @@
+import { capabilities } from '../deploymentCapabilities';
 import type { AudioJob } from './OrderedAudioQueue';
 
 export interface SynthesizedPatientAudio {
@@ -23,6 +24,7 @@ interface TtsContext {
 
 /** Performs one attempt-bound local TTS request and decode; playback is owned elsewhere. */
 export async function synthesizePatientAudio(job: AudioJob, signal: AbortSignal, context: TtsContext): Promise<SynthesizedPatientAudio> {
+  if (!capabilities().audio) throw new Error('Audio is unavailable in this deployment.');
   const startedAt = performance.now();
   const attemptId = await context.ensureAttempt();
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');

@@ -9,7 +9,6 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 from local_ai import SAFE_UNKNOWN_RESPONSE, compose_patient_answer, opening_greeting, public_profile
-from tts import TTSRequest, get_tts_manager
 
 from ..attempt_store import ATTEMPT_TTL_SECONDS, AttemptStore
 from ..diagnostic_logging import log_event
@@ -50,8 +49,7 @@ class AttemptService:
 
     def recover(self, attempt_id: str, request: Request) -> dict[str, Any]:
         """Owner-authorized learner view; never serialize an attempt/audit wholesale."""
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
             clinical_case = self.investigation_cases.get(attempt['caseId'])
             if not clinical_case or clinical_case['caseVersion'] != attempt['caseVersion']:
                 raise HTTPException(status_code=409, detail='The assigned case version is no longer available.')
@@ -77,6 +75,7 @@ class AttemptService:
     async def prepare_case_audio(self, local_ai_case: dict[str, Any], profile: dict[str, Any]) -> None:
         if self.tts_settings.provider != "kokoro":
             return
+        from tts import TTSRequest, get_tts_manager
         case_id = local_ai_case["caseId"]
         case_version = local_ai_case["caseVersion"]
         gender = str(profile.get("gender", "F"))
@@ -108,6 +107,11 @@ class AttemptService:
         task.add_done_callback(preparation_finished)
 
     async def create(self, payload: CreateClinicalAttemptRequest, request: Request) -> dict[str, Any]:
+        if self.store.distributed:
+            return await asyncio.to_thread(self._create, payload, request)
+        return self._create(payload, request)
+
+    def _create(self, payload: CreateClinicalAttemptRequest, request: Request) -> dict[str, Any]:
         clinical_case = self.investigation_cases.get(payload.caseId)
         if not clinical_case or clinical_case["caseVersion"] != payload.caseVersion:
             raise HTTPException(status_code=404, detail="assignable case/version not found")
@@ -118,49 +122,40 @@ class AttemptService:
             profile = public_profile(local_ai_case, payload.patientProfile.model_dump() if payload.patientProfile else None)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if self.store.distributed and (payload.evidenceVersion != 2 or payload.dialogueDeliveryVersion != 1):
+            raise HTTPException(422, "The demo requires server-owned evidence and dialogue receipts.")
         owner = self.store.owner(request)
         now = time.time()
-        with self.store.lock:
-            self.store.clean(now, owner)
-            existing = next((item for item in self.store.attempts.values() if payload.clientAttemptId and
-                item["owner"] == owner and item["caseId"] == payload.caseId and
-                item["caseVersion"] == payload.caseVersion and item.get("clientAttemptId") == payload.clientAttemptId), None)
-            if existing:
-                return {
-                    "attemptId": existing["attemptId"], "caseId": payload.caseId,
-                    "caseVersion": payload.caseVersion,
-                    "investigations": [self.safe_investigation(item) for item in clinical_case["investigations"]],
-                    "openingGreeting": opening_greeting(existing["patientProfile"]),
-                    "evidenceVersion": existing.get("evidenceVersion", 1),
-                }
-            attempt_id = secrets.token_urlsafe(32)
-            attempt = {
-                "attemptId": attempt_id, "owner": owner, "caseId": payload.caseId,
-                "caseVersion": payload.caseVersion, "createdAt": now,
-                "expiresAt": now + ATTEMPT_TTL_SECONDS, "orders": {}, "orderByInvestigation": {},
-                "localAiCase": local_ai_case, "patientProfile": profile,
-                "patientMessages": [], "askedQuestionIds": [], "variantSeed": payload.variantSeed,
-                "clientAttemptId": payload.clientAttemptId, "evidenceVersion": payload.evidenceVersion,
-                "gradingPolicy": EXAMINATION_EXCLUDED,
-                "dialogueDeliveryVersion": payload.dialogueDeliveryVersion,
-                "patientRequestActive": False, "patientResponses": {},
-                "transcript": [{"role": "patient", "content": opening_greeting(profile), "timestampIso": str(now), "questionSource": None}],
-                "examinations": [], "treatments": [], "prescriptions": [],
-                "submittedDiagnosisId": None, "completionChecks": None,
-                "evaluationActive": False, "evaluationResult": None,
-            }
-            self.store.attempts[attempt_id] = attempt
+        attempt_id = secrets.token_urlsafe(32)
+        attempt = {
+            "attemptId": attempt_id, "owner": owner, "caseId": payload.caseId,
+            "caseVersion": payload.caseVersion, "createdAt": now,
+            "expiresAt": now + ATTEMPT_TTL_SECONDS, "orders": {}, "orderByInvestigation": {},
+            "localAiCase": local_ai_case, "patientProfile": profile,
+            "patientMessages": [], "askedQuestionIds": [], "variantSeed": payload.variantSeed,
+            "clientAttemptId": payload.clientAttemptId, "evidenceVersion": payload.evidenceVersion,
+            "gradingPolicy": EXAMINATION_EXCLUDED,
+            "dialogueDeliveryVersion": payload.dialogueDeliveryVersion,
+            "patientRequestActive": False, "patientResponses": {},
+            "transcript": [{"role": "patient", "content": opening_greeting(profile), "timestampIso": str(now), "questionSource": None}],
+            "examinations": [], "treatments": [], "prescriptions": [],
+            "submittedDiagnosisId": None, "completionChecks": None,
+            "evaluationActive": False, "evaluationResult": None,
+        }
+        attempt = self.store.create(request, attempt)
+        attempt_id = attempt["attemptId"]
+        profile = attempt["patientProfile"]
         return {
             "attemptId": attempt_id, "caseId": payload.caseId, "caseVersion": payload.caseVersion,
             "investigations": [self.safe_investigation(item) for item in clinical_case["investigations"]],
-            "openingGreeting": opening_greeting(profile), "evidenceVersion": payload.evidenceVersion,
+            "openingGreeting": opening_greeting(profile), "evidenceVersion": attempt["evidenceVersion"],
         }
 
     def record_examination(self, attempt_id: str, payload: AttemptExaminationRequest, request: Request) -> dict[str, Any]:
         if payload.actionId not in self.examination_action_ids:
             raise HTTPException(status_code=422, detail="unknown examination action")
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
+            self.store.assert_mutable(attempt)
             existing = next((item for item in attempt["examinations"] if item["actionId"] == payload.actionId), None)
             if existing:
                 return copy.deepcopy(existing)
@@ -169,8 +164,8 @@ class AttemptService:
             return copy.deepcopy(item)
 
     def submit_diagnosis(self, attempt_id: str, payload: AttemptDiagnosisRequest, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
+            self.store.assert_mutable(attempt)
             case = attempt["localAiCase"]
             if payload.diagnosisId not in set(case["evaluation"].get("diagnosisOptionIds", [])):
                 raise HTTPException(status_code=422, detail="diagnosis is not available for this case")
@@ -184,17 +179,17 @@ class AttemptService:
             return {"submittedDiagnosisId": payload.diagnosisId, "correctDiagnosisId": correct_id, "diagnosisWasCorrect": payload.diagnosisId == correct_id}
 
     def record_prescription(self, attempt_id: str, payload: AttemptPrescriptionRequest, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
-            if len(attempt["prescriptions"]) >= 64:
-                raise HTTPException(status_code=422, detail="prescription limit reached")
+        with self.store.transaction(request, attempt_id) as attempt:
+            self.store.assert_mutable(attempt)
             item = {"medicationId": payload.medicationId, "dose": payload.dose, "duration": payload.duration, "prescribedAt": payload.prescribedAt}
             if item not in attempt["prescriptions"]:
+                if len(attempt["prescriptions"]) >= 64:
+                    raise HTTPException(status_code=422, detail="prescription limit reached")
                 attempt["prescriptions"].append(item)
             return copy.deepcopy(item)
 
     def record_completion(self, attempt_id: str, payload: AttemptCompletionRequest, request: Request) -> dict[str, Any]:
-        with self.store.lock:
-            attempt = self.store.get(request, attempt_id)
+        with self.store.transaction(request, attempt_id) as attempt:
+            self.store.assert_mutable(attempt)
             attempt["completionChecks"] = payload.model_dump()
             return copy.deepcopy(attempt["completionChecks"])

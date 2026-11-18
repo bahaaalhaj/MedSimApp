@@ -18,7 +18,12 @@ from slowapi.middleware import SlowAPIMiddleware
 from .config import RuntimeSettings
 from .guest_session import GuestSessionMiddleware
 from .diagnostic_logging import DiagnosticMiddleware, background_exception_handler, configure_terminal_logging, log_event
-from tts import TTSConfigurationError, get_tts_manager
+
+
+def get_tts_manager():
+    # Preserve the ordinary startup test seam without importing TTS in demo.
+    from tts import get_tts_manager as manager
+    return manager()
 
 
 @asynccontextmanager
@@ -43,10 +48,12 @@ async def lifespan(_app: FastAPI):
                 log_event('hosted-tls-context-prepared', level=logging.INFO, latency_ms=preparation_ms)
             if _app is not None:
                 _app.state.llm_provider = provider
-            try:
-                task = get_tts_manager().start_background_preload()
-            except TTSConfigurationError as exc:
-                log_event('tts-preload-failed', category='tts-configuration-invalid', error=exc)
+            if _app is None or not getattr(_app.state, 'demo', False):
+                from tts import TTSConfigurationError
+                try:
+                    task = get_tts_manager().start_background_preload()
+                except TTSConfigurationError as exc:
+                    log_event('tts-preload-failed', category='tts-configuration-invalid', error=exc)
             log_event('backend-started', level=logging.INFO)
             yield
     except Exception as exc:
@@ -75,6 +82,14 @@ class ApplicationProviderMiddleware:
     async def __call__(self, scope, receive, send):
         from local_llm import bind_application_provider
         provider = getattr(self.owner.state, 'llm_provider', None)
+        # Some serverless adapters do not deliver ASGI lifespan events. In that
+        # case own the provider for this invocation, never a different loop.
+        if scope['type'] == 'http' and provider is None and self.owner.state.demo:
+            provider = self.owner.state.provider_factory()
+            async with provider.lifespan():
+                with bind_application_provider(provider):
+                    await self.app(scope, receive, send)
+            return
         with bind_application_provider(provider):
             await self.app(scope, receive, send)
 
@@ -83,9 +98,10 @@ def create_application(settings: RuntimeSettings, limiter: Limiter, *, provider_
     """Build the compatibility application without eagerly loading providers."""
     configure_terminal_logging()
     app = FastAPI(title="MedSim Backend", version="0.2.0", lifespan=lifespan,
-                  docs_url=None if settings.pilot_origin else "/docs",
-                  redoc_url=None if settings.pilot_origin else "/redoc",
-                  openapi_url=None if settings.pilot_origin else "/openapi.json")
+                  docs_url=None if settings.pilot_origin or settings.demo else "/docs",
+                  redoc_url=None if settings.pilot_origin or settings.demo else "/redoc",
+                  openapi_url=None if settings.pilot_origin or settings.demo else "/openapi.json")
+    app.state.demo = settings.demo
     app.state.limiter = limiter
     app.state.provider_factory = provider_factory
     app.add_middleware(ApplicationProviderMiddleware, owner=app)
@@ -105,7 +121,7 @@ def create_application(settings: RuntimeSettings, limiter: Limiter, *, provider_
     async def require_shared_secret(request: Request, call_next):
         # Pilot ingress is validated by the outer ASGI boundary. API/session
         # ownership and CSRF checks still run on the existing routes.
-        if settings.pilot_origin:
+        if settings.pilot_origin or settings.demo:
             return await call_next(request)
         if request.url.path == "/health" or request.method == "OPTIONS":
             return await call_next(request)
@@ -133,8 +149,14 @@ def create_application(settings: RuntimeSettings, limiter: Limiter, *, provider_
     )
     # Pure observer outside existing CORS/auth/rate-limit order; no response edits.
     app.add_middleware(DiagnosticMiddleware)
-    from auth_system import AuthSettings
-    app.add_middleware(GuestSessionMiddleware, secure=AuthSettings.from_env().cookie_secure)
+    if settings.demo:
+        app.add_middleware(GuestSessionMiddleware, secure=True, signing_key=settings.guest_signing_key,
+                           cookie_name='__Host-medsim-demo-guest')
+        from .demo_boundary import DemoBoundary
+        app.add_middleware(DemoBoundary, origins=settings.allowed_origins)
+    else:
+        from auth_system import AuthSettings
+        app.add_middleware(GuestSessionMiddleware, secure=AuthSettings.from_env().cookie_secure)
     if settings.pilot_origin:
         from .pilot import PilotBoundary
         app.add_middleware(PilotBoundary, origin=settings.pilot_origin)

@@ -15,6 +15,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Text-first patient dialogue with local provider-based TTS (`src/voice/`, `backend/tts/`); Kokoro is default and Chatterbox is optional.
 - Hybrid provider-neutral debrief uses server-owned deterministic scoring and frontend Zod schemas (`src/agents/`).
 - SQLite-backed accounts and server sessions live in `backend/auth_system.py`; authenticated debrief history is server-owned, while onboarding/chat and namespaced guest history use browser `localStorage`.
+- Separate Vercel guest demo: `api/index.py` / `backend/medsim_backend/demo_runtime.py`, no auth/SQLite/TTS imports; shared atomic Redis state and stable signed guests. See `docs/vercel-guest-demo.md`. Ordinary Windows entry points retain audio and SQLite.
 
 ## Critical paths
 
@@ -25,7 +26,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Clinical action UI: `src/components/ExamineOverlay.tsx`
 - Encounter/voice lifecycle: `src/components/EncounterScreen.tsx`, `src/voice/`
 - Grading: `src/data/autoRubric.ts`, `src/agents/debriefRequest.ts`, `src/agents/useLocalDebrief.ts`, `src/components/DebriefScreen.tsx`
-- Security/routing: `backend/server.py`, `middleware.ts`, `vite.config.ts`, `vercel.json`
+- Security/routing: `backend/server.py`, `backend/medsim_backend/demo_boundary.py`, `vite.config.ts`, `vercel.json`
 
 ## Known hazards
 
@@ -46,6 +47,7 @@ Detailed onboarding analysis is in `docs/codex-analysis/`.
 - Examination controls are removed. New grading policy excludes its 15 points: raw maximum 85, data gathering 50, other weights unchanged; normalized percentage is separate. Saved reviews and older attempts retain their original rubric/evidence.
 - Canonical investigation role is `potentially-harmful`, never `harmful`. Existing no-investigation-credit behavior and formative feedback apply to new evaluations; do not regrade cached/saved results.
 - Active attempt recovery is owner-bound, in memory, six hours from creation, at most 32 per owner. Restart loses it. Saved account encounters persist in SQLite; optional Kokoro failure must preserve text.
+- In `vercel-guest-demo` only, attempts/replay/receipts/evaluation use Redis with fixed six-hour expiry, fenced updates and recoverable operation leases. Failed/interrupted request IDs never redispatch; only a new manual submission may create a new request ID. Shared provider admission bounds cross-instance usage. Demo output is `dist-demo`; never replace the Windows pilot `dist` with it.
 - See `docs/pilot-preparation-20261105.md` and `docs/windows-student-pilot.md`; historical reports are not current readiness evidence.
 
 ## Commands

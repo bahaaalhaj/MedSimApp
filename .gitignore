@@ -1,5 +1,7 @@
 node_modules
 dist
+dist-demo
+.vercel
 .vite
 .env
 .env.local
@@ -49,6 +51,21 @@ __pycache__/
 # Local restoration evidence; never part of the served dist/ or Git.
 /.local-quarantine/
 /verify.log.test-backup
+
+# Disposable local Vercel verification outputs; keep .codex/config.toml visible.
+/.codex/vercel-demo-venv/
+/.codex/vercel-demo-clean-20261118/
+/.codex/vercel-demo-clean-final/
+/.codex/vercel-source-package-*/
+/.codex/browser_demo.py
+/.codex/medsim-demo-test-redis.sh
+/.codex/vercel-packaging-audit.json
+/.codex/vercel-python-builder.ts
+/.codex/vercel-python-install.ts
+/.codex/vercel-python-package.ts
+/.codex/vercel-schema-current.json
+/.codex/vercel-source-package-path.txt
+/.codex/vercel-source-package-probe.py
 
 # `skills` CLI (vercel-labs/skills) — installed locally, not committed
 /.agents/

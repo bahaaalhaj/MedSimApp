@@ -24,6 +24,7 @@ const PROXY = {
 
 export default defineConfig({
   plugins: [react()],
+  publicDir: process.env.VITE_MEDSIM_DEPLOYMENT_MODE === 'vercel-guest-demo' ? false : 'public',
   server: {
     port: 5173,
     open: true,

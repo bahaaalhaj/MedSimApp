@@ -4,11 +4,9 @@ import json
 import math
 import sys
 import unittest
-import threading
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
-from types import SimpleNamespace
 from contextlib import ExitStack
 
 import httpx
@@ -78,7 +76,9 @@ class LocalTransportTests(unittest.IsolatedAsyncioTestCase):
         attempt = {'localAiCase': case, 'patientProfile': case['patient'],
                    'patientResponses': {}, 'patientMessages': [], 'transcript': [],
                    'askedQuestionIds': [], 'patientRequestActive': False}
-        store = SimpleNamespace(lock=threading.RLock(), get=lambda *_args: attempt)
+        from medsim_backend.attempt_store import AttemptStore
+        store = AttemptStore(None)
+        store.get = lambda *_args: attempt
         service = dialogue.PatientDialogueService(store)
         provider = AsyncMock()
         entered = asyncio.Event()

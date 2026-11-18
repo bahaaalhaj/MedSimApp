@@ -20,6 +20,7 @@ import { PilotHistory, type PilotRoute } from './pilotNavigation';
 import { normalizeExamineTab } from './examineTabs';
 import { recoverAttempt, restorePatient } from './attemptRecovery';
 import { acknowledgePatientText } from '../voice/localPatient';
+import { trackAttemptWork } from '../clinical/attemptQueue';
 import type { EncounterTranscriptEntry } from './types';
 import type { TrainingMode } from '../clinical/types';
 import { completeEncounter, encounterKey, isSameEncounter } from './encounterState';
@@ -602,8 +603,8 @@ class Store {
   refreshInvestigationResults = async (signal: AbortSignal) => {
     const patient = this.state.polyclinic.patient;
     if (!patient?.investigationAttemptId) return;
-    await Promise.all(patient.investigationOrders.filter((order) => !order.resultSnapshot && ['available', 'pending'].includes(order.status)).map(async (order) => {
-      try {
+    await trackAttemptWork(patient.investigationAttemptId, async () => {
+      for (const order of patient.investigationOrders.filter((item) => !item.resultSnapshot && ['available', 'pending'].includes(item.status))) {
         const wait = Math.max(0, order.availableAt * 1000 - Date.now()) + 40;
         await new Promise<void>((resolve, reject) => {
           const aborted = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
@@ -612,10 +613,10 @@ class Store {
         });
         const resolved = await getInvestigationResult(patient.investigationAttemptId!, order.orderId, signal);
         if (!signal.aborted) this.updatePolyclinicPatient((current) => isSameEncounter(current, patient) ? replaceInvestigationOrder(current, order.investigationId, resolved) : current);
-      } catch {
-        if (!signal.aborted) this.set({ navigationNotice: 'A saved investigation result could not be retrieved. Reopen this encounter to retry; no order was repeated.' });
       }
-    }));
+    }).catch(() => {
+      if (!signal.aborted) this.set({ navigationNotice: 'A saved investigation result could not be retrieved. Reopen this encounter to retry; no order was repeated.' });
+    });
   };
 
   orderPolyclinicTest = async (testId: string, indication = '') => {
@@ -627,15 +628,18 @@ class Store {
       patient = this.state.polyclinic.patient;
     }
     if (!patient?.investigationAttemptId || !isSameEncounter(patient, requestedFor)) return;
+    const attemptId = patient.investigationAttemptId;
     const now = Date.now();
     this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? markTestOrdered(p, testId, now) : p);
     try {
-      const ordered = await orderInvestigation(patient.investigationAttemptId, testId, indication);
-      this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? replaceInvestigationOrder(p, testId, ordered) : p);
-      const delay = Math.max(0, ordered.availableAt * 1000 - Date.now()) + 40;
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      const resolved = await getInvestigationResult(patient.investigationAttemptId, ordered.orderId);
-      this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? replaceInvestigationOrder(p, testId, resolved) : p);
+      await trackAttemptWork(attemptId, async () => {
+        const ordered = await orderInvestigation(attemptId, testId, indication);
+        this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? replaceInvestigationOrder(p, testId, ordered) : p);
+        const delay = Math.max(0, ordered.availableAt * 1000 - Date.now()) + 40;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        const resolved = await getInvestigationResult(attemptId, ordered.orderId);
+        this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? replaceInvestigationOrder(p, testId, resolved) : p);
+      });
     } catch {
       this.updatePolyclinicPatient((p) => isSameEncounter(p, patient) ? appendInvestigationError(p, testId, indication, now) : p);
     }
