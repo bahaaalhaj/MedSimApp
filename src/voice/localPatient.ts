@@ -1,3 +1,5 @@
+import { runAttemptOperation } from '../clinical/attemptQueue.ts';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -32,15 +34,17 @@ const PATIENT_STREAM_URL = '/agent/patient/stream';
 
 /** Client acceptance of a complete text turn; never proof of reading or audio. */
 export async function acknowledgePatientText(attemptId: string, requestId: string, signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
-  const response = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/dialogue/acknowledgements`, {
-    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requestId }), signal,
-  });
-  const receipt = await response.json().catch(() => null) as { acknowledged?: boolean; requestId?: string } | null;
-  if (!response.ok || receipt?.acknowledged !== true || receipt.requestId !== requestId) {
-    throw new LocalPatientError('The reply could not be reconciled. Retry the same question or resume the encounter; no new answer is needed.', 'model-unavailable', true);
-  }
+  return runAttemptOperation(attemptId, async () => {
+    if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
+    const response = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/dialogue/acknowledgements`, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId }), signal,
+    });
+    const receipt = await response.json().catch(() => null) as { acknowledged?: boolean; requestId?: string } | null;
+    if (!response.ok || receipt?.acknowledged !== true || receipt.requestId !== requestId) {
+      throw new LocalPatientError('The reply could not be reconciled. Retry the same question or resume the encounter; no new answer is needed.', 'model-unavailable', true);
+    }
+  }, signal);
 }
 
 export async function* streamLocalPatient(

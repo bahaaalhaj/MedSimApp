@@ -1,4 +1,6 @@
 import type { ActivePatient, LearnerPatientCase } from './types.ts';
+import { runAttemptOperation } from '../clinical/attemptQueue.ts';
+import { AttemptRequestError } from '../clinical/investigationApi.ts';
 
 export interface RecoveryView {
   attemptId: string; caseId: string; caseVersion: string; variantSeed: string; clientAttemptId: string;
@@ -16,13 +18,15 @@ export interface RecoveryView {
   encounterTiming?: { startedAtMs: number; finishedAtMs: number } | null;
 }
 export async function recoverAttempt(attemptId: string, signal?: AbortSignal): Promise<RecoveryView> {
-  const response = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/recovery`, {
-    credentials: 'include', signal, headers: { 'x-request-id': crypto.randomUUID() },
-  });
-  if (!response.ok) throw new Error(response.status === 404
-    ? 'This encounter is unavailable: it may have expired, the server may have restarted, or it belongs to another session. Your saved history is separate.'
-    : `Encounter recovery failed (${response.status}). Check your connection and retry.`);
-  return response.json();
+  return runAttemptOperation(attemptId, async () => {
+    const response = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/recovery`, {
+      credentials: 'include', signal, headers: { 'x-request-id': crypto.randomUUID() },
+    });
+    if (!response.ok) throw new AttemptRequestError(response.status === 404
+      ? 'This encounter is unavailable: it may have expired, the server may have restarted, or it belongs to another session. Your saved history is separate.'
+      : `Encounter recovery failed (${response.status}). Check your connection and retry.`, response.status);
+    return response.json();
+  }, signal);
 }
 export function restorePatient(view: RecoveryView, base: ActivePatient, clinicalCase: LearnerPatientCase): ActivePatient {
   if (view.caseId !== clinicalCase.id || view.caseVersion !== base.caseVersion) throw new Error('This encounter uses an unavailable case version. Open saved history or select a new case.');

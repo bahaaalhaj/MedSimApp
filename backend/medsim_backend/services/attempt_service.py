@@ -181,10 +181,10 @@ class AttemptService:
     def record_prescription(self, attempt_id: str, payload: AttemptPrescriptionRequest, request: Request) -> dict[str, Any]:
         with self.store.transaction(request, attempt_id) as attempt:
             self.store.assert_mutable(attempt)
-            if len(attempt["prescriptions"]) >= 64:
-                raise HTTPException(status_code=422, detail="prescription limit reached")
             item = {"medicationId": payload.medicationId, "dose": payload.dose, "duration": payload.duration, "prescribedAt": payload.prescribedAt}
             if item not in attempt["prescriptions"]:
+                if len(attempt["prescriptions"]) >= 64:
+                    raise HTTPException(status_code=422, detail="prescription limit reached")
                 attempt["prescriptions"].append(item)
             return copy.deepcopy(item)
 

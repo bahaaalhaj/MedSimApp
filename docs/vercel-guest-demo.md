@@ -37,6 +37,13 @@ controls are used in the demo. Audio components and assets remain in the reposit
 - Short transactions use a five-second token-owned Redis lock and revision CAS.
   A lost lock cannot commit or release its successor. Redis waits in async
   dialogue/evaluation paths run off the application event loop.
+- Browser encounter operations are ordered per attempt through response-body
+  consumption, including recovery, investigation result release and dialogue
+  receipts. Debrief drains outstanding order/result work, submits its required
+  evidence sequentially and stops on a failed submission. Manual retries keep
+  prescription timestamps and diagnosis/completion identities. Cached/pending
+  evaluation is recovered instead of issuing another grading request. This
+  browser queue does not replace Redis locking across tabs or instances.
 - Thirty-second logical patient/evaluation leases fence late invocations.
   Recovery clears expired busy flags. Evaluation runs in the invocation, without
   relying on a background task or shield surviving termination. Successfully
