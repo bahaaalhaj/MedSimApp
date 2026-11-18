@@ -169,8 +169,15 @@ class LocalLLMSettings:
             candidates = ((self.patient_model,) if self.patient_model else ()) + self.fallback_models
             allowed = {"nex-agi/nex-n2.5-mini:free", "nex-agi/nex-n2.5-pro:free",
                        "google/gemma-4-26b-a4b-it:free", "nvidia/nemotron-3.5-super-vl:free"}
-            if any(item not in allowed for item in candidates):
-                raise ValueError("OpenRouter models must be approved explicit free IDs")
+            for variable, models in (("OPENROUTER_MODEL", (self.patient_model,) if self.patient_model else ()),
+                                     ("OPENROUTER_FALLBACK_MODELS", self.fallback_models)):
+                invalid = [item for item in models if item not in allowed]
+                if invalid:
+                    # Identify the setting/format problem without logging its
+                    # value. Quotes in a dashboard field are literal characters,
+                    # not shell syntax; reject them rather than silently fixing.
+                    reason = " (literal quote characters are not allowed)" if any('"' in item or "'" in item for item in invalid) else ""
+                    raise ValueError(f"{variable}: OpenRouter models must be approved explicit free IDs{reason}")
             if len(self.fallback_models) > 1 or len(set(candidates)) != len(candidates):
                 raise ValueError("Configure at most one distinct approved fallback model")
             if not 0 <= self.max_retries <= 4:

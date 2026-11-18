@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import httpx
@@ -79,6 +81,32 @@ class OpenRouterProviderTests(unittest.TestCase):
             settings(fallback_models=(MINI,))
         with self.assertRaisesRegex(ValueError, "at most one"):
             settings(fallback_models=(PRO, MINI))
+
+    def test_invalid_model_errors_name_only_the_offending_setting_without_its_value(self):
+        for field, variable in (("patient_model", "OPENROUTER_MODEL"), ("fallback_models", "OPENROUTER_FALLBACK_MODELS")):
+            for invalid in ('"' + NVIDIA + '"', "'" + NVIDIA + "'", '""', 'unapproved/private-value:free'):
+                with self.subTest(field=field, quoted=invalid[0] in {'"', "'"}):
+                    override = invalid if field == "patient_model" else (invalid,)
+                    with self.assertRaises(ValueError) as error:
+                        settings(**{field: override})
+                    message = str(error.exception)
+                    self.assertIn(variable + ":", message)
+                    self.assertNotIn(invalid, message)
+                    self.assertNotIn(NVIDIA, message)
+                    self.assertEqual('literal quote characters' in message, invalid[0] in {'"', "'"})
+        self.assertEqual(settings(patient_model=NVIDIA, fallback_models=()).patient_model, NVIDIA)
+
+    def test_environment_parsing_rejects_literal_quotes_in_primary_and_fallback(self):
+        base = {"MEDSIM_LLM_PROVIDER": "openrouter", "OPENROUTER_MODEL": NVIDIA,
+                "OPENROUTER_FALLBACK_MODELS": ""}
+        with patch.dict(os.environ, base, clear=True):
+            self.assertEqual(LocalLLMSettings.from_env().fallback_models, ())
+        for variable, invalid in (("OPENROUTER_MODEL", '"' + NVIDIA + '"'),
+                                  ("OPENROUTER_FALLBACK_MODELS", '""')):
+            with patch.dict(os.environ, {**base, variable: invalid}, clear=True):
+                with self.assertRaisesRegex(ValueError, variable + ":.*literal quote characters") as error:
+                    LocalLLMSettings.from_env()
+                self.assertNotIn(invalid, str(error.exception))
 
     def test_catalogue_verifies_primary_free_model_and_capabilities(self):
         def handler(request):
