@@ -7,7 +7,7 @@
     "api/index.py": {
       "maxDuration": 30,
       "includeFiles": "docs/generated/{curation-manifest.json,investigation-manifest.server.json,local-ai-manifest.server.json}",
-      "excludeFiles": "{.*/**,**/.env*,**/*.db*,**/*.sqlite*,**/*.log,**/__pycache__/**,**/*.pyc,node_modules/**,dist/**,dist-demo/**,public/**,scripts/**,src/**,docs/!(generated)/**,docs/generated/!(curation-manifest.json|investigation-manifest.server.json|local-ai-manifest.server.json),backend/!(medsim_backend|local_ai.py|local_llm.py|patient_memory.py|patient_interpretation.py){,/**},backend/medsim_backend/runtime.py,backend/medsim_backend/routes/diagnostics.py}"
+      "excludeFiles": "{!(api|backend){,/**},api/!(index.py){,/**},backend/{!(medsim_backend|local_@(ai|llm).py|patient_@(memory|interpretation).py){,/**},medsim_backend/{**/!(*.py|routes|services){,/**},@(runtime|pilot).py,routes/diagnostics.py}},**/.*{,/**}}"
     }
   },
   "routes": [

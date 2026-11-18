@@ -141,6 +141,20 @@ SPA rewrite to source/private paths is needed. Required manifests are function
 files, not frontend assets. Function exclusions omit auth/TTS/local entry points,
 private records, environment files, models, logs, tests and frontend sources.
 
+The 237-character exclusion rule is a default-deny layout: only `api/index.py`,
+the four named root backend modules and Python files in the backend package,
+routes and services remain eligible. Ordinary runtime/pilot/diagnostic entries,
+hidden files, nested asset directories and non-Python files are excluded. Only
+the three exact server manifests are restored through `includeFiles`; broad
+includes would override exclusions and are prohibited by tests. `.vercelignore`
+remains defense in depth, not a substitute for function packaging rules.
+
+`npm run verify:vercel` validates the **complete** configuration against the pinned
+official schema, including its 256-character limit for both glob strings. It runs
+in CI and before `build:demo`. Packaging tests use Vercel's own glob implementation,
+including include-after-exclude behavior. See [schema provenance](../scripts/verify/schemas/README.md)
+and [the deployment-blocker fix report](vercel-packaging-fix-20261118.md).
+
 Current official references:
 [Python runtime/dependencies/streaming/bundling](https://vercel.com/docs/functions/runtimes/python),
 [function and routing configuration](https://vercel.com/docs/project-configuration/vercel-json).
